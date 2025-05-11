@@ -324,6 +324,18 @@
     table td:nth-child(6) {
         width: 10%;
     }
+    
+    /* Selected row styling */
+    tr.selected {
+        background-color: rgba(13, 110, 253, 0.15);
+        outline: 2px solid rgba(13, 110, 253, 0.5);
+    }
+    
+    /* Add focus styling for the search box */
+    #prompt-search:focus {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
 </style>
 <script>
     // Global variables
@@ -517,16 +529,10 @@ Remember that you're part of a team - your specialized work contributes to solvi
         // Initialize sort headers
         updateSortHeaders();
         
-        // Add keyboard navigation for the prompt table
+        // Add keyboard navigation for the prompt table - enhanced to work with search box focus
         document.addEventListener('keydown', function(event) {
             const promptsTable = document.getElementById('prompts-table-body');
             if (!promptsTable) return;
-            
-            // Only handle keyboard navigation when not in an input field
-            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || 
-                event.target.tagName === 'SELECT') {
-                return;
-            }
             
             const rows = promptsTable.querySelectorAll('tr');
             if (!rows.length) return;
@@ -545,8 +551,12 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 }
             }
             
-            // Handle arrow key navigation
-            if (event.key === 'ArrowDown') {
+            // Special handling for search box
+            const isSearchBoxFocused = document.activeElement === document.getElementById('prompt-search');
+            
+            // Handle up/down arrow keys for navigation regardless of focus
+            if (event.key === 'ArrowDown' && (isSearchBoxFocused || 
+                !(event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT'))) {
                 event.preventDefault();
                 
                 if (selectedIndex === -1 || selectedIndex >= rows.length - 1) {
@@ -559,7 +569,8 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 
                 // Update selection
                 updateRowSelection(rows, selectedIndex);
-            } else if (event.key === 'ArrowUp') {
+            } else if (event.key === 'ArrowUp' && (isSearchBoxFocused || 
+                !(event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT'))) {
                 event.preventDefault();
                 
                 if (selectedIndex <= 0) {
@@ -572,7 +583,9 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 
                 // Update selection
                 updateRowSelection(rows, selectedIndex);
-            } else if (event.key === 'Enter' && selectedRow) {
+            } else if (event.key === 'Enter' && selectedRow && 
+                (isSearchBoxFocused || 
+                !(event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT'))) {
                 event.preventDefault();
                 
                 // Navigate to the selected prompt
@@ -1093,6 +1106,14 @@ Remember that you're part of a team - your specialized work contributes to solvi
     
     function filterPrompts() {
         updatePromptsTable();
+        
+        // After updating table, select the first prompt if search is active
+        if (currentFilter.search) {
+            const rows = document.querySelectorAll('#prompts-table-body tr');
+            if (rows && rows.length > 0) {
+                updateRowSelection(rows, 0);
+            }
+        }
     }
     
     function createPrompt() {
@@ -1371,6 +1392,13 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 behavior: 'smooth',
                 block: 'nearest'
             });
+            
+            // Keep search box focused if it was focused before
+            const searchBox = document.getElementById('prompt-search');
+            if (document.activeElement === searchBox) {
+                // Maintain focus on search box after selection
+                setTimeout(() => searchBox.focus(), 10);
+            }
         }
     }
 </script>
