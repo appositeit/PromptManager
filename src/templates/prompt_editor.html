@@ -160,7 +160,7 @@
 {% block extra_css %}
 <style>
     /* Make the editor take up maximum vertical space */
-    #editor, #preview {
+    #editor {
         height: calc(85vh - 90px);
         min-height: 600px;
     }
@@ -182,15 +182,31 @@
         background-color: #fff;
     }
     
+    /* Preview styling for expanded view */
     #preview {
         background-color: #fff;
-        height: auto;
-        min-height: 600px;
+        height: auto !important; /* Force auto height */
+        min-height: auto;
         padding: 15px;
         width: 100%;
-        overflow-x: hidden;
+        overflow: visible; /* Remove scrollbar */
         border: 1px solid #dee2e6;
         border-radius: 4px;
+    }
+    
+    /* Ensure markdown content in preview is properly styled */
+    #preview pre {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+    }
+    
+    #preview code {
+        background-color: #f8f9fa;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-family: 'Fira Code', monospace;
     }
     
     /* Make metadata elements smaller and more compact */
@@ -519,12 +535,10 @@
                                 console.log('Updating preview with expanded content');
                                 document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
                                 
-                                // Force the preview container to extend its height
+                                // No need to force height - we want it to flow naturally
+                                // and use page scrolling instead of inner scrollbar
                                 const previewElement = document.getElementById('preview');
-                                const contentHeight = previewElement.scrollHeight;
-                                if (contentHeight > 600) {
-                                    previewElement.style.height = contentHeight + 'px';
-                                }
+                                previewElement.style.height = 'auto';
                             } catch (error) {
                                 console.error('Error rendering expanded content:', error);
                                 document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
@@ -610,12 +624,10 @@
                 console.log('Updating preview with expanded content from API');
                 document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
                 
-                // Force the preview container to extend its height
+                // No need to force height - we want it to flow naturally
+                // and use page scrolling instead of inner scrollbar
                 const previewElement = document.getElementById('preview');
-                const contentHeight = previewElement.scrollHeight;
-                if (contentHeight > 600) {
-                    previewElement.style.height = contentHeight + 'px';
-                }
+                previewElement.style.height = 'auto';
             } catch (error) {
                 console.error('Error rendering expanded content:', error);
                 document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
