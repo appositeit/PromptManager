@@ -8,50 +8,21 @@ from typing import List, Dict, Optional, Union
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from services.default_prompts import create_default_prompt, create_all_default_prompts, check_default_prompts_exist, DEFAULT_PROMPTS
+from src.services.default_prompts import create_default_prompt, create_all_default_prompts, check_default_prompts_exist, DEFAULT_PROMPTS
+from src.services.prompt_dirs import get_directory_by_path, get_default_directory
+from src.services.prompt_service import PromptService
 
 # Create router
 router = APIRouter(prefix="/api/prompts", tags=["prompts"])
 
-# Mock data for development
-mock_prompts = [
-    {
-        "id": "architect_role",
-        "description": "System prompt for the Architect AI",
-        "prompt_type": "system",
-        "tags": ["architect", "system", "role"],
-        "directory": "/home/jem/development/coordinator/data/prompts",
-        "updated_at": "2025-05-09T12:00:00Z",
-        "content": "# Architect Role\n\nYou are the Architect AI..."
-    },
-    {
-        "id": "worker_role",
-        "description": "System prompt for Worker AIs",
-        "prompt_type": "system",
-        "tags": ["worker", "system", "role"],
-        "directory": "/home/jem/development/coordinator/data/prompts",
-        "updated_at": "2025-05-09T12:00:00Z",
-        "content": "# Worker Role\n\nYou are a specialized Worker AI..."
-    },
-    {
-        "id": "code_worker_role",
-        "description": "System prompt for Code Worker AIs",
-        "prompt_type": "system",
-        "tags": ["worker", "system", "role", "code"],
-        "directory": "/home/jem/development/coordinator/data/prompts",
-        "updated_at": "2025-05-09T12:00:00Z",
-        "content": "# Code Worker Role\n\nYou are a specialized Code Worker AI..."
-    }
-]
-
-mock_directories = [
-    {
-        "path": "/home/jem/development/coordinator/data/prompts",
-        "name": "Default Prompts",
-        "description": "Default prompt directory",
-        "enabled": True
-    }
-]
+# Get the prompt service singleton
+_prompt_service = None
+def get_prompt_service():
+    """Get the prompt service singleton."""
+    global _prompt_service
+    if _prompt_service is None:
+        _prompt_service = PromptService(auto_load=True)
+    return _prompt_service
 
 # Models
 class PromptCreate(BaseModel):
@@ -78,167 +49,273 @@ class DefaultPromptsCreate(BaseModel):
     prompt_ids: Optional[List[str]] = None
 
 
+# Helper functions
+def get_directory_name(directory_path: str) -> str:
+    """Get directory name from path."""
+    # Try to get from directory service if available
+    dir_info = get_directory_by_path(directory_path)
+    if dir_info:
+        return dir_info.get("name", os.path.basename(directory_path))
+    
+    # Default to base name of path
+    return os.path.basename(directory_path)
+
+
 # Routes
 
 @router.get("/all", response_model=List[Dict])
 async def get_all_prompts():
     """Get all prompts."""
-    # For development, use mock data
-    return mock_prompts
+    prompt_service = get_prompt_service()
+    prompts = list(prompt_service.prompts.values())
+    result = []
+    
+    for prompt in prompts:
+        prompt_dict = prompt.dict()
+        prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"])
+        result.append(prompt_dict)
+    
+    return result
 
 
 @router.get("/{prompt_id}", response_model=Dict)
 async def get_prompt_by_id(prompt_id: str):
     """Get a specific prompt by ID."""
-    # For development, use mock data
-    for prompt in mock_prompts:
-        if prompt["id"] == prompt_id:
-            return prompt
+    prompt_service = get_prompt_service()
+    prompt = prompt_service.get_prompt(prompt_id)
     
-    raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
+    if not prompt:
+        raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
+    
+    prompt_dict = prompt.dict()
+    prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"])
+    
+    return prompt_dict
 
 
 @router.post("/", response_model=Dict)
 async def create_new_prompt(prompt: PromptCreate):
     """Create a new prompt."""
+    prompt_service = get_prompt_service()
+    
     # Check if the prompt ID already exists
-    for existing_prompt in mock_prompts:
-        if existing_prompt["id"] == prompt.id:
-            raise HTTPException(status_code=400, detail=f"Prompt with ID '{prompt.id}' already exists")
+    if prompt_service.get_prompt(prompt.id):
+        raise HTTPException(status_code=400, detail=f"Prompt with ID '{prompt.id}' already exists")
     
     # Create new prompt
-    new_prompt = {
-        "id": prompt.id,
-        "description": prompt.description or "",
-        "prompt_type": prompt.prompt_type,
-        "tags": prompt.tags or [],
-        "directory": prompt.directory,
-        "updated_at": "2025-05-09T12:00:00Z",
-        "content": prompt.content
-    }
-    
-    mock_prompts.append(new_prompt)
-    return new_prompt
+    try:
+        new_prompt = prompt_service.create_prompt(
+            id=prompt.id,
+            content=prompt.content,
+            directory=prompt.directory,
+            prompt_type=prompt.prompt_type,
+            description=prompt.description,
+            tags=prompt.tags or []
+        )
+        
+        prompt_dict = new_prompt.dict()
+        prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"])
+        
+        return prompt_dict
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating prompt: {str(e)}")
 
 
 @router.put("/{prompt_id}", response_model=Dict)
 async def update_existing_prompt(prompt_id: str, update_data: PromptUpdate):
     """Update an existing prompt."""
-    # Find the prompt
-    for prompt in mock_prompts:
-        if prompt["id"] == prompt_id:
-            # Update fields
-            if update_data.content is not None:
-                prompt["content"] = update_data.content
-            
-            if update_data.description is not None:
-                prompt["description"] = update_data.description
-            
-            if update_data.tags is not None:
-                prompt["tags"] = update_data.tags
-            
-            if update_data.prompt_type is not None:
-                prompt["prompt_type"] = update_data.prompt_type
-            
-            prompt["updated_at"] = "2025-05-09T12:30:00Z"
-            
-            return prompt
+    prompt_service = get_prompt_service()
+    prompt = prompt_service.get_prompt(prompt_id)
     
-    raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
+    if not prompt:
+        raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
+    
+    # Update fields
+    if update_data.content is not None:
+        prompt.content = update_data.content
+    
+    if update_data.description is not None:
+        prompt.description = update_data.description
+    
+    if update_data.tags is not None:
+        prompt.tags = update_data.tags
+    
+    if update_data.prompt_type is not None:
+        prompt.prompt_type = update_data.prompt_type
+    
+    # Save the updated prompt
+    try:
+        prompt_service.save_prompt(prompt)
+        
+        prompt_dict = prompt.dict()
+        prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"])
+        
+        return prompt_dict
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating prompt: {str(e)}")
 
 
 @router.delete("/{prompt_id}", response_model=Dict)
 async def delete_existing_prompt(prompt_id: str):
     """Delete an existing prompt."""
-    # Find the prompt
-    for i, prompt in enumerate(mock_prompts):
-        if prompt["id"] == prompt_id:
-            # Remove the prompt
-            deleted_prompt = mock_prompts.pop(i)
-            return {"success": True, "id": prompt_id}
+    prompt_service = get_prompt_service()
     
-    raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
+    if not prompt_service.get_prompt(prompt_id):
+        raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
+    
+    # Delete the prompt
+    try:
+        result = prompt_service.delete_prompt(prompt_id)
+        return {"success": result, "id": prompt_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting prompt: {str(e)}")
 
 
 @router.get("/directories/all", response_model=List[Dict])
 async def get_all_directories():
     """Get all prompt directories."""
-    # For development, use mock data
-    return mock_directories
+    prompt_service = get_prompt_service()
+    return [dir.dict() for dir in prompt_service.directories]
 
 
 @router.post("/directories", response_model=Dict)
 async def add_directory(directory: DirectoryCreate):
     """Add a new prompt directory."""
+    prompt_service = get_prompt_service()
+    
     # Check if directory already exists
-    for existing_dir in mock_directories:
-        if existing_dir["path"] == directory.path:
+    for existing_dir in prompt_service.directories:
+        if existing_dir.path == directory.path:
             raise HTTPException(status_code=400, detail=f"Directory '{directory.path}' already exists")
     
     # Create new directory
-    new_directory = {
-        "path": directory.path,
-        "name": directory.name or os.path.basename(directory.path),
-        "description": directory.description or "",
-        "enabled": True
-    }
-    
-    mock_directories.append(new_directory)
-    return new_directory
+    try:
+        result = prompt_service.add_directory(
+            path=directory.path,
+            name=directory.name,
+            description=directory.description
+        )
+        
+        if not result:
+            raise HTTPException(status_code=400, detail=f"Could not add directory '{directory.path}'")
+        
+        # Get the newly added directory
+        for dir_info in prompt_service.directories:
+            if dir_info.path == directory.path:
+                return dir_info.dict()
+        
+        # Fallback in case we can't find the directory
+        return {
+            "path": directory.path,
+            "name": directory.name or os.path.basename(directory.path),
+            "description": directory.description or "",
+            "enabled": True
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding directory: {str(e)}")
 
 
 @router.delete("/directories/{directory_path:path}", response_model=Dict)
 async def remove_directory(directory_path: str):
     """Remove a prompt directory."""
-    # Find the directory
-    for i, directory in enumerate(mock_directories):
-        if directory["path"] == directory_path:
-            # Remove the directory
-            deleted_directory = mock_directories.pop(i)
-            return {"success": True, "path": directory_path}
+    prompt_service = get_prompt_service()
     
-    raise HTTPException(status_code=404, detail=f"Directory '{directory_path}' not found")
-
-
-@router.post("/default-prompts", response_model=Dict)
-async def create_default_prompts(data: DefaultPromptsCreate):
-    """Create default prompts in the specified directory."""
-    # Check if directory exists
+    # Find the directory
     directory_exists = False
-    for dir_info in mock_directories:
-        if dir_info["path"] == data.directory:
+    for dir_info in prompt_service.directories:
+        if dir_info.path == directory_path:
             directory_exists = True
             break
     
     if not directory_exists:
-        raise HTTPException(status_code=404, detail=f"Directory '{data.directory}' not found")
+        raise HTTPException(status_code=404, detail=f"Directory '{directory_path}' not found")
     
-    # Create prompts
-    created_prompts = []
-    prompt_ids = data.prompt_ids or list(DEFAULT_PROMPTS.keys())
+    # Remove the directory
+    try:
+        result = prompt_service.remove_directory(directory_path)
+        return {"success": result, "path": directory_path}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error removing directory: {str(e)}")
+
+
+@router.post("/reload", response_model=Dict)
+async def reload_prompts():
+    """Reload all prompts from all directories."""
+    prompt_service = get_prompt_service()
     
-    for prompt_id in prompt_ids:
-        if prompt_id not in DEFAULT_PROMPTS:
-            continue
+    try:
+        # Clear prompts and reload
+        prompt_service.prompts = {}
+        count = prompt_service.load_all_prompts()
         
-        # Check if prompt already exists
-        exists = False
-        for prompt in mock_prompts:
-            if prompt["id"] == prompt_id:
-                exists = True
-                break
-        
-        if not exists:
-            # Create prompt
-            prompt_data = DEFAULT_PROMPTS[prompt_id].copy()
-            prompt_data["directory"] = data.directory
-            prompt_data["updated_at"] = "2025-05-09T12:00:00Z"
-            
-            mock_prompts.append(prompt_data)
-            created_prompts.append(prompt_id)
+        return {
+            "success": True,
+            "count": count,
+            "message": f"Successfully reloaded {count} prompts from {len(prompt_service.directories)} directories"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reloading prompts: {str(e)}")
+
+
+# Expansion endpoint for API fallback
+class ExpandRequest(BaseModel):
+    content: str
+    prompt_id: Optional[str] = None
+
+@router.post("/expand", response_model=Dict)
+async def expand_content(request: ExpandRequest):
+    """Expand inclusions in prompt content."""
+    prompt_service = get_prompt_service()
     
-    return {
-        "success": True,
-        "directory": data.directory,
-        "created_prompts": created_prompts
-    }
+    try:
+        expanded, dependencies, warnings = prompt_service.expand_inclusions(
+            request.content, 
+            root_id=request.prompt_id
+        )
+        
+        return {
+            "content": request.content,
+            "expanded": expanded,
+            "dependencies": list(dependencies),
+            "warnings": warnings
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error expanding content: {str(e)}")
+
+
+@router.post("/directories/{directory_path:path}/reload", response_model=Dict)
+async def reload_directory(directory_path: str):
+    """Reload prompts from a specific directory."""
+    prompt_service = get_prompt_service()
+    
+    # Find the directory
+    directory_exists = False
+    for dir_info in prompt_service.directories:
+        if dir_info.path == directory_path:
+            directory_exists = True
+            break
+    
+    if not directory_exists:
+        # Try to add the directory if it exists on disk
+        if os.path.isdir(directory_path):
+            prompt_service.add_directory(directory_path)
+            directory_exists = True
+        else:
+            raise HTTPException(status_code=404, detail=f"Directory '{directory_path}' not found")
+    
+    try:
+        # Remove prompts from this directory
+        prompts_to_remove = [p_id for p_id, p in prompt_service.prompts.items() if p.directory == directory_path]
+        for prompt_id in prompts_to_remove:
+            del prompt_service.prompts[prompt_id]
+        
+        # Reload prompts from the directory
+        count = prompt_service.load_prompts_from_directory(directory_path)
+        
+        return {
+            "success": True,
+            "count": count,
+            "message": f"Successfully reloaded {count} prompts from directory: {directory_path}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reloading directory: {str(e)}")

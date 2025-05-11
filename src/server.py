@@ -21,10 +21,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 import logging
 
-from api.unified_router import router as api_router
-from api.session_routes import router as session_router
-from services.prompt_service import PromptService
-from models.unified_prompt import Prompt, PromptType
+from src.api.unified_router import router as api_router
+from src.api.session_routes import router as session_router
+from src.services.prompt_service import PromptService
+from src.models.unified_prompt import Prompt, PromptType
 
 
 # Set up logging
@@ -95,6 +95,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Ensure WebSockets can connect
+app.add_event_handler("startup", lambda: print("WebSocket endpoints are available"))
 
 # Log startup and request information
 @app.middleware("http")
@@ -172,11 +175,12 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 templates = Jinja2Templates(directory=templates_dir)
 
 
-# Main route for the web interface
+# Main route for the web interface - redirect to the prompt management page
 @app.get("/")
 async def index(request: Request):
-    """Render the main index page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    """Redirect to the prompt management page."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/manage/prompts")
 
 
 # Route for prompt editor
@@ -320,17 +324,18 @@ def create_default_prompts():
                 )
 
 
-def main():
+def main(args=None):
     """Run the server."""
-    parser = argparse.ArgumentParser(description="Prompt Management System Server")
-    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind to")
-    parser.add_argument("--port", type=int, default=8081, help="Port to bind to")
-    parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
-    parser.add_argument("--log-file", type=str, default=None, help="Log file path (default: logs/prompt_server.log)")
-    parser.add_argument("--log-level", type=str, choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], 
-                        default="DEBUG", help="Log level")
-    
-    args = parser.parse_args()
+    if args is None:
+        parser = argparse.ArgumentParser(description="Prompt Management System Server")
+        parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind to")
+        parser.add_argument("--port", type=int, default=8081, help="Port to bind to")
+        parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
+        parser.add_argument("--log-file", type=str, default=None, help="Log file path (default: logs/prompt_server.log)")
+        parser.add_argument("--log-level", type=str, choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], 
+                            default="DEBUG", help="Log level")
+        
+        args = parser.parse_args()
     
     # Set up logging
     current_log_file = args.log_file if args.log_file else log_file

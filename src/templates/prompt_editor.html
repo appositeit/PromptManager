@@ -6,7 +6,7 @@
 <script src="{{ url_for('static', path='js/utils.js') }}"></script>
 {% endblock %}
 
-{% block header_title %}Prompt Editor: {{ prompt_id }}{% endblock %}
+{% block header_title %}{{ prompt_id }}{% endblock %}
 
 {% block header_actions %}
 <div class="btn-group me-2">
@@ -173,28 +173,29 @@
     // Import utility functions
     // Use the showToast function from utils.js
     
+    // Convert markdown to HTML
+    function markdownToHtml(markdown) {
+        if (!markdown) return '';
+        
+        // Simple markdown to HTML conversion
+        return markdown
+            .replace(/\n\n/g, '<br><br>')
+            .replace(/\n/g, '<br>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/```([a-z]*)\n([\s\S]*?)\n```/g, '<pre><code class="language-$1">$2</code></pre>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+            .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
+            .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
+            .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
+            .replace(/^#### (.*?)$/gm, '<h4>$1</h4>')
+            .replace(/^##### (.*?)$/gm, '<h5>$1</h5>')
+            .replace(/^###### (.*?)$/gm, '<h6>$1</h6>');
+    }
+    
     // Format date function
     function formatDate(dateString) {
-        // Function to convert markdown to HTML
-        function markdownToHtml(markdown) {
-            if (!markdown) return '';
-            
-            // Simple markdown to HTML conversion
-            return markdown
-                .replace(/\n\n/g, '<br><br>')
-                .replace(/\n/g, '<br>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/```([a-z]*)\n([\s\S]*?)\n```/g, '<pre><code class="language-$1">$2</code></pre>')
-                .replace(/`([^`]+)`/g, '<code>$1</code>')
-                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-                .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
-                .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
-                .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
-                .replace(/^#### (.*?)$/gm, '<h4>$1</h4>')
-                .replace(/^##### (.*?)$/gm, '<h5>$1</h5>')
-                .replace(/^###### (.*?)$/gm, '<h6>$1</h6>');
-        }
         
         if (!dateString) return 'Unknown';
         try {
@@ -345,72 +346,96 @@
     
     function setupWebSocket() {
         // Create WebSocket connection
-        socket = new WebSocket(`ws://${window.location.host}/api/prompts/ws/${promptId}`);
+        const wsUrl = `ws://${window.location.host}/api/prompts/ws/${promptId}`;
+        console.log(`Connecting to WebSocket at: ${wsUrl}`);
+        socket = new WebSocket(wsUrl);
         
         // Connection opened
         socket.addEventListener('open', function(event) {
-            console.log('WebSocket connection established');
+            console.log('WebSocket connection established successfully');
             
             // Request all prompts to build autocomplete list once connected
             loadAllPrompts();
+            
+            // Send a test message to confirm connection is working
+            console.log('Sending test expand message to WebSocket');
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    action: 'expand',
+                    content: editor.getValue(),
+                    prompt_id: promptId
+                }));
+            }
         });
         
         // Listen for messages
         socket.addEventListener('message', function(event) {
-            const data = JSON.parse(event.data);
-            
-            switch (data.action) {
-                case 'initial':
-                    // Initial content already loaded via API
-                    break;
-                    
-                case 'update_status':
-                    if (data.success) {
-                        const lastUpdatedEl = document.getElementById('last-updated');
-                        if (lastUpdatedEl) {
-                            lastUpdatedEl.textContent = formatDate(data.timestamp);
+            console.log('WebSocket message received:', event.data);
+            try {
+                const data = JSON.parse(event.data);
+                
+                switch (data.action) {
+                    case 'initial':
+                        // Initial content already loaded via API
+                        console.log('Received initial content');
+                        break;
+                        
+                    case 'update_status':
+                        if (data.success) {
+                            const lastUpdatedEl = document.getElementById('last-updated');
+                            if (lastUpdatedEl) {
+                                lastUpdatedEl.textContent = formatDate(data.timestamp);
+                            }
+                            showToast('Prompt saved', 'success');
+                        } else {
+                            showToast('Error saving prompt', 'danger');
                         }
-                        showToast('Prompt saved', 'success');
-                    } else {
-                        showToast('Error saving prompt', 'danger');
-                    }
-                    break;
-                    
-                case 'expanded':
-                    // Store expanded content for preview only - never modify the raw content
-                    expandedContent = data.expanded || data.content || '';
-                    dependencies = data.dependencies || [];
-                    
-                    // Update preview only if we're on the expanded tab
-                    if (document.getElementById('expanded-tab').classList.contains('active') || 
-                        document.getElementById('expanded-content').classList.contains('show', 'active')) {
-                        try {
-                            document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
-                        } catch (error) {
-                            console.error('Error rendering expanded content:', error);
-                            document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
+                        break;
+                        
+                    case 'expanded':
+                        console.log('Received expanded content:', data);
+                        // Store expanded content for preview only - never modify the raw content
+                        expandedContent = data.expanded || data.content || '';
+                        dependencies = data.dependencies || [];
+                        
+                        // Update preview only if we're on the expanded tab
+                        if (document.getElementById('expanded-tab').classList.contains('active') || 
+                            document.getElementById('expanded-content').classList.contains('show', 'active')) {
+                            try {
+                                console.log('Updating preview with expanded content');
+                                document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
+                            } catch (error) {
+                                console.error('Error rendering expanded content:', error);
+                                document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
+                            }
                         }
-                    }
-                    
-                    // Update dependencies list
-                    updateDependenciesList();
-                    
-                    // Show warnings if any
-                    if (data.warnings && data.warnings.length > 0) {
-                        showWarnings(data.warnings);
-                    } else {
-                        hideWarnings();
-                    }
-                    break;
+                        
+                        // Update dependencies list
+                        updateDependenciesList();
+                        
+                        // Show warnings if any
+                        if (data.warnings && data.warnings.length > 0) {
+                            showWarnings(data.warnings);
+                        } else {
+                            hideWarnings();
+                        }
+                        break;
+                        
+                    default:
+                        console.log('Unknown action received:', data.action);
+                }
+            } catch (error) {
+                console.error('Error processing WebSocket message:', error);
             }
         });
         
         // Connection closed
         socket.addEventListener('close', function(event) {
-            console.log('WebSocket connection closed');
+            console.log(`WebSocket connection closed with code ${event.code}, reason: ${event.reason}`);
             
             // Try to reconnect after a delay
             setTimeout(() => {
+                console.log('Attempting to reconnect...');
                 setupWebSocket();
             }, 2000);
         });
@@ -418,6 +443,7 @@
         // Connection error
         socket.addEventListener('error', function(event) {
             console.error('WebSocket error:', event);
+            showToast('WebSocket connection error. Check console for details.', 'danger');
         });
     }
     
@@ -475,58 +501,63 @@
     }
     
     function updateExpandedView() {
-        // Only send expand request if we're on the expanded tab
-        if (document.getElementById('expanded-tab').classList.contains('active') || 
-            document.getElementById('expanded-content').classList.contains('active')) {
+        console.log('Updating expanded view');
+        
+        // Get current content
+        const content = editor.getValue();
+        console.log('Current editor content:', content);
+        
+        // Send expansion request via WebSocket
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            console.log('Sending expansion request via WebSocket');
+            socket.send(JSON.stringify({
+                action: 'expand',
+                content: content,
+                prompt_id: promptId
+            }));
+        } else {
+            console.log('WebSocket not available, using API fallback');
+            // Fallback to API if WebSocket is not available
+            showToast('Using API fallback for expansion', 'info');
             
-            const content = editor.getValue();
-            
-            // Send expansion request via WebSocket
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({
-                    action: 'expand',
-                    content: content,
-                    prompt_id: promptId
-                }));
-            } else {
-                // Fallback to API if WebSocket is not available
-                fetch('/api/prompts/expand', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        content: content
-                    })
+            fetch('/api/prompts/expand', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    content: content
                 })
-                .then(response => response.json())
-                .then(data => {
-                    expandedContent = data.expanded || data.content;
-                    dependencies = data.dependencies || [];
-                    
-                    // Update preview
-                    try {
-                        document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
-                    } catch (error) {
-                        console.error('Error rendering expanded content:', error);
-                        document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
-                    }
-                    
-                    // Update dependencies list
-                    updateDependenciesList();
-                    
-                    // Show warnings if any
-                    if (data.warnings && data.warnings.length > 0) {
-                        showWarnings(data.warnings);
-                    } else {
-                        hideWarnings();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error expanding content:', error);
-                    showToast('Error expanding content', 'danger');
-                });
-            }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Expansion API response:', data);
+                expandedContent = data.expanded || data.content;
+                dependencies = data.dependencies || [];
+                
+                // Update preview
+                try {
+                    console.log('Updating preview with expanded content from API');
+                    document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
+                } catch (error) {
+                    console.error('Error rendering expanded content:', error);
+                    document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
+                }
+                
+                // Update dependencies list
+                updateDependenciesList();
+                
+                // Show warnings if any
+                if (data.warnings && data.warnings.length > 0) {
+                    showWarnings(data.warnings);
+                } else {
+                    hideWarnings();
+                }
+            })
+            .catch(error => {
+                console.error('Error expanding content:', error);
+                showToast('Error expanding content: ' + error.message, 'danger');
+            });
         }
     }
     
