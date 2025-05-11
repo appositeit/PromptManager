@@ -1,8 +1,8 @@
 """
-FastAPI application for the Coordinator prompt and session management system.
+FastAPI application for the Prompt Manager system.
 
 This module provides a FastAPI application that serves the prompt management
-and session management interfaces, as well as providing static assets.
+interface and API.
 """
 
 import os
@@ -12,18 +12,18 @@ from typing import Optional
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from coordinator.prompts.api.session_views import router as session_router
+from api.session_routes import router as session_router
 
 # Get the base path
 BASE_DIR = Path(__file__).resolve().parent
 
 # Create the FastAPI app
 app = FastAPI(
-    title="Coordinator Prompt Manager",
-    description="API for managing prompts and sessions in the Coordinator system",
+    title="Prompt Manager",
+    description="API for managing AI prompts with composable elements",
     version="0.1.0"
 )
 
@@ -42,13 +42,14 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 # Set up templates
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-# Include routers
+# Include API routers
 app.include_router(session_router)
 
 # Import the routers
-from coordinator.prompts.api.router import router as prompt_router
-from coordinator.prompts.api.unified_router import router as unified_prompt_router
-from coordinator.prompts.api.mcp_router import router as mcp_router
+from api.router import router as prompt_router
+from api.unified_router import router as unified_prompt_router
+from api.mcp_router import router as mcp_router
+from api.fragments_router_redirect import router as fragments_router_redirect
 
 # Include routers with error handling
 try:
@@ -66,46 +67,31 @@ try:
 except Exception as e:
     print(f"Warning: Could not include mcp_router: {e}")
 
-# Root route
+try:
+    app.include_router(fragments_router_redirect)
+except Exception as e:
+    print(f"Warning: Could not include fragments_router_redirect: {e}")
+
+# Root route - redirect to Manage Prompts page
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    """Render the home page."""
+    """Redirect to the Manage Prompts page."""
     # Initialize prompt directories
-    from coordinator.prompts.services.prompt_dirs import initialize_prompt_directories
+    from services.prompt_dirs import initialize_prompt_directories
     initialize_prompt_directories()
     
-    return templates.TemplateResponse("home.html", {"request": request})
+    # Redirect to the manage prompts page
+    return RedirectResponse(url="/manage/prompts")
 
-# Prompt management routes
+# Prompt management route
 @app.get("/manage/prompts", response_class=HTMLResponse)
 async def manage_prompts(request: Request):
     """Render the prompt management page."""
+    # Initialize prompt directories
+    from services.prompt_dirs import initialize_prompt_directories
+    initialize_prompt_directories()
+    
     return templates.TemplateResponse("manage_prompts.html", {"request": request})
-
-# MCP Servers routes - added multiple patterns to ensure it gets matched
-@app.get("/mcp", response_class=HTMLResponse)
-@app.get("/mcp/", response_class=HTMLResponse)
-async def mcp_servers(request: Request):
-    """Render the MCP servers management page."""
-    return templates.TemplateResponse("mcp_servers.html", {"request": request})
-
-# Settings route
-@app.get("/settings", response_class=HTMLResponse)
-@app.get("/settings/", response_class=HTMLResponse)
-async def settings(request: Request):
-    """Render the settings page."""
-    return templates.TemplateResponse("settings.html", {"request": request})
-
-# Session routes
-@app.get("/sessions/{session_id}", response_class=HTMLResponse)
-async def session(request: Request, session_id: str):
-    """Render the session page."""
-    return templates.TemplateResponse("session.html", {"request": request, "session_id": session_id})
-
-@app.get("/sessions/{session_id}/workers/{worker_id}", response_class=HTMLResponse)
-async def worker_session(request: Request, session_id: str, worker_id: int):
-    """Render the worker session page."""
-    return templates.TemplateResponse("session.html", {"request": request, "session_id": session_id, "worker_id": worker_id})
 
 # Error handlers
 @app.exception_handler(404)
@@ -140,7 +126,7 @@ def main():
     import uvicorn
     import argparse
     
-    parser = argparse.ArgumentParser(description="Coordinator Prompt Manager")
+    parser = argparse.ArgumentParser(description="Prompt Manager")
     
     parser.add_argument("--host", type=str, default="127.0.0.1",
                         help="Host to bind the server to")
@@ -154,7 +140,7 @@ def main():
     args = parser.parse_args()
     
     uvicorn.run(
-        "coordinator.prompts.app:app",
+        "app:app",
         host=args.host,
         port=args.port,
         reload=args.reload
