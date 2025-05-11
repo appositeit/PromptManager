@@ -14,3 +14,7 @@ router = APIRouter()
 router.include_router(prompts_router)
 router.include_router(fragments_router)
 router.include_router(websocket_router)
+
+# For debugging
+print(f"API Routes: {[r.path for r in prompts_router.routes]}")
+print(f"WebSocket Routes: {[r.path for r in websocket_router.routes]}")

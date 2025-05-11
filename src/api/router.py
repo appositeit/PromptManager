@@ -238,6 +238,27 @@ async def remove_directory(directory_path: str):
         raise HTTPException(status_code=500, detail=f"Error removing directory: {str(e)}")
 
 
+@router.get("/debug/routes", response_model=Dict)
+async def debug_routes():
+    """Debug endpoint to list all routes."""
+    from fastapi import FastAPI
+    from src.server import app
+    
+    # Get all routes
+    routes = []
+    for route in app.routes:
+        routes.append({
+            "path": getattr(route, "path", str(route)),
+            "name": getattr(route, "name", None),
+            "methods": getattr(route, "methods", None),
+            "type": str(type(route))
+        })
+    
+    return {
+        "routes": routes,
+        "count": len(routes)
+    }
+
 @router.post("/reload", response_model=Dict)
 async def reload_prompts():
     """Reload all prompts from all directories."""

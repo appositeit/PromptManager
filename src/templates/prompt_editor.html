@@ -42,12 +42,16 @@
                         
                         <div class="row g-2 mb-3">
                             <div class="col-md-6">
-                                <label for="prompt-description" class="form-label">Description</label>
-                                <input type="text" class="form-control form-control-sm" id="prompt-description">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Description</span>
+                                    <input type="text" class="form-control" id="prompt-description">
+                                </div>
                             </div>
                             <div class="col-md-6">
-                                <label for="prompt-tags" class="form-label">Tags</label>
-                                <input type="text" class="form-control form-control-sm" id="prompt-tags" placeholder="tag1, tag2, tag3">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Tags</span>
+                                    <input type="text" class="form-control" id="prompt-tags" placeholder="tag1, tag2, tag3">
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -345,10 +349,11 @@
     }
     
     function setupWebSocket() {
-        // Create WebSocket connection
-        const wsUrl = `ws://${window.location.host}/api/prompts/ws/${promptId}`;
-        console.log(`Connecting to WebSocket at: ${wsUrl}`);
-        socket = new WebSocket(wsUrl);
+        try {
+            // Create WebSocket connection
+            const wsUrl = `ws://${window.location.host}/api/prompts/ws/${promptId}`;
+            console.log(`Connecting to WebSocket at: ${wsUrl}`);
+            socket = new WebSocket(wsUrl);
         
         // Connection opened
         socket.addEventListener('open', function(event) {
@@ -443,7 +448,70 @@
         // Connection error
         socket.addEventListener('error', function(event) {
             console.error('WebSocket error:', event);
-            showToast('WebSocket connection error. Check console for details.', 'danger');
+            console.error('Error details:', JSON.stringify(event, Object.getOwnPropertyNames(event)));
+            showToast('WebSocket connection error. Falling back to API.', 'warning');
+            
+            // Force immediate use of API fallback
+            if (document.getElementById('expanded-tab').classList.contains('active') || 
+                document.getElementById('expanded-content').classList.contains('show', 'active')) {
+                useFallbackApi();
+            }
+        });
+        } catch (error) {
+            console.error('Error setting up WebSocket:', error);
+            showToast('WebSocket setup error: ' + error.message, 'danger');
+        }
+    }
+    
+    // Function to use the API fallback for expansion
+    function useFallbackApi() {
+        const content = editor.getValue();
+        console.log('Using API fallback with content:', content);
+        
+        fetch('/api/prompts/expand', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                content: content,
+                prompt_id: promptId
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Expansion API response:', data);
+            expandedContent = data.expanded || data.content;
+            dependencies = data.dependencies || [];
+            
+            // Update preview
+            try {
+                console.log('Updating preview with expanded content from API');
+                document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
+            } catch (error) {
+                console.error('Error rendering expanded content:', error);
+                document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
+            }
+            
+            // Update dependencies list
+            updateDependenciesList();
+            
+            // Show warnings if any
+            if (data.warnings && data.warnings.length > 0) {
+                showWarnings(data.warnings);
+            } else {
+                hideWarnings();
+            }
+        })
+        .catch(error => {
+            console.error('Error with API fallback:', error);
+            showToast('Error expanding content: ' + error.message, 'danger');
+            document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error expanding content. API fallback failed.</div>';
         });
     }
     
@@ -509,55 +577,22 @@
         
         // Send expansion request via WebSocket
         if (socket && socket.readyState === WebSocket.OPEN) {
-            console.log('Sending expansion request via WebSocket');
-            socket.send(JSON.stringify({
-                action: 'expand',
-                content: content,
-                prompt_id: promptId
-            }));
+            try {
+                console.log('Sending expansion request via WebSocket');
+                socket.send(JSON.stringify({
+                    action: 'expand',
+                    content: content,
+                    prompt_id: promptId
+                }));
+            } catch (error) {
+                console.error('Error sending WebSocket message:', error);
+                useFallbackApi(); // Use API fallback on WebSocket error
+            }
         } else {
             console.log('WebSocket not available, using API fallback');
             // Fallback to API if WebSocket is not available
             showToast('Using API fallback for expansion', 'info');
-            
-            fetch('/api/prompts/expand', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    content: content
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Expansion API response:', data);
-                expandedContent = data.expanded || data.content;
-                dependencies = data.dependencies || [];
-                
-                // Update preview
-                try {
-                    console.log('Updating preview with expanded content from API');
-                    document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
-                } catch (error) {
-                    console.error('Error rendering expanded content:', error);
-                    document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
-                }
-                
-                // Update dependencies list
-                updateDependenciesList();
-                
-                // Show warnings if any
-                if (data.warnings && data.warnings.length > 0) {
-                    showWarnings(data.warnings);
-                } else {
-                    hideWarnings();
-                }
-            })
-            .catch(error => {
-                console.error('Error expanding content:', error);
-                showToast('Error expanding content: ' + error.message, 'danger');
-            });
+            useFallbackApi();
         }
     }
     
