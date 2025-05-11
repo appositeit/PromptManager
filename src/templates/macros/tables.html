@@ -1,0 +1,92 @@
+{# Macro for creating a sortable table #}
+{% macro sortable_table(headers, id, empty_message="No items found.") %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr class="sortable-headers">
+                {% for header in headers %}
+                <th data-sort="{{ header.key }}" class="sortable{% if header.default_sort %} sort-active sort-{{ header.default_direction or 'asc' }}{% endif %}">
+                    {{ header.label }} <i class="bi bi-sort-alpha-down sort-icon"></i>
+                </th>
+                {% endfor %}
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="{{ id }}-table-body">
+            <tr>
+                <td colspan="{{ headers|length + 1 }}" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mb-0 mt-2">Loading...</p>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<style>
+    /* Styles for sortable headers */
+    .sortable {
+        cursor: pointer;
+        position: relative;
+        padding-right: 20px; /* Space for the sort icon */
+    }
+    
+    .sortable:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+    
+    .sort-icon {
+        font-size: 0.8rem;
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0.3;
+    }
+    
+    .sort-active .sort-icon {
+        opacity: 1;
+    }
+    
+    .sort-asc .sort-icon {
+        transform: translateY(-50%) rotate(0deg);
+    }
+    
+    .sort-desc .sort-icon {
+        transform: translateY(-50%) rotate(180deg);
+    }
+    
+    /* Selected row styling */
+    tr.selected {
+        background-color: rgba(13, 110, 253, 0.15);
+        outline: 2px solid rgba(13, 110, 253, 0.5);
+    }
+</style>
+{% endmacro %}
+
+{# Macro for creating a confirmation modal #}
+{% macro confirmation_modal(id, title, message, confirm_button_text="Delete", confirm_button_class="danger") %}
+<div class="modal fade" id="{{ id }}" tabindex="-1" aria-labelledby="{{ id }}-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="{{ id }}-label">{{ title }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>{{ message }}</p>
+                <p class="text-{{ confirm_button_class }}">This action cannot be undone.</p>
+                <div id="{{ id }}-custom-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-{{ confirm_button_class }}" id="{{ id }}-confirm-btn">
+                    {{ confirm_button_text }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
