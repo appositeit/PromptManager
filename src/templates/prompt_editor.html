@@ -21,6 +21,9 @@
     <button id="toggle-view-btn" class="btn btn-outline-primary" title="Toggle between raw and expanded view (Alt+T)">
         <i class="bi bi-eye"></i> Toggle View
     </button>
+    <button id="save-btn" class="btn btn-outline-success" title="Save changes (Alt+S)">
+        <i class="bi bi-save"></i> Save
+    </button>
     <button id="delete-btn" class="btn btn-outline-danger" title="Delete this prompt">
         <i class="bi bi-trash"></i> Delete
     </button>
@@ -276,6 +279,12 @@
                 e.preventDefault();
                 copyPromptContent();
             }
+            
+            // Alt+S for save
+            if (e.altKey && e.key === 's') {
+                e.preventDefault();
+                document.getElementById('save-btn').click();
+            }
         });
         
         // Load prompt data
@@ -292,6 +301,15 @@
         
         document.getElementById('copy-btn').addEventListener('click', copyPromptContent);
         document.getElementById('toggle-view-btn').addEventListener('click', toggleView);
+        document.getElementById('save-btn').addEventListener('click', function() {
+            const content = editor.getValue();
+            saveViaApi(content);
+            
+            const description = document.getElementById('prompt-description').value;
+            const tagsStr = document.getElementById('prompt-tags').value;
+            const tags = tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag);
+            saveMetadataViaApi(description, tags);
+        });
         document.getElementById('delete-btn').addEventListener('click', showDeleteConfirmation);
         document.getElementById('confirm-delete-btn').addEventListener('click', deletePrompt);
         
@@ -525,24 +543,79 @@
         saveTimeout = setTimeout(() => {
             const content = editor.getValue();
             
-            // Send update via WebSocket
+            // Try to send update via WebSocket
             if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({
-                    action: 'update',
-                    content: content
-                }));
-                
-                // If this is a composite prompt or if the content contains inclusion markers,
-                // also request expansion for preview purposes
-                if (isComposite || content.includes('[[')) {
+                try {
                     socket.send(JSON.stringify({
-                        action: 'expand',
-                        content: content,
-                        prompt_id: promptId
+                        action: 'update',
+                        content: content
                     }));
+                    
+                    // If this is a composite prompt or if the content contains inclusion markers,
+                    // also request expansion for preview purposes
+                    if (isComposite || content.includes('[[')) {
+                        socket.send(JSON.stringify({
+                            action: 'expand',
+                            content: content,
+                            prompt_id: promptId
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Error sending WebSocket message for save:', error);
+                    // Fall back to API save
+                    saveViaApi(content);
                 }
+            } else {
+                // WebSocket not available, use API fallback
+                console.log('WebSocket not available for save, using API fallback');
+                saveViaApi(content);
             }
         }, 1000); // 1 second debounce
+    }
+    
+    // Function to save via API when WebSocket is not available
+    function saveViaApi(content) {
+        showToast('Saving via API...', 'info');
+        
+        fetch(`/api/prompts/${promptId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                content: content
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Save API response:', data);
+            showToast('Prompt saved', 'success');
+            
+            // Update last updated timestamp if available
+            if (data.updated_at) {
+                const lastUpdatedEl = document.getElementById('last-updated');
+                if (lastUpdatedEl) {
+                    lastUpdatedEl.textContent = formatDate(data.updated_at);
+                }
+            }
+            
+            // If this is a composite prompt, update the expanded view
+            if (isComposite || content.includes('[[')) {
+                if (document.getElementById('expanded-tab').classList.contains('active') || 
+                    document.getElementById('expanded-content').classList.contains('show', 'active')) {
+                    useFallbackApi();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error saving via API:', error);
+            showToast('Error saving prompt: ' + error.message, 'danger');
+        });
     }
     
     function handleMetadataChange() {
@@ -557,15 +630,63 @@
             const tagsStr = document.getElementById('prompt-tags').value;
             const tags = tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag);
             
-            // Send update via WebSocket
+            // Try to send update via WebSocket
             if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({
-                    action: 'update_metadata',
-                    description: description,
-                    tags: tags
-                }));
+                try {
+                    socket.send(JSON.stringify({
+                        action: 'update_metadata',
+                        description: description,
+                        tags: tags
+                    }));
+                } catch (error) {
+                    console.error('Error sending WebSocket message for metadata:', error);
+                    // Fall back to API save
+                    saveMetadataViaApi(description, tags);
+                }
+            } else {
+                // WebSocket not available, use API fallback
+                console.log('WebSocket not available for metadata save, using API fallback');
+                saveMetadataViaApi(description, tags);
             }
         }, 1000); // 1 second debounce
+    }
+    
+    // Function to save metadata via API when WebSocket is not available
+    function saveMetadataViaApi(description, tags) {
+        showToast('Saving metadata via API...', 'info');
+        
+        fetch(`/api/prompts/${promptId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                description: description,
+                tags: tags
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Save metadata API response:', data);
+            showToast('Metadata saved', 'success');
+            
+            // Update last updated timestamp if available
+            if (data.updated_at) {
+                const lastUpdatedEl = document.getElementById('last-updated');
+                if (lastUpdatedEl) {
+                    lastUpdatedEl.textContent = formatDate(data.updated_at);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error saving metadata via API:', error);
+            showToast('Error saving metadata: ' + error.message, 'danger');
+        });
     }
     
     function updateExpandedView() {
