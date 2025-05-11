@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Coordinator - Prompt Management{% endblock %}
+
+{% block header_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Welcome to the Coordinator Prompt Management System</h5>
+                    <div>
+                        <a href="/static/session_demo.html" class="btn btn-sm btn-outline-primary">Demo Mode</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <p>This system allows you to create, manage, and utilize prompts for AI interactions. The primary components are:</p>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="component-card">
+                                <div class="component-icon">
+                                    <i class="bi bi-file-earmark-text"></i>
+                                </div>
+                                <div class="component-details">
+                                    <h5>Prompts</h5>
+                                    <p>Create and manage all types of prompts for AI interactions.</p>
+                                    <a href="/manage/prompts" class="btn btn-sm btn-primary">Manage Prompts</a>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="component-card">
+                                <div class="component-icon">
+                                    <i class="bi bi-folder-plus"></i>
+                                </div>
+                                <div class="component-details">
+                                    <h5>Directory Management</h5>
+                                    <p>Add new prompt directories to the system.</p>
+                                    <button class="btn btn-sm btn-primary" id="dashboard-add-directory-btn">Add Directory</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <div class="component-card">
+                                <div class="component-icon">
+                                    <i class="bi bi-chat-left-text"></i>
+                                </div>
+                                <div class="component-details">
+                                    <h5>AI Sessions</h5>
+                                    <p>Interact with AI models using your prompts.</p>
+                                    <button class="btn btn-sm btn-primary" id="dashboard-new-session-btn">New Session</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="component-card">
+                                <div class="component-icon">
+                                    <i class="bi bi-gear"></i>
+                                </div>
+                                <div class="component-details">
+                                    <h5>Settings</h5>
+                                    <p>Configure API keys, directories, and preferences.</p>
+                                    <a href="/settings" class="btn btn-sm btn-primary">Open Settings</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recent Activity</h5>
+                </div>
+                <div class="card-body">
+                    <div id="recent-activity">
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="bi bi-file-earmark-plus"></i>
+                            </div>
+                            <div class="activity-details">
+                                <span class="activity-time">Just now</span>
+                                <span class="activity-description">Prompt management system initialized</span>
+                            </div>
+                        </div>
+                        
+                        <!-- More activity items will be loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Active Sessions</h5>
+                </div>
+                <div class="card-body">
+                    <div id="dashboard-active-sessions">
+                        <p class="text-muted mb-0">No active sessions.</p>
+                        <!-- Active sessions will be loaded dynamically -->
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button class="btn btn-primary w-100" id="dashboard-session-btn">
+                        <i class="bi bi-plus-circle me-1"></i> New Session
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Server Management</h5>
+                </div>
+                <div class="card-body">
+                    <p>To start both servers, run:</p>
+                    <pre><code>bin/start_servers.sh</code></pre>
+                    <p>To stop the servers:</p>
+                    <pre><code>bin/stop_servers.sh</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <!-- Quick Access section removed as requested -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Link dashboard new session buttons to the modal
+        const dashboardNewSessionBtns = document.querySelectorAll('#dashboard-new-session-btn, #dashboard-session-btn');
+        dashboardNewSessionBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const newSessionModal = new bootstrap.Modal(document.getElementById('newSessionModal'));
+                newSessionModal.show();
+            });
+        });
+        
+        // Link dashboard add directory button to the modal
+        const addDirectoryBtn = document.getElementById('dashboard-add-directory-btn');
+        if (addDirectoryBtn) {
+            addDirectoryBtn.addEventListener('click', function() {
+                const addDirectoryModal = new bootstrap.Modal(document.getElementById('addDirectoryModal'));
+                addDirectoryModal.show();
+            });
+        }
+        
+        // Quick Access section and fragment/template loading code removed as requested
+    });
+</script>
+{% endblock %}

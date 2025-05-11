@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coordinator - Dashboard</title>
+    <!-- CSS Dependencies -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simplebar@5.3.8/dist/simplebar.min.css">
+    <link rel="stylesheet" href="/static/css/main.css">
+    
+    <!-- JavaScript Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simplebar@5.3.8/dist/simplebar.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.10.7/dayjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.10.7/plugin/relativeTime.min.js"></script>
+    <script src="/static/js/utils.js"></script>
+</head>
+<body>
+    <div class="layout-container">
+        <!-- Sidebar / Navigation -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <img src="/static/img/logo.svg" alt="Logo" class="sidebar-logo">
+                <span class="sidebar-title">Coordinator</span>
+            </div>
+            
+            <div class="sidebar-content" data-simplebar>
+                <ul class="sidebar-nav">
+                    <li class="sidebar-item">
+                        <a href="/" class="sidebar-link active">
+                            <i class="bi bi-house"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    
+                    <li class="sidebar-header">Prompts</li>
+                    
+                    <li class="sidebar-item">
+                        <a href="/manage/prompts" class="sidebar-link">
+                            <i class="bi bi-file-earmark-text"></i>
+                            <span>Prompts</span>
+                        </a>
+                    </li>
+                    
+                    <li class="sidebar-header">Sessions</li>
+                    
+                    <li class="sidebar-item">
+                        <a href="#new-session-modal" data-bs-toggle="modal" class="sidebar-link" id="new-session-link">
+                            <i class="bi bi-plus-circle"></i>
+                            <span>New Session</span>
+                        </a>
+                    </li>
+                    
+                    <div id="active-sessions">
+                        <!-- Active sessions will be loaded dynamically -->
+                    </div>
+                </ul>
+            </div>
+            
+            <div class="sidebar-footer">
+                <a href="/settings" class="sidebar-link">
+                    <i class="bi bi-gear"></i>
+                    <span>Settings</span>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="content-header">
+                <div class="header-left">
+                    <button class="btn sidebar-toggle" id="sidebar-toggle">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <h1 class="header-title">Dashboard</h1>
+                </div>
+                <div class="header-right">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#new-session-modal">
+                        <i class="bi bi-plus-circle"></i> New Session
+                    </button>
+                </div>
+            </header>
+            
+            <div class="content-body">
+                <div class="container-fluid">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Recent Sessions</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="sessions-container">
+                                        <div class="text-center py-4" id="loading-sessions">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="mt-2">Loading sessions...</p>
+                                        </div>
+                                        <div id="sessions-list" style="display: none;">
+                                            <!-- Sessions will be loaded dynamically -->
+                                        </div>
+                                        <div id="no-sessions" style="display: none;">
+                                            <div class="text-center py-4">
+                                                <i class="bi bi-chat-square-text fs-1 text-muted"></i>
+                                                <p class="mt-3">No sessions found. Create a new session to get started.</p>
+                                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#new-session-modal">
+                                                    <i class="bi bi-plus-circle"></i> New Session
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Status</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="flex-shrink-0">
+                                            <i class="bi bi-circle-fill text-success fs-5"></i>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h6 class="fw-bold mb-0">Coordinator Service</h6>
+                                            <p class="text-muted mb-0">Running</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="flex-shrink-0">
+                                            <i class="bi bi-circle-fill text-success fs-5"></i>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h6 class="fw-bold mb-0">Session Manager</h6>
+                                            <p class="text-muted mb-0">Running</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0">
+                                            <i class="bi bi-circle-fill text-success fs-5"></i>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h6 class="fw-bold mb-0">LLM Manager</h6>
+                                            <p class="text-muted mb-0">Connected</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">MCP Server Management</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>Configure MCP servers for AI agent access:</p>
+                                    <a href="/settings" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-gear"></i> Configure MCP Servers
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- New Session Modal -->
+    <div class="modal fade" id="new-session-modal" tabindex="-1" aria-labelledby="new-session-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="new-session-modal-label">Create New Session</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="new-session-form">
+                        <div class="mb-3">
+                            <label for="session-name" class="form-label">Session Name</label>
+                            <input type="text" class="form-control" id="session-name" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="session-description" class="form-label">Description (Optional)</label>
+                            <textarea class="form-control" id="session-description" rows="2"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Architect Configuration</label>
+                            <div class="card">
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="architect-model" class="form-label">Model</label>
+                                        <select class="form-select" id="architect-model" required>
+                                            <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                                            <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                                            <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                                            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                                            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="mb-0">
+                                        <label for="architect-prompt" class="form-label">System Prompt (Optional)</label>
+                                        <textarea class="form-control" id="architect-prompt" rows="3" placeholder="Default system prompt will be used if empty"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label d-flex justify-content-between">
+                                <span>Worker Agents</span>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-worker-btn">
+                                    <i class="bi bi-plus"></i> Add Worker
+                                </button>
+                            </label>
+                            
+                            <div id="workers-container">
+                                <!-- Workers will be added dynamically -->
+                            </div>
+                            
+                            <div id="no-workers" class="text-center p-3 border rounded">
+                                <p class="text-muted mb-2">No worker agents added yet.</p>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-first-worker-btn">
+                                    <i class="bi bi-plus"></i> Add Worker
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="intervention-enabled" checked>
+                                <label class="form-check-label" for="intervention-enabled">Enable Human Intervention</label>
+                            </div>
+                            <div class="form-text">When enabled, certain messages will require approval before being sent.</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="create-session-btn">Create Session</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Worker Template (hidden) -->
+    <template id="worker-template">
+        <div class="worker-item card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Worker <span class="worker-number"></span></h6>
+                <button type="button" class="btn btn-sm btn-outline-danger remove-worker-btn">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Worker Name</label>
+                    <input type="text" class="form-control worker-name" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Model</label>
+                    <select class="form-select worker-model" required>
+                        <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
+                        <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                        <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Capabilities</label>
+                    <select class="form-select worker-capabilities" multiple>
+                        <option value="code-execution">Code Execution</option>
+                        <option value="data-analysis">Data Analysis</option>
+                        <option value="web-search">Web Search</option>
+                        <option value="image-generation">Image Generation</option>
+                        <option value="document-analysis">Document Analysis</option>
+                    </select>
+                    <div class="form-text">Hold Ctrl/Cmd to select multiple capabilities</div>
+                </div>
+                
+                <div class="mb-0">
+                    <label class="form-label">System Prompt (Optional)</label>
+                    <textarea class="form-control worker-prompt" rows="2" placeholder="Default system prompt will be used if empty"></textarea>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <script>
+        // Initialize dayjs relative time
+        dayjs.extend(window.dayjs_plugin_relativeTime);
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load sessions
+            loadSessions();
+            
+            // Set up session polling
+            setInterval(loadSessions, 10000);
+            
+            // Set up sidebar toggle
+            const sidebarToggle = document.getElementById('sidebar-toggle');
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.querySelector('.main-content');
+            
+            sidebarToggle.addEventListener('click', function() {
+                sidebar.classList.toggle('collapsed');
+                mainContent.classList.toggle('expanded');
+            });
+            
+            // Set up new session form
+            setupNewSessionForm();
+        });
+        
+        async function loadSessions() {
+            try {
+                const response = await fetch('/api/sessions');
+                if (!response.ok) {
+                    throw new Error('Failed to load sessions');
+                }
+                
+                const sessions = await response.json();
+                
+                // Update sessions list
+                updateSessionsList(sessions);
+                
+                // Update active sessions in sidebar
+                updateActiveSessions(sessions.filter(s => 
+                    s.status === 'initialized' || s.status === 'running'
+                ));
+                
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                document.getElementById('loading-sessions').innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <i class="bi bi-exclamation-triangle"></i> Error loading sessions: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        function updateSessionsList(sessions) {
+            const loadingEl = document.getElementById('loading-sessions');
+            const sessionsListEl = document.getElementById('sessions-list');
+            const noSessionsEl = document.getElementById('no-sessions');
+            
+            // Hide loading spinner
+            loadingEl.style.display = 'none';
+            
+            if (sessions.length === 0) {
+                // Show no sessions message
+                noSessionsEl.style.display = 'block';
+                sessionsListEl.style.display = 'none';
+                return;
+            }
+            
+            // Show sessions list
+            noSessionsEl.style.display = 'none';
+            sessionsListEl.style.display = 'block';
+            
+            // Sort sessions by creation date (newest first)
+            sessions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            
+            // Create HTML for each session
+            const sessionsHTML = sessions.map(session => {
+                let statusClass = '';
+                switch (session.status) {
+                    case 'running': statusClass = 'bg-success'; break;
+                    case 'initialized': statusClass = 'bg-info'; break;
+                    case 'paused': statusClass = 'bg-warning'; break;
+                    case 'completed': statusClass = 'bg-secondary'; break;
+                    case 'error': statusClass = 'bg-danger'; break;
+                    default: statusClass = 'bg-secondary';
+                }
+                
+                // Format dates
+                const createdAt = dayjs(session.created_at).format('MMM D, YYYY HH:mm');
+                const updatedAt = dayjs(session.updated_at).fromNow();
+                
+                return `
+                    <div class="session-item card mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title">
+                                        <a href="/sessions/${session.id}" class="text-decoration-none">
+                                            ${session.name}
+                                        </a>
+                                    </h5>
+                                    <p class="card-text text-muted">
+                                        ${session.description || 'No description'}
+                                    </p>
+                                </div>
+                                <span class="badge ${statusClass}">${session.status}</span>
+                            </div>
+                            
+                            <div class="d-flex mt-3">
+                                <div class="me-3">
+                                    <small class="text-muted">Created:</small>
+                                    <div>${createdAt}</div>
+                                </div>
+                                <div class="me-3">
+                                    <small class="text-muted">Updated:</small>
+                                    <div>${updatedAt}</div>
+                                </div>
+                                <div>
+                                    <small class="text-muted">Architect:</small>
+                                    <div>${session.config.architect.model}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <a href="/sessions/${session.id}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-chat-text"></i> Open Session
+                                </a>
+                                
+                                ${session.status === 'initialized' || session.status === 'paused' ? 
+                                    `<button class="btn btn-sm btn-success start-session-btn" data-session-id="${session.id}">
+                                        <i class="bi bi-play-fill"></i> Start
+                                    </button>` : ''
+                                }
+                                
+                                ${session.status === 'running' ? 
+                                    `<button class="btn btn-sm btn-warning stop-session-btn" data-session-id="${session.id}">
+                                        <i class="bi bi-pause-fill"></i> Pause
+                                    </button>` : ''
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Update the container
+            sessionsListEl.innerHTML = sessionsHTML;
+            
+            // Add event listeners for session actions
+            document.querySelectorAll('.start-session-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const sessionId = this.getAttribute('data-session-id');
+                    startSession(sessionId);
+                });
+            });
+            
+            document.querySelectorAll('.stop-session-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const sessionId = this.getAttribute('data-session-id');
+                    stopSession(sessionId);
+                });
+            });
+        }
+        
+        function updateActiveSessions(sessions) {
+            const container = document.getElementById('active-sessions');
+            
+            // Create HTML for each session
+            const sessionsHTML = sessions.map(session => `
+                <li class="sidebar-item">
+                    <a href="/sessions/${session.id}" class="sidebar-link">
+                        <i class="bi bi-chat-text"></i>
+                        <span>${session.name}</span>
+                        <span class="badge ${session.status === 'running' ? 'bg-success' : 'bg-info'} ms-2">
+                            ${session.status === 'running' ? '' : '<i class="bi bi-pause-fill"></i>'}
+                        </span>
+                    </a>
+                </li>
+            `).join('');
+            
+            // Update the container
+            container.innerHTML = sessionsHTML;
+        }
+        
+        function setupNewSessionForm() {
+            // Add worker buttons
+            document.getElementById('add-worker-btn').addEventListener('click', addWorker);
+            document.getElementById('add-first-worker-btn').addEventListener('click', addWorker);
+            
+            // Create session button
+            document.getElementById('create-session-btn').addEventListener('click', createSession);
+        }
+        
+        function addWorker() {
+            const workersContainer = document.getElementById('workers-container');
+            const noWorkersEl = document.getElementById('no-workers');
+            
+            // Hide "no workers" message
+            noWorkersEl.style.display = 'none';
+            
+            // Get worker template
+            const template = document.getElementById('worker-template');
+            const workerNode = template.content.cloneNode(true);
+            
+            // Set worker number
+            const workerCount = workersContainer.querySelectorAll('.worker-item').length + 1;
+            workerNode.querySelector('.worker-number').textContent = workerCount;
+            
+            // Add default worker name
+            workerNode.querySelector('.worker-name').value = `Worker ${workerCount}`;
+            
+            // Add event listener for remove button
+            workerNode.querySelector('.remove-worker-btn').addEventListener('click', function() {
+                this.closest('.worker-item').remove();
+                
+                // Update worker numbers
+                updateWorkerNumbers();
+                
+                // Show "no workers" message if no workers left
+                if (workersContainer.querySelectorAll('.worker-item').length === 0) {
+                    noWorkersEl.style.display = 'block';
+                }
+            });
+            
+            // Add to container
+            workersContainer.appendChild(workerNode);
+        }
+        
+        function updateWorkerNumbers() {
+            const workerItems = document.querySelectorAll('.worker-item');
+            workerItems.forEach((item, index) => {
+                item.querySelector('.worker-number').textContent = index + 1;
+            });
+        }
+        
+        async function createSession() {
+            // Get form values
+            const name = document.getElementById('session-name').value.trim();
+            if (!name) {
+                alert('Session name is required');
+                return;
+            }
+            
+            const description = document.getElementById('session-description').value.trim();
+            const architectModel = document.getElementById('architect-model').value;
+            const architectPrompt = document.getElementById('architect-prompt').value.trim();
+            const interventionEnabled = document.getElementById('intervention-enabled').checked;
+            
+            // Get worker configurations
+            const workers = [];
+            document.querySelectorAll('.worker-item').forEach(item => {
+                const workerName = item.querySelector('.worker-name').value.trim();
+                if (!workerName) return;
+                
+                const workerModel = item.querySelector('.worker-model').value;
+                const workerPrompt = item.querySelector('.worker-prompt').value.trim();
+                
+                // Get selected capabilities
+                const capabilitiesSelect = item.querySelector('.worker-capabilities');
+                const capabilities = Array.from(capabilitiesSelect.selectedOptions).map(option => option.value);
+                
+                workers.push({
+                    name: workerName,
+                    model: workerModel,
+                    system_prompt: workerPrompt || null,
+                    capabilities: capabilities
+                });
+            });
+            
+            // Create session config
+            const sessionConfig = {
+                name: name,
+                description: description || null,
+                architect: {
+                    model: architectModel,
+                    system_prompt: architectPrompt || null
+                },
+                workers: workers,
+                intervention_enabled: interventionEnabled
+            };
+            
+            try {
+                // Disable form elements and show loading state
+                document.getElementById('create-session-btn').disabled = true;
+                document.getElementById('create-session-btn').innerHTML = `
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    Creating...
+                `;
+                
+                // Create session
+                const response = await fetch('/api/sessions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(sessionConfig)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create session');
+                }
+                
+                const session = await response.json();
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('new-session-modal'));
+                modal.hide();
+                
+                // Redirect to session page
+                window.location.href = `/sessions/${session.id}`;
+                
+            } catch (error) {
+                console.error('Error creating session:', error);
+                alert(`Error creating session: ${error.message}`);
+                
+                // Re-enable form elements
+                document.getElementById('create-session-btn').disabled = false;
+                document.getElementById('create-session-btn').innerHTML = 'Create Session';
+            }
+        }
+        
+        async function startSession(sessionId) {
+            try {
+                // Start the session
+                const response = await fetch(`/api/sessions/${sessionId}/start`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to start session');
+                }
+                
+                // Reload sessions
+                loadSessions();
+                
+            } catch (error) {
+                console.error('Error starting session:', error);
+                alert(`Error starting session: ${error.message}`);
+            }
+        }
+        
+        async function stopSession(sessionId) {
+            try {
+                // Stop the session
+                const response = await fetch(`/api/sessions/${sessionId}/stop`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to stop session');
+                }
+                
+                // Reload sessions
+                loadSessions();
+                
+            } catch (error) {
+                console.error('Error stopping session:', error);
+                alert(`Error stopping session: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1311 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Prompts{% endblock %}
+
+{% block header_title %}Prompt Management{% endblock %}
+
+{% block header_actions %}
+<div class="btn-group">
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPromptModal">
+        <i class="bi bi-plus-circle"></i> New Prompt
+    </button>
+    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addDirectoryModal">
+        <i class="bi bi-folder-plus"></i> Add Directory
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">Prompts</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="prompt-search" placeholder="Search prompts...">
+                                <button class="btn btn-outline-secondary" type="button" id="prompt-search-btn">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-funnel"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><h6 class="dropdown-header">Filter by Type</h6></li>
+                                    <li><a class="dropdown-item" href="#" data-type="all">All Prompts</a></li>
+                                    <li><a class="dropdown-item" href="#" data-type="standard">Standard</a></li>
+                                    <li><a class="dropdown-item" href="#" data-type="composite">Composite</a></li>
+                                    <li><a class="dropdown-item" href="#" data-type="system">System</a></li>
+                                    <li><a class="dropdown-item" href="#" data-type="user">User</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><h6 class="dropdown-header">Filter by Tag</h6></li>
+                                    <li><a class="dropdown-item" href="#" data-tag="all">All Tags</a></li>
+                                    <div id="tag-filters">
+                                        <!-- Tags will be populated dynamically -->
+                                    </div>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr class="sortable-headers">
+                                    <th data-sort="id" class="sortable">ID <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="description" class="sortable">Description <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="type" class="sortable">Type <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="tags" class="sortable">Tags <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="updated" class="sortable">Last Updated <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="prompts-table-body">
+                                <!-- Prompts will be loaded dynamically -->
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mb-0 mt-2">Loading prompts...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Directories</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Path</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="directories-table-body">
+                                <!-- Directories will be loaded dynamically -->
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mb-0 mt-2">Loading directories...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Prompt Modal -->
+<div class="modal fade" id="newPromptModal" tabindex="-1" aria-labelledby="newPromptModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newPromptModalLabel">Create New Prompt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newPromptForm">
+                    <div class="mb-3">
+                        <label for="promptId" class="form-label">Prompt ID</label>
+                        <input type="text" class="form-control" id="promptId" required>
+                        <div class="form-text">Unique identifier for the prompt (no spaces or special characters)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptType" class="form-label">Type</label>
+                        <select class="form-select" id="promptType" required>
+                            <option value="standard">Standard</option>
+                            <option value="composite">Composite</option>
+                            <option value="system">System</option>
+                            <option value="user">User</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptDirectory" class="form-label">Directory</label>
+                        <select class="form-select" id="promptDirectory" required>
+                            <!-- Directories will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptRole" class="form-label">Role (Optional)</label>
+                        <select class="form-select" id="promptRole">
+                            <option value="">None</option>
+                            <option value="architect">Architect</option>
+                            <option value="worker">Worker</option>
+                        </select>
+                        <div class="form-text">Assign a specific role to this prompt</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptDescription" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="promptDescription">
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptTags" class="form-label">Tags</label>
+                        <input type="text" class="form-control" id="promptTags">
+                        <div class="form-text">Comma-separated list of tags</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptContent" class="form-label">Content</label>
+                        <textarea class="form-control" id="promptContent" rows="10"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createPromptBtn">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Directory Modal -->
+<div class="modal fade" id="addDirectoryModal" tabindex="-1" aria-labelledby="addDirectoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addDirectoryModalLabel">Add Prompt Directory</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDirectoryForm">
+                    <div class="mb-3">
+                        <label for="directoryPath" class="form-label">Directory Path</label>
+                        <input type="text" class="form-control" id="directoryPath" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="directoryName" class="form-label">Display Name</label>
+                        <input type="text" class="form-control" id="directoryName">
+                        <div class="form-text">If not provided, the directory name will be used</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="directoryDescription" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="directoryDescription">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="addDirectoryBtn">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Prompt Confirmation Modal -->
+<div class="modal fade" id="deletePromptModal" tabindex="-1" aria-labelledby="deletePromptModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deletePromptModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the prompt <strong id="delete-prompt-id"></strong>?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Directory Confirmation Modal -->
+<div class="modal fade" id="deleteDirectoryModal" tabindex="-1" aria-labelledby="deleteDirectoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteDirectoryModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to remove this directory?</p>
+                <p class="text-danger">This will remove the directory from the system, but will not delete any files.</p>
+                <p><strong id="delete-directory-path"></strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-directory-btn">Remove</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Default Prompts Modal -->
+<div class="modal fade" id="defaultPromptsModal" tabindex="-1" aria-labelledby="defaultPromptsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="defaultPromptsModalLabel">Create Default Prompts</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>This will create the following default prompts in the selected directory:</p>
+                <ul>
+                    <li><strong>Architect Role</strong>: System prompt for the Architect AI</li>
+                    <li><strong>Worker Role</strong>: System prompt for Worker AIs</li>
+                </ul>
+                <div class="mb-3">
+                    <label for="defaultPromptsDirectory" class="form-label">Directory</label>
+                    <select class="form-select" id="defaultPromptsDirectory" required>
+                        <!-- Directories will be loaded dynamically -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createDefaultPromptsBtn">Create Default Prompts</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+    /* Styles for sortable headers */
+    .sortable {
+        cursor: pointer;
+        position: relative;
+        padding-right: 20px; /* Space for the sort icon */
+    }
+    
+    .sortable:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+    
+    .sort-icon {
+        font-size: 0.8rem;
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0.3;
+    }
+    
+    .sort-active .sort-icon {
+        opacity: 1;
+    }
+    
+    .sort-asc .sort-icon {
+        transform: translateY(-50%) rotate(0deg);
+    }
+    
+    .sort-desc .sort-icon {
+        transform: translateY(-50%) rotate(180deg);
+    }
+    
+    /* Make description and tags columns smaller */
+    table th:nth-child(2), /* Description */
+    table td:nth-child(2) {
+        max-width: 200px;
+        width: 15%;
+    }
+    
+    table th:nth-child(4), /* Tags */
+    table td:nth-child(4) {
+        max-width: 150px;
+        width: 15%;
+    }
+    
+    table th:nth-child(5), /* Last Updated */
+    table td:nth-child(5) {
+        width: 10%;
+    }
+</style>
+<script>
+    // Global variables
+    let prompts = [];
+    let directories = [];
+    let currentFilter = {
+        type: 'all',
+        tag: 'all',
+        search: ''
+    };
+    
+    // Sort settings
+    let currentSort = {
+        column: 'id',
+        direction: 'asc'
+    };
+    
+    // Default prompts content
+    const defaultPrompts = {
+        architect: {
+            id: 'architect_role',
+            content: `# Architect Role
+
+You are the Architect AI in the Coordinator multi-agent system. Your role is to analyze problems, design solutions, and coordinate the work of specialized Worker AIs. As the Architect, you:
+
+1. **Analyze the user's requirements** and break down complex tasks into manageable subtasks
+2. **Assign tasks to appropriate Worker AIs** based on their specialized capabilities
+3. **Integrate results** from Workers into comprehensive solutions
+4. **Maintain context** across the entire project
+5. **Communicate clearly** with both users and Worker AIs
+
+You have access to various tools and Workers with specialized capabilities. When delegating tasks, be specific about:
+- The exact task to be performed
+- The expected output format
+- Any relevant context or constraints
+
+Always thank Workers for their contributions and acknowledge their work when presenting solutions to users. If a Worker fails to complete a task or provides incomplete results, work with them to refine the request or assign the task to a different Worker.
+
+Remember that you're the coordinator of the system - make decisions, provide guidance, and ensure that the final solution meets the user's needs.`,
+            prompt_type: 'system',
+            description: 'System prompt for the Architect AI',
+            tags: ['architect', 'system', 'role']
+        },
+        worker: {
+            id: 'worker_role',
+            content: `# Worker Role
+
+You are a specialized Worker AI in the Coordinator multi-agent system. Your role is to perform specific tasks assigned by the Architect AI. As a Worker, you:
+
+1. **Focus on your area of expertise** to complete assigned tasks
+2. **Follow the Architect's instructions** precisely
+3. **Ask clarifying questions** if a task is unclear
+4. **Provide results** in the requested format
+5. **Explain your approach** when helpful
+
+When communicating with the Architect:
+- Acknowledge receipt of tasks
+- Indicate when you're working on a task
+- Report any difficulties or limitations
+- Provide complete results when finished
+
+You don't need to maintain the full context of the project - that's the Architect's responsibility. Instead, focus on executing your assigned tasks to the best of your abilities and providing high-quality results that the Architect can integrate into the final solution.
+
+Remember that you're part of a team - your specialized work contributes to solving the user's larger problem.`,
+            prompt_type: 'system',
+            description: 'System prompt for Worker AIs',
+            tags: ['worker', 'system', 'role']
+        }
+    };
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load prompts
+        loadPrompts();
+        
+        // Load directories
+        loadDirectories();
+        
+        // Set up event handlers
+        document.getElementById('prompt-search').addEventListener('input', function() {
+            currentFilter.search = this.value;
+            filterPrompts();
+        });
+        
+        document.getElementById('prompt-search-btn').addEventListener('click', function() {
+            currentFilter.search = document.getElementById('prompt-search').value;
+            filterPrompts();
+        });
+        
+        // Set up sorting functionality
+        const sortableHeaders = document.querySelectorAll('.sortable');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.dataset.sort;
+                
+                // Toggle direction if clicking on the same column
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'asc';
+                }
+                
+                // Update visuals and re-sort
+                updateSortHeaders();
+                updatePromptsTable();
+            });
+        });
+        
+        // Initialize sort headers
+        updateSortHeaders();
+        
+        // Add keyboard navigation for the prompt table
+        document.addEventListener('keydown', function(event) {
+            const promptsTable = document.getElementById('prompts-table-body');
+            if (!promptsTable) return;
+            
+            // Only handle keyboard navigation when not in an input field
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || 
+                event.target.tagName === 'SELECT') {
+                return;
+            }
+            
+            const rows = promptsTable.querySelectorAll('tr');
+            if (!rows.length) return;
+            
+            // Find the currently selected row
+            let selectedRow = promptsTable.querySelector('tr.selected');
+            let selectedIndex = -1;
+            
+            if (selectedRow) {
+                // Find the index of the selected row
+                for (let i = 0; i < rows.length; i++) {
+                    if (rows[i] === selectedRow) {
+                        selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            
+            // Handle arrow key navigation
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                
+                if (selectedIndex === -1 || selectedIndex >= rows.length - 1) {
+                    // Select the first row if nothing is selected or at the end
+                    selectedIndex = 0;
+                } else {
+                    // Select the next row
+                    selectedIndex++;
+                }
+                
+                // Update selection
+                updateRowSelection(rows, selectedIndex);
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                
+                if (selectedIndex <= 0) {
+                    // Select the last row if nothing is selected or at the beginning
+                    selectedIndex = rows.length - 1;
+                } else {
+                    // Select the previous row
+                    selectedIndex--;
+                }
+                
+                // Update selection
+                updateRowSelection(rows, selectedIndex);
+            } else if (event.key === 'Enter' && selectedRow) {
+                event.preventDefault();
+                
+                // Navigate to the selected prompt
+                const promptLink = selectedRow.querySelector('a');
+                if (promptLink) {
+                    window.location.href = promptLink.href;
+                }
+            }
+        });
+        
+        // Create prompt form handler
+        const createPromptBtn = document.getElementById('createPromptBtn');
+        if (createPromptBtn) {
+            createPromptBtn.addEventListener('click', createPrompt);
+        }
+        
+        // Create default prompts button handler
+        const createDefaultPromptsBtn = document.getElementById('createDefaultPromptsBtn');
+        if (createDefaultPromptsBtn) {
+            createDefaultPromptsBtn.addEventListener('click', createDefaultPrompts);
+        }
+        
+        // Add role selection handler
+        const promptRoleSelect = document.getElementById('promptRole');
+        if (promptRoleSelect) {
+            promptRoleSelect.addEventListener('change', function() {
+                const role = this.value;
+                const contentArea = document.getElementById('promptContent');
+                
+                if (role && defaultPrompts[role]) {
+                    // Fill in content from default template
+                    contentArea.value = defaultPrompts[role].content;
+                    
+                    // Update tags field to include the role
+                    const tagsField = document.getElementById('promptTags');
+                    const currentTags = tagsField.value.split(',').map(t => t.trim()).filter(t => t);
+                    
+                    if (!currentTags.includes(role)) {
+                        currentTags.push(role);
+                    }
+                    
+                    if (!currentTags.includes('role')) {
+                        currentTags.push('role');
+                    }
+                    
+                    tagsField.value = currentTags.join(', ');
+                }
+            });
+        }
+        
+        // Add directory form handler
+        const addDirectoryBtn = document.getElementById('addDirectoryBtn');
+        if (addDirectoryBtn) {
+            addDirectoryBtn.addEventListener('click', addDirectory);
+        }
+        
+        // Delete prompt confirmation
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', function() {
+                const promptId = document.getElementById('delete-prompt-id').textContent;
+                deletePrompt(promptId);
+            });
+        }
+        
+        // Delete directory confirmation
+        const confirmDeleteDirBtn = document.getElementById('confirm-delete-directory-btn');
+        if (confirmDeleteDirBtn) {
+            confirmDeleteDirBtn.addEventListener('click', function() {
+                const directoryPath = document.getElementById('delete-directory-path').textContent;
+                deleteDirectory(directoryPath);
+            });
+        }
+        
+        // Type filter buttons
+        document.querySelectorAll('[data-type]').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                currentFilter.type = this.dataset.type;
+                filterPrompts();
+            });
+        });
+        
+        // Add Create Default Prompts button to the header actions
+        const headerActions = document.querySelector('.btn-group');
+        if (headerActions) {
+            const defaultPromptsBtn = document.createElement('button');
+            defaultPromptsBtn.className = 'btn btn-outline-secondary';
+            defaultPromptsBtn.innerHTML = '<i class="bi bi-lightning"></i> Create Default Prompts';
+            defaultPromptsBtn.addEventListener('click', function() {
+                const modal = new bootstrap.Modal(document.getElementById('defaultPromptsModal'));
+                populateDirectorySelect('defaultPromptsDirectory');
+                modal.show();
+            });
+            
+            headerActions.appendChild(defaultPromptsBtn);
+        }
+    });
+    
+    // Function to update the sort header icons and classes
+    function updateSortHeaders() {
+        // Remove all sort classes
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.classList.remove('sort-active', 'sort-asc', 'sort-desc');
+        });
+        
+        // Find the active header and update its classes
+        const activeHeader = document.querySelector(`.sortable[data-sort="${currentSort.column}"]`);
+        if (activeHeader) {
+            activeHeader.classList.add('sort-active');
+            activeHeader.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            
+            // Update the icon class
+            const icon = activeHeader.querySelector('.sort-icon');
+            if (icon) {
+                icon.classList.remove('bi-sort-alpha-down', 'bi-sort-alpha-up');
+                icon.classList.add(currentSort.direction === 'asc' ? 'bi-sort-alpha-down' : 'bi-sort-alpha-up');
+            }
+        }
+    }
+    
+    function loadPrompts() {
+        const tableBody = document.getElementById('prompts-table-body');
+        
+        // Show loading indicator
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mb-0 mt-2">Loading prompts...</p>
+                </td>
+            </tr>
+        `;
+        
+        fetch('/api/prompts/all')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to load prompts: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Loaded prompts:', data);
+                if (!Array.isArray(data)) {
+                    throw new Error('Expected an array of prompts from API');
+                }
+                prompts = data;
+                updatePromptsTable();
+                updateTagFilters();
+            })
+            .catch(error => {
+                console.error('Error loading prompts:', error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-danger">
+                            <i class="bi bi-exclamation-circle fs-4"></i>
+                            <p class="mb-0 mt-2">Error loading prompts: ${error.message}</p>
+                            <p class="small">Try adding prompt directories in the section below.</p>
+                        </td>
+                    </tr>
+                `;
+            });
+    }
+    
+    function updatePromptsTable() {
+        const tableBody = document.getElementById('prompts-table-body');
+        
+        try {
+            if (!Array.isArray(prompts)) {
+                throw new Error('Prompts data is not an array');
+            }
+            
+            // Filter prompts based on current filters
+            let filteredPrompts = prompts;
+            
+            if (currentFilter.type !== 'all') {
+                filteredPrompts = filteredPrompts.filter(prompt => 
+                    prompt.prompt_type === currentFilter.type
+                );
+            }
+            
+            if (currentFilter.tag !== 'all') {
+                filteredPrompts = filteredPrompts.filter(prompt => 
+                    prompt.tags && prompt.tags.includes(currentFilter.tag)
+                );
+            }
+            
+            if (currentFilter.search) {
+                const searchLower = currentFilter.search.toLowerCase();
+                filteredPrompts = filteredPrompts.filter(prompt => 
+                    prompt.id.toLowerCase().includes(searchLower) ||
+                    (prompt.description && prompt.description.toLowerCase().includes(searchLower))
+                );
+            }
+            
+            // Sort based on current sort settings
+            filteredPrompts.sort((a, b) => {
+                let aValue, bValue;
+                
+                // Get the values to compare based on the sort column
+                switch (currentSort.column) {
+                    case 'id':
+                        aValue = a.id;
+                        bValue = b.id;
+                        break;
+                    case 'description':
+                        aValue = a.description || '';
+                        bValue = b.description || '';
+                        break;
+                    case 'type':
+                        aValue = a.prompt_type || '';
+                        bValue = b.prompt_type || '';
+                        break;
+                    case 'tags':
+                        aValue = (a.tags && a.tags.length > 0) ? a.tags.join(',') : '';
+                        bValue = (b.tags && b.tags.length > 0) ? b.tags.join(',') : '';
+                        break;
+                    case 'updated':
+                        aValue = a.updated_at || '';
+                        bValue = b.updated_at || '';
+                        break;
+                    default:
+                        aValue = a.id;
+                        bValue = b.id;
+                }
+                
+                // Perform comparison based on the sort direction
+                let result;
+                if (currentSort.column === 'updated') {
+                    // For dates, we need to use timestamp comparison
+                    result = new Date(aValue) - new Date(bValue);
+                } else {
+                    // For strings, use localeCompare
+                    result = String(aValue).localeCompare(String(bValue));
+                }
+                
+                // Reverse the result if descending
+                return currentSort.direction === 'desc' ? -result : result;
+            });
+            
+            // Clear table
+            tableBody.innerHTML = '';
+            
+            // Check if no prompts
+            if (filteredPrompts.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <p class="mb-0">No prompts found.</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // Add prompts to table
+            filteredPrompts.forEach(prompt => {
+                const row = document.createElement('tr');
+                
+                // ID cell
+                const idCell = document.createElement('td');
+                const idLink = document.createElement('a');
+                idLink.href = `/prompts/${prompt.id}`;
+                idLink.textContent = prompt.id;
+                idCell.appendChild(idLink);
+                
+                // Description cell
+                const descCell = document.createElement('td');
+                descCell.textContent = prompt.description || '';
+                
+                // Type cell
+                const typeCell = document.createElement('td');
+                const typeSpan = document.createElement('span');
+                typeSpan.className = `badge bg-${
+                    prompt.prompt_type === 'composite' ? 'success' : 
+                    prompt.prompt_type === 'system' ? 'primary' :
+                    prompt.prompt_type === 'user' ? 'info' : 'secondary'
+                } rounded-pill`;
+                typeSpan.textContent = prompt.prompt_type.charAt(0).toUpperCase() + prompt.prompt_type.slice(1);
+                typeCell.appendChild(typeSpan);
+                
+                // Tags cell
+                const tagsCell = document.createElement('td');
+                if (prompt.tags && prompt.tags.length > 0) {
+                    prompt.tags.forEach(tag => {
+                        const tagBadge = document.createElement('span');
+                        tagBadge.className = 'badge bg-secondary me-1';
+                        tagBadge.textContent = tag;
+                        tagsCell.appendChild(tagBadge);
+                    });
+                } else {
+                    tagsCell.textContent = '-';
+                }
+                
+                // Updated cell
+                const updatedCell = document.createElement('td');
+                try {
+                    updatedCell.textContent = dayjs(prompt.updated_at).fromNow();
+                } catch (error) {
+                    console.warn('Error formatting date:', error);
+                    updatedCell.textContent = prompt.updated_at || 'Unknown';
+                }
+                
+                // Actions cell
+                const actionsCell = document.createElement('td');
+                
+                // Edit button
+                const editBtn = document.createElement('a');
+                editBtn.href = `/prompts/${prompt.id}`;
+                editBtn.className = 'btn btn-sm btn-outline-primary me-1';
+                editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+                editBtn.title = 'Edit';
+                
+                // Delete button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-sm btn-outline-danger';
+                deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                deleteBtn.title = 'Delete';
+                deleteBtn.dataset.promptId = prompt.id;
+                deleteBtn.addEventListener('click', function() {
+                    showDeleteConfirmation(prompt.id);
+                });
+                
+                actionsCell.appendChild(editBtn);
+                actionsCell.appendChild(deleteBtn);
+                
+                // Add cells to row
+                row.appendChild(idCell);
+                row.appendChild(descCell);
+                row.appendChild(typeCell);
+                row.appendChild(tagsCell);
+                row.appendChild(updatedCell);
+                row.appendChild(actionsCell);
+                
+                tableBody.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Error updating prompts table:', error);
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-danger">
+                        <i class="bi bi-exclamation-circle fs-4"></i>
+                        <p class="mb-0 mt-2">Error displaying prompts: ${error.message}</p>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+    
+    function loadDirectories() {
+        const tableBody = document.getElementById('directories-table-body');
+        
+        // Show loading indicator
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mb-0 mt-2">Loading directories...</p>
+                </td>
+            </tr>
+        `;
+        
+        fetch('/api/prompts/directories/all')
+            .then(response => response.json())
+            .then(data => {
+                directories = data;
+                
+                // Clear table
+                tableBody.innerHTML = '';
+                
+                // Check if no directories
+                if (directories.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <p class="mb-0">No directories configured.</p>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                // Add directories to table
+                directories.forEach(dir => {
+                    const row = document.createElement('tr');
+                    
+                    // Name cell
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = dir.name;
+                    
+                    // Path cell
+                    const pathCell = document.createElement('td');
+                    pathCell.textContent = dir.path;
+                    
+                    // Description cell
+                    const descCell = document.createElement('td');
+                    descCell.textContent = dir.description || '';
+                    
+                    // Status cell
+                    const statusCell = document.createElement('td');
+                    const statusBadge = document.createElement('span');
+                    statusBadge.className = dir.enabled ? 'badge bg-success' : 'badge bg-danger';
+                    statusBadge.textContent = dir.enabled ? 'Enabled' : 'Disabled';
+                    statusCell.appendChild(statusBadge);
+                    
+                    // Actions cell
+                    const actionsCell = document.createElement('td');
+                    
+                    // Refresh button
+                    const refreshBtn = document.createElement('button');
+                    refreshBtn.className = 'btn btn-sm btn-outline-primary me-1';
+                    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+                    refreshBtn.title = 'Refresh';
+                    refreshBtn.addEventListener('click', function() {
+                        // This would reload prompts from this directory
+                        showToast('Refreshing directory...');
+                        loadPrompts();
+                    });
+                    
+                    // Delete button
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn btn-sm btn-outline-danger';
+                    deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                    deleteBtn.title = 'Remove';
+                    deleteBtn.dataset.directoryPath = dir.path;
+                    deleteBtn.addEventListener('click', function() {
+                        showDeleteDirectoryConfirmation(dir.path);
+                    });
+                    
+                    actionsCell.appendChild(refreshBtn);
+                    actionsCell.appendChild(deleteBtn);
+                    
+                    // Add cells to row
+                    row.appendChild(nameCell);
+                    row.appendChild(pathCell);
+                    row.appendChild(descCell);
+                    row.appendChild(statusCell);
+                    row.appendChild(actionsCell);
+                    
+                    tableBody.appendChild(row);
+                });
+                
+                // Populate directory select in the New Prompt modal
+                populateDirectorySelect('promptDirectory');
+            })
+            .catch(error => {
+                console.error('Error loading directories:', error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-danger">
+                            <i class="bi bi-exclamation-circle fs-4"></i>
+                            <p class="mb-0 mt-2">Error loading directories. Please try again.</p>
+                        </td>
+                    </tr>
+                `;
+            });
+    }
+    
+    function populateDirectorySelect(selectId) {
+        const selectElement = document.getElementById(selectId);
+        if (selectElement) {
+            selectElement.innerHTML = '';
+            directories.forEach(dir => {
+                if (dir.enabled) {
+                    const option = document.createElement('option');
+                    option.value = dir.path;
+                    option.textContent = dir.name;
+                    selectElement.appendChild(option);
+                }
+            });
+        }
+    }
+    
+    function updateTagFilters() {
+        const tagFiltersContainer = document.getElementById('tag-filters');
+        
+        // Collect all unique tags
+        const tags = new Set();
+        prompts.forEach(prompt => {
+            if (prompt.tags) {
+                prompt.tags.forEach(tag => tags.add(tag));
+            }
+        });
+        
+        // Clear container
+        tagFiltersContainer.innerHTML = '';
+        
+        // Create filter items
+        Array.from(tags).sort().forEach(tag => {
+            const item = document.createElement('li');
+            const link = document.createElement('a');
+            link.className = 'dropdown-item';
+            link.href = '#';
+            link.dataset.tag = tag;
+            link.textContent = tag;
+            
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                currentFilter.tag = tag;
+                filterPrompts();
+            });
+            
+            item.appendChild(link);
+            tagFiltersContainer.appendChild(item);
+        });
+        
+        // Add event listener to "All Tags" option
+        const allTagsOption = document.querySelector('[data-tag="all"]');
+        if (allTagsOption) {
+            allTagsOption.addEventListener('click', function(e) {
+                e.preventDefault();
+                currentFilter.tag = 'all';
+                filterPrompts();
+            });
+        }
+    }
+    
+    function filterPrompts() {
+        updatePromptsTable();
+    }
+    
+    function createPrompt() {
+        const id = document.getElementById('promptId').value.trim();
+        const promptType = document.getElementById('promptType').value;
+        const directory = document.getElementById('promptDirectory').value;
+        const description = document.getElementById('promptDescription').value.trim();
+        const tags = document.getElementById('promptTags').value.trim();
+        const content = document.getElementById('promptContent').value;
+        
+        // Validate
+        if (!id) {
+            alert('Prompt ID is required');
+            return;
+        }
+        
+        if (!directory) {
+            alert('Directory is required');
+            return;
+        }
+        
+        // Create tag array
+        const tagArray = tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+        
+        // Create prompt data
+        const promptData = {
+            id: id,
+            content: content || `# ${id}\n\nEnter content here...`,
+            directory: directory,
+            prompt_type: promptType,
+            description: description,
+            tags: tagArray
+        };
+        
+        // Send POST request
+        fetch('/api/prompts/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(promptData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to create prompt');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Success - reload prompts and show toast
+            loadPrompts();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('newPromptModal'));
+            modal.hide();
+            
+            // Clear form
+            document.getElementById('promptId').value = '';
+            document.getElementById('promptDescription').value = '';
+            document.getElementById('promptTags').value = '';
+            document.getElementById('promptContent').value = '';
+            
+            // Show toast
+            showToast('Prompt created successfully');
+            
+            // Redirect to edit page
+            window.location.href = `/prompts/${data.id}`;
+        })
+        .catch(error => {
+            console.error('Error creating prompt:', error);
+            alert('Error creating prompt: ' + error.message);
+        });
+    }
+    
+    function createDefaultPrompts() {
+        const directory = document.getElementById('defaultPromptsDirectory').value;
+        
+        if (!directory) {
+            alert('Please select a directory');
+            return;
+        }
+        
+        // Create promises for each prompt creation
+        const createPromises = [];
+        
+        // Create Architect role prompt
+        const architectPrompt = {
+            ...defaultPrompts.architect,
+            directory: directory
+        };
+        
+        createPromises.push(
+            fetch('/api/prompts/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(architectPrompt)
+            })
+        );
+        
+        // Create Worker role prompt
+        const workerPrompt = {
+            ...defaultPrompts.worker,
+            directory: directory
+        };
+        
+        createPromises.push(
+            fetch('/api/prompts/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(workerPrompt)
+            })
+        );
+        
+        // Wait for all prompts to be created
+        Promise.all(createPromises)
+            .then(responses => {
+                // Check if all responses are OK
+                const allOk = responses.every(response => response.ok);
+                if (!allOk) {
+                    throw new Error('One or more prompts failed to create');
+                }
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('defaultPromptsModal'));
+                modal.hide();
+                
+                // Reload prompts
+                loadPrompts();
+                
+                // Show toast
+                showToast('Default prompts created successfully');
+            })
+            .catch(error => {
+                console.error('Error creating default prompts:', error);
+                alert('Error creating default prompts: ' + error.message);
+            });
+    }
+    
+    function addDirectory() {
+        const path = document.getElementById('directoryPath').value.trim();
+        const name = document.getElementById('directoryName').value.trim();
+        const description = document.getElementById('directoryDescription').value.trim();
+        
+        // Validate
+        if (!path) {
+            alert('Directory path is required');
+            return;
+        }
+        
+        // Create directory data
+        const directoryData = {
+            path: path,
+            name: name || undefined,
+            description: description || undefined
+        };
+        
+        // Send POST request
+        fetch('/api/prompts/directories', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(directoryData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to add directory');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Success - reload directories and show toast
+            loadDirectories();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addDirectoryModal'));
+            modal.hide();
+            
+            // Clear form
+            document.getElementById('directoryPath').value = '';
+            document.getElementById('directoryName').value = '';
+            document.getElementById('directoryDescription').value = '';
+            
+            // Show toast
+            showToast('Directory added successfully');
+        })
+        .catch(error => {
+            console.error('Error adding directory:', error);
+            alert('Error adding directory: ' + error.message);
+        });
+    }
+    
+    function showDeleteConfirmation(promptId) {
+        document.getElementById('delete-prompt-id').textContent = promptId;
+        const deleteModal = new bootstrap.Modal(document.getElementById('deletePromptModal'));
+        deleteModal.show();
+    }
+    
+    function showDeleteDirectoryConfirmation(directoryPath) {
+        document.getElementById('delete-directory-path').textContent = directoryPath;
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteDirectoryModal'));
+        deleteModal.show();
+    }
+    
+    function deletePrompt(promptId) {
+        // Send DELETE request
+        fetch(`/api/prompts/${promptId}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to delete prompt');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Success - reload prompts and show toast
+            loadPrompts();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deletePromptModal'));
+            modal.hide();
+            
+            // Show toast
+            showToast('Prompt deleted successfully');
+        })
+        .catch(error => {
+            console.error('Error deleting prompt:', error);
+            alert('Error deleting prompt: ' + error.message);
+        });
+    }
+    
+    function deleteDirectory(directoryPath) {
+        // Send DELETE request
+        fetch(`/api/prompts/directories/${encodeURIComponent(directoryPath)}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to remove directory');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Success - reload directories and show toast
+            loadDirectories();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteDirectoryModal'));
+            modal.hide();
+            
+            // Show toast
+            showToast('Directory removed successfully');
+        })
+        .catch(error => {
+            console.error('Error removing directory:', error);
+            alert('Error removing directory: ' + error.message);
+        });
+    }
+    
+    // Function to update the row selection
+    function updateRowSelection(rows, selectedIndex) {
+        // Remove selection from all rows
+        rows.forEach(row => row.classList.remove('selected'));
+        
+        // Add selection to the target row
+        if (selectedIndex >= 0 && selectedIndex < rows.length) {
+            rows[selectedIndex].classList.add('selected');
+            
+            // Scroll the row into view if needed
+            rows[selectedIndex].scrollIntoView({
+                behavior: 'smooth',
+                block: 'nearest'
+            });
+        }
+    }
+</script>
+{% endblock %}

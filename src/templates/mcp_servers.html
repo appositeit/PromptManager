@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}Coordinator - MCP Server Management{% endblock %}
+
+{% block header_title %}MCP Server Management{% endblock %}
+
+{% block header_actions %}
+<button class="btn btn-primary" id="add-mcp-server-btn">
+    <i class="bi bi-plus-circle"></i> Add MCP Server
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Available MCP Servers</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-secondary" id="refresh-servers-btn">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="mcp-server-list">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="mcp-servers-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 20%">Name</th>
+                                        <th style="width: 30%">URL</th>
+                                        <th style="width: 15%">Status</th>
+                                        <th style="width: 20%">Last Connected</th>
+                                        <th style="width: 15%">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Server rows will be loaded dynamically -->
+                                    <tr class="server-row" data-server-id="default">
+                                        <td>Default MCP</td>
+                                        <td>http://localhost:8082</td>
+                                        <td><span class="badge bg-success">Online</span></td>
+                                        <td>Just now</td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary edit-server-btn" data-server-id="default">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-outline-danger delete-server-btn" data-server-id="default">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Session MCP Configurations</h5>
+                </div>
+                <div class="card-body">
+                    <p>Configure which MCP servers are accessible to different AI roles in each session.</p>
+                    
+                    <div class="mb-4">
+                        <h6>Active Sessions</h6>
+                        <div id="session-mcp-list">
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="session-mcp-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 30%">Session</th>
+                                            <th style="width: 30%">Role</th>
+                                            <th style="width: 30%">MCP Servers</th>
+                                            <th style="width: 10%">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Session rows will be loaded dynamically -->
+                                        <tr class="session-row" data-session-id="demo">
+                                            <td>Demo Session</td>
+                                            <td>Architect</td>
+                                            <td>Default MCP</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary edit-session-mcp-btn" data-session-id="demo" data-role="architect">
+                                                    <i class="bi bi-gear"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr class="session-row" data-session-id="demo">
+                                            <td>Demo Session</td>
+                                            <td>Worker 1</td>
+                                            <td>Default MCP (Code Tools only)</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary edit-session-mcp-btn" data-session-id="demo" data-role="worker1">
+                                                    <i class="bi bi-gear"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+{{ super() }}
+
+<!-- Add MCP Server Modal -->
+<div class="modal fade" id="mcp-server-modal" tabindex="-1" aria-labelledby="mcp-server-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="mcp-server-modal-label">Add MCP Server</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="mcp-server-form">
+                    <input type="hidden" id="server-id" value="">
+                    <div class="mb-3">
+                        <label for="server-name" class="form-label">Server Name</label>
+                        <input type="text" class="form-control" id="server-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="server-url" class="form-label">URL</label>
+                        <input type="url" class="form-control" id="server-url" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="server-api-key" class="form-label">API Key (if required)</label>
+                        <input type="password" class="form-control" id="server-api-key">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="server-default" checked>
+                            <label class="form-check-label" for="server-default">
+                                Make this the default MCP server
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-mcp-server-btn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Configure Session MCP Modal -->
+<div class="modal fade" id="configure-session-mcp-modal" tabindex="-1" aria-labelledby="configure-session-mcp-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="configure-session-mcp-modal-label">Configure Session MCP Access</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="session-mcp-form">
+                    <input type="hidden" id="session-id" value="">
+                    <input type="hidden" id="role-id" value="">
+                    
+                    <div class="mb-3">
+                        <h6 id="session-role-title">Session: Demo Session - Role: Architect</h6>
+                    </div>
+                    
+                    <div id="mcp-server-access-list">
+                        <div class="mb-3 border-bottom pb-3">
+                            <div class="form-check">
+                                <input class="form-check-input server-access-check" type="checkbox" id="server-access-default" data-server-id="default" checked>
+                                <label class="form-check-label" for="server-access-default">
+                                    Default MCP Server
+                                </label>
+                            </div>
+                            
+                            <div class="ms-4 mt-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="server-tool-default-filesystem" checked>
+                                    <label class="form-check-label" for="server-tool-default-filesystem">
+                                        Filesystem Tools
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="server-tool-default-code" checked>
+                                    <label class="form-check-label" for="server-tool-default-code">
+                                        Code Execution
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="server-tool-default-network" checked>
+                                    <label class="form-check-label" for="server-tool-default-network">
+                                        Network Tools
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="ms-4 mt-2">
+                                <div class="mb-3">
+                                    <label for="server-api-key-override-default" class="form-label">API Key Override (optional)</label>
+                                    <input type="password" class="form-control" id="server-api-key-override-default">
+                                    <div class="form-text">Leave blank to use the server's default API key</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-session-mcp-btn">Save Configuration</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add MCP server button
+        const addMcpServerBtn = document.getElementById('add-mcp-server-btn');
+        if (addMcpServerBtn) {
+            addMcpServerBtn.addEventListener('click', function() {
+                // Clear form and set title
+                document.getElementById('mcp-server-form').reset();
+                document.getElementById('server-id').value = '';
+                document.getElementById('mcp-server-modal-label').textContent = 'Add MCP Server';
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('mcp-server-modal'));
+                modal.show();
+            });
+        }
+        
+        // Edit MCP server buttons
+        const editServerBtns = document.querySelectorAll('.edit-server-btn');
+        editServerBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const serverId = this.dataset.serverId;
+                
+                // In a real implementation, we would fetch the server details from the API
+                // For now, we'll just populate with mock data
+                document.getElementById('server-id').value = serverId;
+                document.getElementById('server-name').value = 'Default MCP';
+                document.getElementById('server-url').value = 'http://localhost:8082';
+                document.getElementById('server-api-key').value = '';
+                document.getElementById('server-default').checked = true;
+                
+                // Set modal title
+                document.getElementById('mcp-server-modal-label').textContent = 'Edit MCP Server';
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('mcp-server-modal'));
+                modal.show();
+            });
+        });
+        
+        // Delete MCP server buttons
+        const deleteServerBtns = document.querySelectorAll('.delete-server-btn');
+        deleteServerBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const serverId = this.dataset.serverId;
+                
+                if (confirm('Are you sure you want to delete this MCP server?')) {
+                    // In a real implementation, we would send a delete request to the API
+                    // For now, just show a notification
+                    showToast('This is a demo. The server was not actually deleted.', 'info');
+                }
+            });
+        });
+        
+        // Save MCP server button
+        const saveMcpServerBtn = document.getElementById('save-mcp-server-btn');
+        if (saveMcpServerBtn) {
+            saveMcpServerBtn.addEventListener('click', function() {
+                // In a real implementation, we would send the form data to the API
+                // For now, just show a notification and close the modal
+                showToast('MCP server configuration saved successfully!', 'success');
+                
+                const modal = bootstrap.Modal.getInstance(document.getElementById('mcp-server-modal'));
+                modal.hide();
+            });
+        }
+        
+        // Edit session MCP buttons
+        const editSessionMcpBtns = document.querySelectorAll('.edit-session-mcp-btn');
+        editSessionMcpBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const sessionId = this.dataset.sessionId;
+                const roleId = this.dataset.role;
+                
+                // Set form values
+                document.getElementById('session-id').value = sessionId;
+                document.getElementById('role-id').value = roleId;
+                
+                // Set title
+                const roleName = roleId === 'architect' ? 'Architect' : `Worker ${roleId.replace('worker', '')}`;
+                document.getElementById('session-role-title').textContent = `Session: Demo Session - Role: ${roleName}`;
+                
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('configure-session-mcp-modal'));
+                modal.show();
+            });
+        });
+        
+        // Save session MCP button
+        const saveSessionMcpBtn = document.getElementById('save-session-mcp-btn');
+        if (saveSessionMcpBtn) {
+            saveSessionMcpBtn.addEventListener('click', function() {
+                // In a real implementation, we would send the form data to the API
+                // For now, just show a notification and close the modal
+                showToast('Session MCP configuration saved successfully!', 'success');
+                
+                const modal = bootstrap.Modal.getInstance(document.getElementById('configure-session-mcp-modal'));
+                modal.hide();
+            });
+        });
+        
+        // Refresh servers button
+        const refreshServersBtn = document.getElementById('refresh-servers-btn');
+        if (refreshServersBtn) {
+            refreshServersBtn.addEventListener('click', function() {
+                // In a real implementation, we would refresh the server list from the API
+                // For now, just show a notification
+                showToast('Server list refreshed', 'info');
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,1062 @@
+
+<!-- Upload Artifact Modal -->
+<div class="modal fade" id="upload-artifact-modal" tabindex="-1" aria-labelledby="upload-artifact-modal-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="upload-artifact-modal-label">Upload Artifact</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="artifact-upload-form">
+                    <div class="mb-3">
+                        <label for="artifact-file" class="form-label">File</label>
+                        <input type="file" class="form-control" id="artifact-file" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="artifact-id" class="form-label">Artifact ID (Optional)</label>
+                        <input type="text" class="form-control" id="artifact-id" placeholder="Leave blank for auto-generated ID">
+                        <div class="form-text">
+                            If left blank, an ID will be generated based on the filename and a random identifier.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="upload-artifact-submit">Upload</button>
+            </div>
+        </div>
+    </div>
+</div>                </div>
+            </div>
+            
+            <!-- Storage Tab -->
+            <div class="tab-pane fade" id="storage" role="tabpanel" aria-labelledby="storage-tab">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">Session Storage</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="storage-info-container">
+                                    <p class="text-center">Loading storage information...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>{% extends "base.html" %}
+
+{% block title %}Coordinator - {% if worker_id is defined %}Worker Conversation{% else %}Session{% endif %}{% endblock %}
+
+{% block header_title %}
+{% if worker_id is defined %}
+<a href="/sessions/{{ session_id }}" class="text-decoration-none text-reset">
+    <i class="bi bi-arrow-left me-2"></i> Session
+</a> / Worker: <span id="worker-name">Loading...</span>
+{% else %}
+Session: <span id="session-name">Loading...</span>
+{% endif %}
+{% endblock %}
+
+{% block header_actions %}
+<div class="d-flex">
+    {% if worker_id is defined %}
+    <a href="/sessions/{{ session_id }}" class="btn btn-outline-primary">
+        <i class="bi bi-chat-square-text"></i> Back to Session
+    </a>
+    {% else %}
+    <button id="pauseSessionBtn" class="btn btn-warning me-2">
+        <i class="bi bi-pause-fill"></i> Pause Session
+    </button>
+    <button id="stopSessionBtn" class="btn btn-danger">
+        <i class="bi bi-stop-fill"></i> Stop Session
+    </button>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Task Visualization Area -->
+    {% if not worker_id %}
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Session Visualization</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary active" id="view-graph-btn" onclick="switchView('graph')">
+                            <i class="bi bi-diagram-3"></i> Task Graph
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" id="view-timeline-btn" onclick="switchView('timeline')">
+                            <i class="bi bi-bar-chart-steps"></i> Timeline
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="visualization-area" class="p-3" style="min-height: 400px;">
+                        <div id="task-graph-container" style="width: 100%; height: 400px; position: relative;"></div>
+                        <div id="task-timeline-container" style="width: 100%; height: 400px; position: relative; display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Chat and Info Area -->
+    <div class="row mt-3">
+        <!-- Tab Navigation -->
+        <div class="col-12 mb-3">
+            <ul class="nav nav-tabs" id="sessionTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="conversation-tab" data-bs-toggle="tab" data-bs-target="#conversation" 
+                            type="button" role="tab" aria-controls="conversation" aria-selected="true">
+                        <i class="bi bi-chat-text"></i> Conversation
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="storage-tab" data-bs-toggle="tab" data-bs-target="#storage" 
+                            type="button" role="tab" aria-controls="storage" aria-selected="false">
+                        <i class="bi bi-folder"></i> Storage
+                    </button>
+                </li>
+            </ul>
+        </div>
+        
+        <!-- Tab Content -->
+        <div class="tab-content" id="sessionTabsContent">
+            <!-- Conversation Tab -->
+            <div class="tab-pane fade show active" id="conversation" role="tabpanel" aria-labelledby="conversation-tab">
+                <div class="row">
+        <div class="col-md-{% if worker_id is defined %}9{% else %}8{% endif %}">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        {% if worker_id is defined %}
+                        Worker Conversation
+                        {% else %}
+                        Conversation
+                        {% endif %}
+                    </h5>
+                    <div>
+                        <span class="badge bg-success" id="session-status">Running</span>
+                    </div>
+                </div>
+                <div class="card-body conversation-area" id="conversationArea">
+                    <div id="messages" class="messages">
+                        <!-- Messages will be loaded dynamically -->
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <form id="messageForm">
+                        <div class="input-group">
+                            <textarea class="form-control" id="messageInput" placeholder="Type your message here..." rows="2"></textarea>
+                            <button class="btn btn-primary" type="submit" id="sendButton">
+                                <i class="bi bi-send"></i> Send
+                            </button>
+                        </div>
+                        {% if worker_id is defined %}
+                        <div class="form-text mt-1">
+                            Direct messages to workers bypass the Architect. Use with caution.
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-{% if worker_id is defined %}3{% else %}4{% endif %}">
+            {% if worker_id is defined %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Worker Info</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <th scope="row">Name</th>
+                                <td id="worker-name-info">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Model</th>
+                                <td id="worker-model">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Status</th>
+                                <td><span class="badge bg-success" id="worker-status-info">Active</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Capabilities</h5>
+                </div>
+                <div class="card-body p-0" id="capabilities-container">
+                    <ul class="list-group list-group-flush" id="capabilities-list">
+                        <li class="list-group-item text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Loading capabilities...</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            {% else %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Session Info</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <th scope="row">ID</th>
+                                <td id="session-id">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Status</th>
+                                <td><span class="badge bg-success" id="session-status-info">Running</span></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Created</th>
+                                <td id="session-created">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Architect</th>
+                                <td id="session-architect">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Workers</th>
+                                <td id="session-workers">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Directory</th>
+                                <td id="session-directory">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="mt-3" id="session-description-container" style="display: none;">
+                        <h6>Description</h6>
+                        <p id="session-description"></p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        {% if worker_id is defined %}
+                        Worker Tasks
+                        {% else %}
+                        Workers
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body p-0" id="workers-container">
+                    <ul class="list-group list-group-flush" id="workers-list">
+                        <li class="list-group-item text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Loading workers...</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Load D3.js for visualization -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js">    
+    // Visualization functions
+    function initVisualizations() {
+        if (isWorkerView) return; // Skip for worker view
+        
+        // Initialize task graph visualization
+        taskGraph = new TaskGraphVisualizer('task-graph-container');
+        
+        // Initialize task timeline visualization
+        taskTimeline = new TaskTimelineVisualizer('task-timeline-container');
+        
+        // Load initial visualization data
+        updateVisualizations();
+    }
+    
+    function updateVisualizations() {
+        if (isWorkerView || !sessionId) return; // Skip for worker view
+        
+        // Fetch graph data for the session
+        fetch(`/api/sessions/${sessionId}/visualization`)
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        // Handle case where visualization endpoint is not yet implemented
+                        return createMockVisualizationData();
+                    }
+                    throw new Error(`Failed to load visualization data: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Update the visualizations with the data
+                if (taskGraph) {
+                    taskGraph.update(data);
+                }
+                
+                if (taskTimeline) {
+                    taskTimeline.update(data);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading visualization data:', error);
+                
+                // Use mock data for development/testing
+                const mockData = createMockVisualizationData();
+                
+                if (taskGraph) {
+                    taskGraph.update(mockData);
+                }
+                
+                if (taskTimeline) {
+                    taskTimeline.update(mockData);
+                }
+            });
+    }
+    
+    function switchView(view) {
+        if (view === currentView) return;
+        
+        currentView = view;
+        
+        // Update button states
+        document.getElementById('view-graph-btn').classList.toggle('active', view === 'graph');
+        document.getElementById('view-timeline-btn').classList.toggle('active', view === 'timeline');
+        
+        // Show/hide appropriate view
+        document.getElementById('task-graph-container').style.display = view === 'graph' ? 'block' : 'none';
+        document.getElementById('task-timeline-container').style.display = view === 'timeline' ? 'block' : 'none';
+        
+        // Trigger resize events to ensure proper rendering
+        if (view === 'graph' && taskGraph) {
+            setTimeout(() => taskGraph.resize(), 50);
+        } else if (view === 'timeline' && taskTimeline) {
+            setTimeout(() => taskTimeline.resize(), 50);
+        }
+    }
+    
+    /**
+     * Create mock visualization data for development/testing.
+     * This will be used when the real API endpoint is not available.
+     */
+    function createMockVisualizationData() {
+        // Create a visualization data structure based on session data
+        const mockData = {
+            agents: [
+                { id: 'architect', name: 'Architect', role: 'architect' }
+            ],
+            tasks: [],
+            messages: []
+        };
+        
+        // Add workers from session data if available
+        if (sessionData && sessionData.config && sessionData.config.workers) {
+            sessionData.config.workers.forEach((worker, idx) => {
+                mockData.agents.push({
+                    id: `worker${idx}`,
+                    name: worker.name || `Worker ${idx + 1}`,
+                    role: 'worker',
+                    capabilities: worker.capabilities || []
+                });
+            });
+        } else {
+            // Add some default workers
+            mockData.agents.push(
+                { id: 'worker0', name: 'Worker 1', role: 'worker', capabilities: ['code-generation'] },
+                { id: 'worker1', name: 'Worker 2', role: 'worker', capabilities: ['data-analysis'] }
+            );
+        }
+        
+        // Create some mock tasks
+        const mainTaskId = 'task-' + Date.now();
+        const subtask1Id = 'task-' + (Date.now() + 1);
+        const subtask2Id = 'task-' + (Date.now() + 2);
+        
+        const startTime = new Date(Date.now() - 3600000); // 1 hour ago
+        const midTime = new Date(Date.now() - 1800000);   // 30 minutes ago
+        const endTime = new Date();                       // Now
+        
+        mockData.tasks.push(
+            {
+                id: mainTaskId,
+                title: 'Main Task',
+                description: 'Primary task for the session',
+                status: 'completed',
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                assigned_to: 'architect'
+            },
+            {
+                id: subtask1Id,
+                title: 'Code Generation Subtask',
+                description: 'Generate code for the solution',
+                status: 'completed',
+                parent_id: mainTaskId,
+                start_time: startTime.toISOString(),
+                end_time: midTime.toISOString(),
+                assigned_to: 'worker0'
+            },
+            {
+                id: subtask2Id,
+                title: 'Data Analysis Subtask',
+                description: 'Analyze the data from the code',
+                status: 'executing',
+                parent_id: mainTaskId,
+                start_time: midTime.toISOString(),
+                end_time: new Date(Date.now() + 1800000).toISOString(), // 30 minutes in future
+                assigned_to: 'worker1'
+            }
+        );
+        
+        // Create some mock messages
+        mockData.messages.push(
+            {
+                id: 'msg-1',
+                from_agent: 'architect',
+                to_agent: 'worker0',
+                message_type: 'task_request',
+                content: { task_id: subtask1Id }
+            },
+            {
+                id: 'msg-2',
+                from_agent: 'worker0',
+                to_agent: 'architect',
+                message_type: 'task_result',
+                content: { task_id: subtask1Id }
+            },
+            {
+                id: 'msg-3',
+                from_agent: 'architect',
+                to_agent: 'worker1',
+                message_type: 'task_request',
+                content: { task_id: subtask2Id }
+            }
+        );
+        
+        return mockData;
+    }
+</script>
+<!-- Load our visualization module -->
+<script src="/static/js/visualization/task_graph.js"></script>
+
+<script>
+    // Session details
+    let sessionId = '{{ session_id }}';
+    {% if worker_id is defined %}
+    let workerId = '{{ worker_id }}';
+    let isWorkerView = true;
+    {% else %}
+    let isWorkerView = false;
+    {% endif %}
+    let sessionData = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load session or worker data
+        if (isWorkerView) {
+            loadWorkerData();
+        } else {
+            loadSession();
+        }
+        
+        // Setup message form
+        document.getElementById('messageForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            sendMessage();
+        });
+        
+        // Setup session control buttons if not in worker view
+        if (!isWorkerView) {
+            document.getElementById('pauseSessionBtn').addEventListener('click', function() {
+                pauseSession();
+            });
+            
+            document.getElementById('stopSessionBtn').addEventListener('click', function() {
+                stopSession();
+            });
+        }
+    });
+    
+    async function loadSession() {
+        try {
+            // Fetch session data
+            const response = await fetch(`/api/sessions/${sessionId}`);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load session: ${response.status} ${response.statusText}`);
+            }
+            
+            sessionData = await response.json();
+            
+            // Update the UI with session data
+            updateSessionUI(sessionData);
+            
+            // Load messages
+            loadMessages(sessionId);
+        } catch (error) {
+            console.error('Error loading session:', error);
+            showNotification('error', `Error loading session: ${error.message}`);
+        }
+    }
+    
+    async function loadWorkerData() {
+        try {
+            // Fetch worker data
+            const response = await fetch(`/api/sessions/${sessionId}/workers/${workerId}`);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load worker data: ${response.status} ${response.statusText}`);
+            }
+            
+            const workerData = await response.json();
+            
+            // Update the UI with worker data
+            updateWorkerUI(workerData);
+            
+            // Load worker messages
+            if (workerData.messages) {
+                displayMessages(workerData.messages);
+            }
+        } catch (error) {
+            console.error('Error loading worker data:', error);
+            showNotification('error', `Error loading worker data: ${error.message}`);
+        }
+    }
+    
+    function updateSessionUI(session) {
+        // Update session info
+        document.getElementById('session-name').textContent = session.name;
+        document.getElementById('session-id').textContent = session.id;
+        document.getElementById('session-status').textContent = formatStatus(session.status);
+        document.getElementById('session-status').className = `badge ${getStatusBadgeClass(session.status)}`;
+        document.getElementById('session-status-info').textContent = formatStatus(session.status);
+        document.getElementById('session-status-info').className = `badge ${getStatusBadgeClass(session.status)}`;
+        document.getElementById('session-created').textContent = formatDate(session.created_at);
+        document.getElementById('session-architect').textContent = session.config.architect.model;
+        document.getElementById('session-workers').textContent = session.config.workers.length.toString();
+        
+        // Show directory if available
+        if (session.config.directory) {
+            document.getElementById('session-directory').textContent = session.config.directory;
+        } else {
+            document.getElementById('session-directory').textContent = 'Default';
+        }
+        
+        // Show description if available
+        if (session.description) {
+            document.getElementById('session-description').textContent = session.description;
+            document.getElementById('session-description-container').style.display = 'block';
+        }
+        
+        // Update workers list
+        updateWorkersList(session.config.workers);
+        
+        // Update buttons based on session status
+        updateControlButtons(session.status);
+    }
+    
+    function updateWorkerUI(worker) {
+        // Update worker info in header
+        document.getElementById('worker-name').textContent = worker.name || `Worker ${workerId}`;
+        
+        // Update worker info in sidebar
+        document.getElementById('worker-name-info').textContent = worker.name || `Worker ${workerId}`;
+        document.getElementById('worker-model').textContent = worker.model;
+        
+        // Update capabilities list
+        updateCapabilitiesList(worker.capabilities || []);
+    }
+    
+    function updateCapabilitiesList(capabilities) {
+        const container = document.getElementById('capabilities-list');
+        
+        if (!capabilities || capabilities.length === 0) {
+            container.innerHTML = '<li class="list-group-item text-center py-3">No capabilities configured.</li>';
+            return;
+        }
+        
+        let html = '';
+        capabilities.forEach(capability => {
+            html += `
+                <li class="list-group-item">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                    ${formatCapability(capability)}
+                </li>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function formatCapability(capability) {
+        // Format capability name for display
+        const formatted = capability.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        return formatted;
+    }
+    
+    function updateWorkersList(workers) {
+        const container = document.getElementById('workers-list');
+        
+        if (!workers || workers.length === 0) {
+            container.innerHTML = '<li class="list-group-item text-center py-3">No workers configured.</li>';
+            return;
+        }
+        
+        let html = '';
+        workers.forEach((worker, index) => {
+            // Create worker item
+            const workerUrl = `/sessions/${sessionId}/workers/${index}`;
+            
+            html += `
+                <li class="list-group-item worker-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">${worker.name || `Worker ${index + 1}`}</h6>
+                            <span class="badge bg-primary">${worker.model}</span>
+                        </div>
+                        <a href="${workerUrl}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-chat-text"></i> Open
+                        </a>
+                    </div>
+                    ${worker.capabilities && worker.capabilities.length > 0 ? 
+                        `<div class="mt-2">
+                            ${worker.capabilities.map(cap => 
+                                `<span class="badge bg-secondary me-1">${cap}</span>`
+                            ).join('')}
+                        </div>` : 
+                        ''
+                    }
+                </li>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function updateControlButtons(status) {
+        if (isWorkerView) return; // Skip if in worker view
+        
+        const pauseBtn = document.getElementById('pauseSessionBtn');
+        const stopBtn = document.getElementById('stopSessionBtn');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        
+        if (status === 'running') {
+            pauseBtn.disabled = false;
+            pauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i> Pause Session';
+            pauseBtn.className = 'btn btn-warning me-2';
+            stopBtn.disabled = false;
+            messageInput.disabled = false;
+            sendButton.disabled = false;
+        } else if (status === 'paused') {
+            pauseBtn.innerHTML = '<i class="bi bi-play-fill"></i> Resume Session';
+            pauseBtn.className = 'btn btn-success me-2';
+            pauseBtn.disabled = false;
+            stopBtn.disabled = false;
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+        } else if (status === 'stopped' || status === 'completed') {
+            pauseBtn.disabled = true;
+            stopBtn.disabled = true;
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+        }
+    }
+    
+    async function loadMessages() {
+        try {
+            const response = await fetch(`/api/sessions/${sessionId}/messages`);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load messages: ${response.status} ${response.statusText}`);
+            }
+            
+            const messages = await response.json();
+            
+            // Display messages
+            displayMessages(messages);
+        } catch (error) {
+            console.error('Error loading messages:', error);
+            showNotification('error', `Error loading messages: ${error.message}`);
+        }
+    }
+    
+    function displayMessages(messages) {
+        // Clear existing messages
+        document.getElementById('messages').innerHTML = '';
+        
+        // Filter messages for worker view
+        if (isWorkerView) {
+            messages = messages.filter(message => {
+                return message.from_agent === `worker${workerId}` || 
+                       message.to_agent === `worker${workerId}`;
+            });
+        }
+        
+        // Sort messages by timestamp
+        messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        
+        // Add messages to the UI
+        messages.forEach(message => {
+            addMessageToDisplay(message);
+        });
+        
+        // Scroll to bottom
+        scrollToBottom();
+    }
+    
+    async function sendMessage() {
+        const messageInput = document.getElementById('messageInput');
+        const message = messageInput.value.trim();
+        
+        if (!message) return;
+        
+        // Clear input
+        messageInput.value = '';
+        
+        try {
+            // Disable form elements
+            messageInput.disabled = true;
+            document.getElementById('sendButton').disabled = true;
+            
+            // Send message to the API
+            let url = `/api/sessions/${sessionId}/messages`;
+            
+            // If in worker view, send to worker endpoint
+            if (isWorkerView) {
+                url = `/api/sessions/${sessionId}/messages/worker/${workerId}`;
+            }
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    content: {
+                        text: message
+                    }
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to send message: ${response.status} ${response.statusText}`);
+            }
+            
+            // Get the message data
+            const messageData = await response.json();
+            
+            // Add message to display
+            addMessageToDisplay(messageData);
+            
+            // Re-enable form elements
+            messageInput.disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            messageInput.focus();
+            
+            // Scroll to bottom
+            scrollToBottom();
+            
+            // Add simulated response in 2 seconds
+            setTimeout(() => {
+                simulateResponse(isWorkerView ? workerId : null);
+            }, 2000);
+            
+        } catch (error) {
+            console.error('Error sending message:', error);
+            showNotification('error', `Error sending message: ${error.message}`);
+            
+            // Re-enable form elements
+            messageInput.disabled = false;
+            document.getElementById('sendButton').disabled = false;
+        }
+    }
+    
+    function simulateResponse(workerId) {
+        // Create a simulated response message
+        const responseId = 'response-' + Date.now();
+        
+        const responseMessage = {
+            id: responseId,
+            session_id: sessionId,
+            from_agent: workerId ? `worker${workerId}` : 'architect',
+            to_agent: 'user',
+            message_type: 'ai_response',
+            content: {
+                text: workerId ? 
+                    generateWorkerResponse() : 
+                    generateArchitectResponse()
+            },
+            timestamp: new Date().toISOString()
+        };
+        
+        // Add message to display
+        addMessageToDisplay(responseMessage);
+        
+        // Scroll to bottom
+        scrollToBottom();
+    }
+    
+    function generateArchitectResponse() {
+        // Generate a simulated architect response
+        const responses = [
+            "I understand your request. Let me coordinate with the relevant workers to address this effectively.",
+            "Thank you for the input. I'll break this down into manageable tasks and assign them to specialized workers.",
+            "I'll organize a plan to tackle this efficiently. Let me coordinate the necessary resources and workers.",
+            "I've analyzed your request and will orchestrate the appropriate workers to handle different aspects of this task.",
+            "Let me coordinate this project for you. I'll assign specialized workers to handle different components efficiently."
+        ];
+        
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+    
+    function generateWorkerResponse() {
+        // Generate a simulated worker response
+        const responses = [
+            "I've analyzed your request and can help with this specialized task.",
+            "Thanks for the direct message. I'll focus on this specific aspect of the project.",
+            "I'll handle this task according to my specialized capabilities and report back when complete.",
+            "I've received your instructions and will begin working on this component immediately.",
+            "I'll tackle this specific part of the project using my specialized skills and tools."
+        ];
+        
+        return responses[Math.floor(Math.random() * responses.length)];
+    }
+    
+    function addMessageToDisplay(message) {
+        // Check if the message is already displayed
+        const existingMessage = document.querySelector(`[data-message-id="${message.id}"]`);
+        if (existingMessage) {
+            return;
+        }
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message message-${message.from_agent}`;
+        messageDiv.dataset.messageId = message.id;
+        
+        let content = '';
+        if (message.content && message.content.text) {
+            content = message.content.text;
+        } else {
+            content = JSON.stringify(message.content);
+        }
+        
+        messageDiv.innerHTML = `
+            <div class="message-header">
+                <span class="message-sender">${formatAgentName(message.from_agent)}</span>
+                <span class="message-time">${formatTime(message.timestamp)}</span>
+            </div>
+            <div class="message-content">${formatContent(content)}</div>
+        `;
+        
+        document.getElementById('messages').appendChild(messageDiv);
+    }
+    
+    async function pauseSession() {
+        // Check if the session is already paused
+        const statusBadge = document.getElementById('session-status');
+        const isPaused = statusBadge.textContent.toLowerCase() === 'paused';
+        
+        try {
+            let response;
+            
+            if (isPaused) {
+                // Resume the session
+                response = await fetch(`/api/sessions/${sessionId}/resume`, {
+                    method: 'POST'
+                });
+            } else {
+                // Pause the session
+                response = await fetch(`/api/sessions/${sessionId}/pause`, {
+                    method: 'POST'
+                });
+            }
+            
+            if (!response.ok) {
+                throw new Error(`Failed to ${isPaused ? 'resume' : 'pause'} session: ${response.status} ${response.statusText}`);
+            }
+            
+            // Update session status
+            const data = await response.json();
+            
+            // Update status badges
+            const statusBadge = document.getElementById('session-status');
+            statusBadge.textContent = formatStatus(data.status);
+            statusBadge.className = `badge ${getStatusBadgeClass(data.status)}`;
+            
+            const statusInfoBadge = document.getElementById('session-status-info');
+            statusInfoBadge.textContent = formatStatus(data.status);
+            statusInfoBadge.className = `badge ${getStatusBadgeClass(data.status)}`;
+            
+            // Update control buttons
+            updateControlButtons(data.status);
+            
+            // Show notification
+            showNotification('success', `Session ${isPaused ? 'resumed' : 'paused'} successfully`);
+            
+        } catch (error) {
+            console.error(`Error ${isPaused ? 'resuming' : 'pausing'} session:`, error);
+            showNotification('error', `Error ${isPaused ? 'resuming' : 'pausing'} session: ${error.message}`);
+        }
+    }
+    
+    async function stopSession() {
+        if (!confirm('Are you sure you want to stop this session? This action cannot be undone.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/sessions/${sessionId}/stop`, {
+                method: 'POST'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to stop session: ${response.status} ${response.statusText}`);
+            }
+            
+            // Update session status
+            const data = await response.json();
+            
+            // Update status badges
+            const statusBadge = document.getElementById('session-status');
+            statusBadge.textContent = formatStatus(data.status);
+            statusBadge.className = `badge ${getStatusBadgeClass(data.status)}`;
+            
+            const statusInfoBadge = document.getElementById('session-status-info');
+            statusInfoBadge.textContent = formatStatus(data.status);
+            statusInfoBadge.className = `badge ${getStatusBadgeClass(data.status)}`;
+            
+            // Update control buttons
+            updateControlButtons(data.status);
+            
+            // Show notification
+            showNotification('success', 'Session stopped successfully');
+            
+            // Add system message
+            addMessageToDisplay({
+                id: 'system-stop-' + Date.now(),
+                from_agent: 'system',
+                to_agent: 'user',
+                message_type: 'status',
+                content: {
+                    text: 'Session stopped. You can view the session history, but no more messages can be sent.'
+                },
+                timestamp: new Date().toISOString()
+            });
+            
+        } catch (error) {
+            console.error('Error stopping session:', error);
+            showNotification('error', `Error stopping session: ${error.message}`);
+        }
+    }
+    
+    function formatAgentName(agentId) {
+        switch (agentId) {
+            case 'architect': return 'Architect';
+            case 'user': return 'You';
+            case 'system': return 'System';
+            default:
+                if (agentId.startsWith('worker')) {
+                    return `Worker ${agentId.replace('worker', '')}`;
+                }
+                return agentId;
+        }
+    }
+    
+    function formatContent(content) {
+        // Convert markdown to HTML (simplified)
+        return content
+            .replace(/```([a-z]*)\n([\s\S]*?)\n```/g, '<pre><code class="language-$1">$2</code></pre>')
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+            .replace(/\n/g, '<br>');
+    }
+    
+    function formatTime(timestamp) {
+        return new Date(timestamp).toLocaleTimeString();
+    }
+    
+    function formatDate(timestamp) {
+        return new Date(timestamp).toLocaleString();
+    }
+    
+    function formatStatus(status) {
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+    
+    function getStatusBadgeClass(status) {
+        switch (status) {
+            case 'running': return 'bg-success';
+            case 'paused': return 'bg-warning';
+            case 'initialized': return 'bg-info';
+            case 'stopped': return 'bg-danger';
+            case 'completed': return 'bg-secondary';
+            case 'error': return 'bg-danger';
+            default: return 'bg-secondary';
+        }
+    }
+    
+    function scrollToBottom() {
+        const conversationArea = document.getElementById('conversationArea');
+        conversationArea.scrollTop = conversationArea.scrollHeight;
+    }
+    
+    function showNotification(type, message) {
+        // Create notification container if it doesn't exist
+        let notifContainer = document.querySelector('.notification-container');
+        if (!notifContainer) {
+            notifContainer = document.createElement('div');
+            notifContainer.className = 'notification-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(notifContainer);
+        }
+        
+        // Create notification
+        const notifId = 'notif-' + Date.now();
+        const notif = document.createElement('div');
+        notif.className = `alert alert-${type} alert-dismissible fade show`;
+        notif.setAttribute('role', 'alert');
+        notif.id = notifId;
+        
+        notif.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Add to container
+        notifContainer.appendChild(notif);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            const alertElement = document.getElementById(notifId);
+            if (alertElement) {
+                const bsAlert = new bootstrap.Alert(alertElement);
+                bsAlert.close();
+            }
+        }, 5000);
+    }
+</script>
+{% endblock %}

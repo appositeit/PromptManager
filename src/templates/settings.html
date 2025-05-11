@@ -1,0 +1,1088 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block header_title %}Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Settings</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" role="tablist">
+                        <a class="list-group-item list-group-item-action active" data-bs-toggle="list" href="#api-keys" role="tab">
+                            API Keys
+                        </a>
+                        <a class="list-group-item list-group-item-action" data-bs-toggle="list" href="#directories" role="tab">
+                            Directories
+                        </a>
+                        <a class="list-group-item list-group-item-action" data-bs-toggle="list" href="#appearance" role="tab">
+                            Appearance
+                        </a>
+                        <a class="list-group-item list-group-item-action" data-bs-toggle="list" href="#advanced" role="tab">
+                            Advanced
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="tab-content">
+                <!-- API Keys -->
+                <div class="tab-pane fade show active" id="api-keys" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">API Keys</h5>
+                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addApiKeyModal">
+                                <i class="bi bi-plus-circle"></i> Add API Key
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <p class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                API keys can be used for accessing AI services. You can reference them using the key name 
+                                in session configurations and MCP server settings. Multi-value keys will be allocated 
+                                according to the specified allocation strategy.
+                            </p>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Provider</th>
+                                            <th>Type</th>
+                                            <th>Allocation</th>
+                                            <th>Last Used</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="api-keys-table-body">
+                                        <!-- API keys will be loaded dynamically -->
+                                        <tr>
+                                            <td colspan="6" class="text-center py-4">
+                                                <div class="spinner-border text-primary" role="status">
+                                                    <span class="visually-hidden">Loading...</span>
+                                                </div>
+                                                <p class="mb-0 mt-2">Loading API keys...</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Directories -->
+                <div class="tab-pane fade" id="directories" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Prompt Directories</h5>
+                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addDirectoryModal">
+                                <i class="bi bi-folder-plus"></i> Add Directory
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Path</th>
+                                            <th>Description</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="directories-settings-table-body">
+                                        <!-- Directories will be loaded dynamically -->
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4">
+                                                <div class="spinner-border text-primary" role="status">
+                                                    <span class="visually-hidden">Loading...</span>
+                                                </div>
+                                                <p class="mb-0 mt-2">Loading directories...</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Appearance -->
+                <div class="tab-pane fade" id="appearance" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Appearance Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="appearance-form">
+                                <div class="mb-3">
+                                    <label class="form-label">Theme</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="theme" id="theme-light" value="light" checked>
+                                        <label class="form-check-label" for="theme-light">
+                                            Light
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="theme" id="theme-dark" value="dark">
+                                        <label class="form-check-label" for="theme-dark">
+                                            Dark
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="theme" id="theme-system" value="system">
+                                        <label class="form-check-label" for="theme-system">
+                                            System Default
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Font Size</label>
+                                    <select class="form-select" id="font-size">
+                                        <option value="small">Small</option>
+                                        <option value="medium" selected>Medium</option>
+                                        <option value="large">Large</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Editor Theme</label>
+                                    <select class="form-select" id="editor-theme">
+                                        <option value="default" selected>Default</option>
+                                        <option value="monokai">Monokai</option>
+                                        <option value="dracula">Dracula</option>
+                                        <option value="github">GitHub</option>
+                                    </select>
+                                </div>
+                                
+                                <button type="button" class="btn btn-primary" id="save-appearance-btn">
+                                    Save Appearance Settings
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Advanced -->
+                <div class="tab-pane fade" id="advanced" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Advanced Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="advanced-form">
+                                <div class="mb-3">
+                                    <label for="max-history-size" class="form-label">Maximum Message History Size</label>
+                                    <input type="number" class="form-control" id="max-history-size" min="100" max="10000" value="1000">
+                                    <div class="form-text">Maximum number of messages to keep in history per conversation</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Human Intervention Settings</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="enable-intervention" checked>
+                                        <label class="form-check-label" for="enable-intervention">
+                                            Enable Human Intervention
+                                        </label>
+                                    </div>
+                                    <div class="form-text">If enabled, certain messages will require human approval before being delivered</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Messages Requiring Approval</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="require-approval-task-assignment" checked>
+                                        <label class="form-check-label" for="require-approval-task-assignment">
+                                            Task Assignment
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="require-approval-mcp-request" checked>
+                                        <label class="form-check-label" for="require-approval-mcp-request">
+                                            MCP Requests
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="require-approval-worker-response">
+                                        <label class="form-check-label" for="require-approval-worker-response">
+                                            Worker Responses
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" class="btn btn-primary" id="save-advanced-btn">
+                                    Save Advanced Settings
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add API Key Modal -->
+<div class="modal fade" id="addApiKeyModal" tabindex="-1" aria-labelledby="addApiKeyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addApiKeyModalLabel">Add API Key</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addApiKeyForm">
+                    <div class="mb-3">
+                        <label for="apiKeyName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="apiKeyName" required>
+                        <div class="form-text">A name to identify this API key</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="apiKeyProvider" class="form-label">Provider</label>
+                        <select class="form-select" id="apiKeyProvider" required>
+                            <option value="anthropic">Anthropic (Claude)</option>
+                            <option value="openai">OpenAI (GPT)</option>
+                            <option value="google">Google (Gemini)</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="apiKeyType" class="form-label">Key Type</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="apiKeyType" id="apiKeyTypeSingle" value="single" checked>
+                            <label class="form-check-label" for="apiKeyTypeSingle">
+                                Single Value
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="apiKeyType" id="apiKeyTypeMulti" value="multi">
+                            <label class="form-check-label" for="apiKeyTypeMulti">
+                                Multiple Values
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Single API Key -->
+                    <div id="singleKeyInputContainer" class="mb-3">
+                        <label for="apiKeyValue" class="form-label">API Key</label>
+                        <input type="password" class="form-control" id="apiKeyValue">
+                        <div class="form-text">The API key will be stored securely</div>
+                    </div>
+                    
+                    <!-- Multiple API Keys -->
+                    <div id="multiKeyInputContainer" class="mb-3 d-none">
+                        <label class="form-label">API Keys</label>
+                        <div id="multiKeyList">
+                            <div class="input-group mb-2">
+                                <input type="password" class="form-control multi-key-value" placeholder="API Key">
+                                <button class="btn btn-outline-secondary remove-key-btn" type="button">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="addKeyValueBtn">
+                            <i class="bi bi-plus-circle"></i> Add Another Key
+                        </button>
+                    </div>
+                    
+                    <!-- Allocation Strategy (for multi-key) -->
+                    <div id="allocationStrategyContainer" class="mb-3 d-none">
+                        <label for="allocationStrategy" class="form-label">Allocation Strategy</label>
+                        <select class="form-select" id="allocationStrategy">
+                            <option value="sequential">Sequential (In Order)</option>
+                            <option value="random">Random</option>
+                            <option value="unique">Unique Per Worker</option>
+                        </select>
+                        <div class="form-text">How keys should be allocated when requested for different workers</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="addApiKeyBtn">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit API Key Modal -->
+<div class="modal fade" id="editApiKeyModal" tabindex="-1" aria-labelledby="editApiKeyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editApiKeyModalLabel">Edit API Key</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editApiKeyForm">
+                    <input type="hidden" id="editApiKeyId">
+                    
+                    <div class="mb-3">
+                        <label for="editApiKeyName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="editApiKeyName" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editApiKeyProvider" class="form-label">Provider</label>
+                        <select class="form-select" id="editApiKeyProvider" required>
+                            <option value="anthropic">Anthropic (Claude)</option>
+                            <option value="openai">OpenAI (GPT)</option>
+                            <option value="google">Google (Gemini)</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editAllocationStrategy" class="form-label">Allocation Strategy</label>
+                        <select class="form-select" id="editAllocationStrategy">
+                            <option value="sequential">Sequential (In Order)</option>
+                            <option value="random">Random</option>
+                            <option value="unique">Unique Per Worker</option>
+                        </select>
+                        <div class="form-text">How keys should be allocated when requested for different workers</div>
+                    </div>
+                    
+                    <!-- Key Management -->
+                    <div class="mb-3" id="editKeyValues">
+                        <label class="form-label">Manage Keys</label>
+                        <div id="editMultiKeyList">
+                            <!-- Key values will be loaded dynamically -->
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="editAddKeyValueBtn">
+                            <i class="bi bi-plus-circle"></i> Add Key
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveApiKeyBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete API Key Confirmation Modal -->
+<div class="modal fade" id="deleteApiKeyModal" tabindex="-1" aria-labelledby="deleteApiKeyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteApiKeyModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the API key <strong id="delete-api-key-name"></strong>?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-api-key-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Mock API key data for development
+    const mockApiKeys = [
+        {
+            id: 'key1',
+            name: 'Claude API Key',
+            provider: 'anthropic',
+            type: 'single',
+            values: ['sk-ant-api03-XXXXXXXXXXXXXXXXXXXX'],
+            allocation_strategy: null,
+            last_used: new Date(Date.now() - 86400000).toISOString() // Yesterday
+        },
+        {
+            id: 'key2',
+            name: 'GPT-4 API Keys',
+            provider: 'openai',
+            type: 'multi',
+            values: [
+                'sk-XXXXXXXXXXXX1',
+                'sk-XXXXXXXXXXXX2',
+                'sk-XXXXXXXXXXXX3'
+            ],
+            allocation_strategy: 'unique',
+            last_used: new Date(Date.now() - 172800000).toISOString() // 2 days ago
+        },
+        {
+            id: 'key3',
+            name: 'Gemini API Keys',
+            provider: 'google',
+            type: 'multi',
+            values: [
+                'AIzaXXXXXXXXXXX1',
+                'AIzaXXXXXXXXXXX2'
+            ],
+            allocation_strategy: 'sequential',
+            last_used: new Date(Date.now() - 259200000).toISOString() // 3 days ago
+        }
+    ];
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Make sure dayjs is initialized properly
+        initializeDayjs();
+        
+        // Load API keys
+        loadApiKeys();
+        
+        // Load directories
+        loadDirectories();
+        
+        // Set up API key type toggle
+        const singleKeyRadio = document.getElementById('apiKeyTypeSingle');
+        const multiKeyRadio = document.getElementById('apiKeyTypeMulti');
+        const singleKeyContainer = document.getElementById('singleKeyInputContainer');
+        const multiKeyContainer = document.getElementById('multiKeyInputContainer');
+        const allocationContainer = document.getElementById('allocationStrategyContainer');
+        
+        singleKeyRadio.addEventListener('change', function() {
+            if (this.checked) {
+                singleKeyContainer.classList.remove('d-none');
+                multiKeyContainer.classList.add('d-none');
+                allocationContainer.classList.add('d-none');
+            }
+        });
+        
+        multiKeyRadio.addEventListener('change', function() {
+            if (this.checked) {
+                singleKeyContainer.classList.add('d-none');
+                multiKeyContainer.classList.remove('d-none');
+                allocationContainer.classList.remove('d-none');
+            }
+        });
+        
+        // Add key value button (for multi-key)
+        document.getElementById('addKeyValueBtn').addEventListener('click', function() {
+            const keyTemplate = `
+                <div class="input-group mb-2">
+                    <input type="password" class="form-control multi-key-value" placeholder="API Key">
+                    <button class="btn btn-outline-secondary remove-key-btn" type="button">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `;
+            
+            const keyList = document.getElementById('multiKeyList');
+            keyList.insertAdjacentHTML('beforeend', keyTemplate);
+            
+            // Add event listener to the new remove button
+            const newRemoveBtn = keyList.lastElementChild.querySelector('.remove-key-btn');
+            newRemoveBtn.addEventListener('click', function() {
+                this.closest('.input-group').remove();
+            });
+        });
+        
+        // Add remove key button handlers
+        document.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-key-btn')) {
+                e.target.closest('.input-group').remove();
+            }
+        });
+        
+        // Set up event handlers
+        document.getElementById('addApiKeyBtn').addEventListener('click', addApiKey);
+        document.getElementById('saveApiKeyBtn').addEventListener('click', saveApiKey);
+        document.getElementById('confirm-delete-api-key-btn').addEventListener('click', deleteApiKey);
+        document.getElementById('save-appearance-btn').addEventListener('click', saveAppearanceSettings);
+        document.getElementById('save-advanced-btn').addEventListener('click', saveAdvancedSettings);
+        
+        // Edit key add button
+        document.getElementById('editAddKeyValueBtn').addEventListener('click', function() {
+            const keyTemplate = `
+                <div class="input-group mb-2">
+                    <input type="password" class="form-control edit-multi-key-value" placeholder="API Key">
+                    <button class="btn btn-outline-secondary edit-remove-key-btn" type="button">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `;
+            
+            const keyList = document.getElementById('editMultiKeyList');
+            keyList.insertAdjacentHTML('beforeend', keyTemplate);
+            
+            // Add event listener to the new remove button
+            const newRemoveBtn = keyList.lastElementChild.querySelector('.edit-remove-key-btn');
+            newRemoveBtn.addEventListener('click', function() {
+                this.closest('.input-group').remove();
+            });
+        });
+        
+        // Load saved settings
+        loadSavedSettings();
+    });
+    
+    function initializeDayjs() {
+        // Initialize dayjs with relativeTime plugin
+        if (window.dayjs && window.dayjs_plugin_relativeTime) {
+            dayjs.extend(dayjs_plugin_relativeTime);
+        } else {
+            console.warn('dayjs or relativeTime plugin not loaded');
+        }
+    }
+    
+    function formatDate(date) {
+        if (!date) return 'Never';
+        
+        try {
+            // Try to use the relativeTime plugin if available
+            if (typeof dayjs(date).fromNow === 'function') {
+                return dayjs(date).fromNow();
+            } else {
+                // Fallback to a simple date format
+                return new Date(date).toLocaleString();
+            }
+        } catch (error) {
+            console.warn('Error formatting date:', error);
+            return 'Unknown';
+        }
+    }
+    
+    function loadApiKeys() {
+        const tableBody = document.getElementById('api-keys-table-body');
+        
+        // Clear table
+        tableBody.innerHTML = '';
+        
+        // Check if no API keys
+        if (mockApiKeys.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4">
+                        <p class="mb-0">No API keys found.</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        // Add API keys to table
+        mockApiKeys.forEach(key => {
+            const row = document.createElement('tr');
+            
+            // Name cell
+            const nameCell = document.createElement('td');
+            nameCell.textContent = key.name;
+            
+            // Provider cell
+            const providerCell = document.createElement('td');
+            const providerBadge = document.createElement('span');
+            providerBadge.className = getProviderBadgeClass(key.provider);
+            providerBadge.textContent = getProviderLabel(key.provider);
+            providerCell.appendChild(providerBadge);
+            
+            // Type cell
+            const typeCell = document.createElement('td');
+            typeCell.textContent = key.type === 'single' ? 'Single' : `Multi (${key.values.length})`;
+            
+            // Allocation cell
+            const allocationCell = document.createElement('td');
+            if (key.type === 'multi' && key.allocation_strategy) {
+                allocationCell.textContent = getAllocationLabel(key.allocation_strategy);
+            } else {
+                allocationCell.textContent = '-';
+            }
+            
+            // Last used cell
+            const lastUsedCell = document.createElement('td');
+            lastUsedCell.textContent = formatDate(key.last_used);
+            
+            // Actions cell
+            const actionsCell = document.createElement('td');
+            
+            // Edit button
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn btn-sm btn-outline-primary me-1';
+            editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+            editBtn.title = 'Edit';
+            editBtn.addEventListener('click', function() {
+                editApiKey(key.id);
+            });
+            
+            // Delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn btn-sm btn-outline-danger';
+            deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+            deleteBtn.title = 'Delete';
+            deleteBtn.addEventListener('click', function() {
+                showDeleteApiKeyConfirmation(key.id, key.name);
+            });
+            
+            actionsCell.appendChild(editBtn);
+            actionsCell.appendChild(deleteBtn);
+            
+            // Add cells to row
+            row.appendChild(nameCell);
+            row.appendChild(providerCell);
+            row.appendChild(typeCell);
+            row.appendChild(allocationCell);
+            row.appendChild(lastUsedCell);
+            row.appendChild(actionsCell);
+            
+            tableBody.appendChild(row);
+        });
+    }
+    
+    function loadDirectories() {
+        const tableBody = document.getElementById('directories-settings-table-body');
+        
+        // This would normally fetch from an API endpoint
+        // For now, we'll use mock data
+        const mockDirectories = [
+            {
+                path: '/home/jem/development/coordinator/data/prompts',
+                name: 'Default Prompts',
+                description: 'Default prompt directory',
+                enabled: true
+            },
+            {
+                path: '/home/jem/development/coordinator/data/system_prompts',
+                name: 'System Prompts',
+                description: 'System prompt directory',
+                enabled: true
+            }
+        ];
+        
+        // Clear table
+        tableBody.innerHTML = '';
+        
+        // Check if no directories
+        if (mockDirectories.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-4">
+                        <p class="mb-0">No directories configured.</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        // Add directories to table
+        mockDirectories.forEach(dir => {
+            const row = document.createElement('tr');
+            
+            // Name cell
+            const nameCell = document.createElement('td');
+            nameCell.textContent = dir.name;
+            
+            // Path cell
+            const pathCell = document.createElement('td');
+            pathCell.textContent = dir.path;
+            
+            // Description cell
+            const descCell = document.createElement('td');
+            descCell.textContent = dir.description || '';
+            
+            // Status cell
+            const statusCell = document.createElement('td');
+            const statusSwitch = document.createElement('div');
+            statusSwitch.className = 'form-check form-switch';
+            
+            const statusInput = document.createElement('input');
+            statusInput.className = 'form-check-input';
+            statusInput.type = 'checkbox';
+            statusInput.checked = dir.enabled;
+            statusInput.addEventListener('change', function() {
+                // This would normally update the directory status
+                showToast(`Directory ${dir.name} ${this.checked ? 'enabled' : 'disabled'}`);
+            });
+            
+            statusSwitch.appendChild(statusInput);
+            statusCell.appendChild(statusSwitch);
+            
+            // Actions cell
+            const actionsCell = document.createElement('td');
+            
+            // Refresh button
+            const refreshBtn = document.createElement('button');
+            refreshBtn.className = 'btn btn-sm btn-outline-primary me-1';
+            refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+            refreshBtn.title = 'Refresh';
+            refreshBtn.addEventListener('click', function() {
+                // This would normally refresh the directory
+                showToast(`Refreshing directory ${dir.name}...`);
+            });
+            
+            // Delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn btn-sm btn-outline-danger';
+            deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+            deleteBtn.title = 'Remove';
+            deleteBtn.addEventListener('click', function() {
+                // This would normally remove the directory
+                showToast(`Directory ${dir.name} removed`);
+                loadDirectories();
+            });
+            
+            actionsCell.appendChild(refreshBtn);
+            actionsCell.appendChild(deleteBtn);
+            
+            // Add cells to row
+            row.appendChild(nameCell);
+            row.appendChild(pathCell);
+            row.appendChild(descCell);
+            row.appendChild(statusCell);
+            row.appendChild(actionsCell);
+            
+            tableBody.appendChild(row);
+        });
+    }
+    
+    function getProviderBadgeClass(provider) {
+        switch (provider) {
+            case 'anthropic':
+                return 'badge bg-primary';
+            case 'openai':
+                return 'badge bg-success';
+            case 'google':
+                return 'badge bg-warning';
+            default:
+                return 'badge bg-secondary';
+        }
+    }
+    
+    function getProviderLabel(provider) {
+        switch (provider) {
+            case 'anthropic':
+                return 'Anthropic';
+            case 'openai':
+                return 'OpenAI';
+            case 'google':
+                return 'Google';
+            default:
+                return 'Other';
+        }
+    }
+    
+    function getAllocationLabel(strategy) {
+        switch (strategy) {
+            case 'sequential':
+                return 'Sequential';
+            case 'random':
+                return 'Random';
+            case 'unique':
+                return 'Unique Per Worker';
+            default:
+                return '-';
+        }
+    }
+    
+    function addApiKey() {
+        const name = document.getElementById('apiKeyName').value.trim();
+        const provider = document.getElementById('apiKeyProvider').value;
+        const type = document.querySelector('input[name="apiKeyType"]:checked').value;
+        
+        let values = [];
+        let allocationStrategy = null;
+        
+        if (type === 'single') {
+            const apiKey = document.getElementById('apiKeyValue').value.trim();
+            if (!apiKey) {
+                alert('API key is required');
+                return;
+            }
+            values = [apiKey];
+        } else {
+            // Get all multi-key values
+            const keyInputs = document.querySelectorAll('.multi-key-value');
+            keyInputs.forEach(input => {
+                const keyValue = input.value.trim();
+                if (keyValue) {
+                    values.push(keyValue);
+                }
+            });
+            
+            if (values.length === 0) {
+                alert('At least one API key is required');
+                return;
+            }
+            
+            allocationStrategy = document.getElementById('allocationStrategy').value;
+        }
+        
+        // Validate
+        if (!name) {
+            alert('Name is required');
+            return;
+        }
+        
+        // Create new API key object
+        const newKey = {
+            id: 'key' + (mockApiKeys.length + 1),
+            name: name,
+            provider: provider,
+            type: type,
+            values: values,
+            allocation_strategy: allocationStrategy,
+            last_used: null
+        };
+        
+        // Add to mock data
+        mockApiKeys.push(newKey);
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addApiKeyModal'));
+        modal.hide();
+        
+        // Clear form
+        document.getElementById('apiKeyName').value = '';
+        document.getElementById('apiKeyValue').value = '';
+        document.getElementById('apiKeyTypeSingle').checked = true;
+        document.getElementById('singleKeyInputContainer').classList.remove('d-none');
+        document.getElementById('multiKeyInputContainer').classList.add('d-none');
+        document.getElementById('allocationStrategyContainer').classList.add('d-none');
+        
+        // Clear multi-key list except for the first input
+        const multiKeyList = document.getElementById('multiKeyList');
+        while (multiKeyList.children.length > 1) {
+            multiKeyList.removeChild(multiKeyList.lastChild);
+        }
+        multiKeyList.querySelector('.multi-key-value').value = '';
+        
+        // Show toast
+        showToast('API key added successfully');
+        
+        // Reload API keys
+        loadApiKeys();
+    }
+    
+    function editApiKey(keyId) {
+        // Find the API key
+        const apiKey = mockApiKeys.find(key => key.id === keyId);
+        if (!apiKey) {
+            console.error(`API key with ID ${keyId} not found`);
+            return;
+        }
+        
+        // Set form values
+        document.getElementById('editApiKeyId').value = apiKey.id;
+        document.getElementById('editApiKeyName').value = apiKey.name;
+        document.getElementById('editApiKeyProvider').value = apiKey.provider;
+        
+        // Set allocation strategy
+        const editAllocationStrategy = document.getElementById('editAllocationStrategy');
+        if (apiKey.type === 'multi' && apiKey.allocation_strategy) {
+            editAllocationStrategy.value = apiKey.allocation_strategy;
+            editAllocationStrategy.disabled = false;
+        } else {
+            editAllocationStrategy.value = 'sequential';
+            editAllocationStrategy.disabled = apiKey.type === 'single';
+        }
+        
+        // Populate key values
+        const editMultiKeyList = document.getElementById('editMultiKeyList');
+        editMultiKeyList.innerHTML = '';
+        
+        apiKey.values.forEach(value => {
+            const keyTemplate = `
+                <div class="input-group mb-2">
+                    <input type="password" class="form-control edit-multi-key-value" value="${value}" placeholder="API Key">
+                    <button class="btn btn-outline-secondary edit-remove-key-btn" type="button">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `;
+            
+            editMultiKeyList.insertAdjacentHTML('beforeend', keyTemplate);
+        });
+        
+        // Add event listeners to remove buttons
+        document.querySelectorAll('.edit-remove-key-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.closest('.input-group').remove();
+            });
+        });
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('editApiKeyModal'));
+        modal.show();
+    }
+    
+    function saveApiKey() {
+        const keyId = document.getElementById('editApiKeyId').value;
+        const name = document.getElementById('editApiKeyName').value.trim();
+        const provider = document.getElementById('editApiKeyProvider').value;
+        const allocationStrategy = document.getElementById('editAllocationStrategy').value;
+        
+        // Get all key values
+        const keyInputs = document.querySelectorAll('.edit-multi-key-value');
+        const values = [];
+        
+        keyInputs.forEach(input => {
+            const keyValue = input.value.trim();
+            if (keyValue) {
+                values.push(keyValue);
+            }
+        });
+        
+        // Validate
+        if (!name) {
+            alert('Name is required');
+            return;
+        }
+        
+        if (values.length === 0) {
+            alert('At least one API key is required');
+            return;
+        }
+        
+        // Find the API key in the mock data
+        const keyIndex = mockApiKeys.findIndex(key => key.id === keyId);
+        if (keyIndex === -1) {
+            console.error(`API key with ID ${keyId} not found`);
+            return;
+        }
+        
+        // Update the API key
+        mockApiKeys[keyIndex].name = name;
+        mockApiKeys[keyIndex].provider = provider;
+        mockApiKeys[keyIndex].values = values;
+        mockApiKeys[keyIndex].type = values.length > 1 ? 'multi' : 'single';
+        mockApiKeys[keyIndex].allocation_strategy = values.length > 1 ? allocationStrategy : null;
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editApiKeyModal'));
+        modal.hide();
+        
+        // Show toast
+        showToast('API key updated successfully');
+        
+        // Reload API keys
+        loadApiKeys();
+    }
+    
+    function showDeleteApiKeyConfirmation(keyId, keyName) {
+        document.getElementById('delete-api-key-name').textContent = keyName || keyId;
+        document.getElementById('confirm-delete-api-key-btn').dataset.keyId = keyId;
+        
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteApiKeyModal'));
+        deleteModal.show();
+    }
+    
+    function deleteApiKey() {
+        const keyId = this.dataset.keyId;
+        
+        // Find the key in the mock data
+        const keyIndex = mockApiKeys.findIndex(key => key.id === keyId);
+        if (keyIndex === -1) {
+            console.error(`API key with ID ${keyId} not found`);
+            return;
+        }
+        
+        // Remove the key
+        mockApiKeys.splice(keyIndex, 1);
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteApiKeyModal'));
+        modal.hide();
+        
+        // Show toast
+        showToast('API key deleted successfully');
+        
+        // Reload API keys
+        loadApiKeys();
+    }
+    
+    function loadSavedSettings() {
+        // This would normally load settings from localStorage or an API
+        // For now, we'll just use default values
+        
+        // Theme
+        document.getElementById('theme-light').checked = true;
+        
+        // Font size
+        document.getElementById('font-size').value = 'medium';
+        
+        // Editor theme
+        document.getElementById('editor-theme').value = 'default';
+        
+        // Max history size
+        document.getElementById('max-history-size').value = 1000;
+        
+        // Intervention settings
+        document.getElementById('enable-intervention').checked = true;
+        document.getElementById('require-approval-task-assignment').checked = true;
+        document.getElementById('require-approval-mcp-request').checked = true;
+        document.getElementById('require-approval-worker-response').checked = false;
+    }
+    
+    function saveAppearanceSettings() {
+        // Get values
+        const theme = document.querySelector('input[name="theme"]:checked').value;
+        const fontSize = document.getElementById('font-size').value;
+        const editorTheme = document.getElementById('editor-theme').value;
+        
+        // This would normally save settings to localStorage or an API
+        // For now, just show a toast
+        
+        showToast('Appearance settings saved');
+    }
+    
+    function saveAdvancedSettings() {
+        // Get values
+        const maxHistorySize = document.getElementById('max-history-size').value;
+        const enableIntervention = document.getElementById('enable-intervention').checked;
+        const requireApprovalTaskAssignment = document.getElementById('require-approval-task-assignment').checked;
+        const requireApprovalMcpRequest = document.getElementById('require-approval-mcp-request').checked;
+        const requireApprovalWorkerResponse = document.getElementById('require-approval-worker-response').checked;
+        
+        // This would normally save settings to localStorage or an API
+        // For now, just show a toast
+        
+        showToast('Advanced settings saved');
+    }
+    
+    function showToast(message, type = 'success') {
+        // Create toast container if it doesn't exist
+        let toastContainer = document.querySelector('.toast-container');
+        
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+        
+        // Create toast element
+        const toastId = 'toast-' + Date.now();
+        const toastHtml = `
+            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <strong class="me-auto">Notification</strong>
+                    <small>Just now</small>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        
+        // Initialize and show the toast
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 3000 });
+        toast.show();
+        
+        // Remove toast after it's hidden
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            toastElement.remove();
+        });
+    }
+</script>
+{% endblock %}

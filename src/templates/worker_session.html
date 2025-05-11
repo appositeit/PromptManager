@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Coordinator - Worker Conversation{% endblock %}
+
+{% block header_title %}
+<a href="/sessions/{{ session_id }}" class="text-decoration-none text-reset">
+    <i class="bi bi-arrow-left me-2"></i> Session
+</a> / Worker: <span id="worker-name">Loading...</span>
+{% endblock %}
+
+{% block header_actions %}
+<div class="d-flex">
+    <a href="/sessions/{{ session_id }}" class="btn btn-outline-primary">
+        <i class="bi bi-chat-square-text"></i> Back to Session
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Worker Conversation</h5>
+                    <div>
+                        <span class="badge bg-success" id="worker-status">Active</span>
+                    </div>
+                </div>
+                <div class="card-body conversation-area" id="conversationArea">
+                    <div id="messages" class="messages">
+                        <!-- Messages will be loaded dynamically -->
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <form id="messageForm">
+                        <div class="input-group">
+                            <textarea class="form-control" id="messageInput" placeholder="Send a direct message to this worker..." rows="2"></textarea>
+                            <button class="btn btn-primary" type="submit" id="sendButton">
+                                <i class="bi bi-send"></i> Send
+                            </button>
+                        </div>
+                        <div class="form-text mt-1">
+                            Direct messages to workers bypass the Architect. Use with caution.
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Worker Info</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <th scope="row">Name</th>
+                                <td id="worker-name-info">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Model</th>
+                                <td id="worker-model">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Status</th>
+                                <td><span class="badge bg-success" id="worker-status-info">Active</span></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Tasks</th>
+                                <td id="worker-tasks">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Capabilities</h5>
+                </div>
+                <div class="card-body p-0" id="capabilities-container">
+                    <ul class="list-group list-group-flush" id="capabilities-list">
+                        <li class="list-group-item text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Loading capabilities...</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Active Tasks</h5>
+                </div>
+                <div class="card-body p-0" id="tasks-container">
+                    <ul class="list-group list-group-flush" id="tasks-list">
+                        <li class="list-group-item text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Loading tasks...</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Session and worker details
+    let sessionId = '{{ session_id }}';
+    let workerId = '{{ worker_id }}';
+    let workerData = null;
+    let messageWebSocket = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load worker data
+        loadWorkerData();
+        
+        // Setup message form
+        document.getElementById('messageForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            sendMessage();
+        });
+    });
+    
+    async function loadWorkerData() {
+        try {
+            // Fetch worker data
+            const response = await fetch(`/api/sessions/${sessionId}/workers/${workerId}`);
+            
+            if (!response.ok) {
+                throw new Error(`Failed to load worker data: ${response.status} ${response.statusText}`);
+            }
+            
+            workerData = await response.json();
+            
+            // Update the UI with worker data
+            updateWorkerUI(workerData);
+            
+            // Load messages
+            loadMessages();
+            
+            // Connect to WebSocket for real-time updates
+            connectToWebSocket();
+        } catch (error) {
+            console.error('Error loading worker data:', error);
+            showNotification('error', `Error loading worker data: ${error.message}`);
+        }
+    }
+    
+    function updateWorkerUI(worker) {
+        // Update worker info
+        document.getElementById('worker-name').textContent = worker.name;
+        document.getElementById('worker-name-info').textContent = worker.name;
+        document.getElementById('worker-model').textContent = worker.model;
+        document.getElementById('worker-status').textContent = worker.status ||

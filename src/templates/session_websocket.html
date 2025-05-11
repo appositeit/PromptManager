@@ -1,0 +1,638 @@
+{% extends "base.html" %}
+
+{% block title %}Coordinator - Real-time Session Monitoring{% endblock %}
+
+{% block header_title %}
+Session: <span id="session-name">Loading...</span>
+{% endblock %}
+
+{% block header_actions %}
+<div class="d-flex">
+    <button id="pauseSessionBtn" class="btn btn-warning me-2">
+        <i class="bi bi-pause-fill"></i> Pause Session
+    </button>
+    <button id="stopSessionBtn" class="btn btn-danger">
+        <i class="bi bi-stop-fill"></i> Stop Session
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Task Visualization Area -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Session Visualization</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-primary active" id="view-graph-btn" onclick="switchView('graph')">
+                            <i class="bi bi-diagram-3"></i> Task Graph
+                        </button>
+                        <button class="btn btn-sm btn-outline-primary" id="view-timeline-btn" onclick="switchView('timeline')">
+                            <i class="bi bi-bar-chart-steps"></i> Timeline
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="visualization-area" class="p-3" style="min-height: 400px;">
+                        <div id="task-graph-container" style="width: 100%; height: 400px; position: relative;"></div>
+                        <div id="task-timeline-container" style="width: 100%; height: 400px; position: relative; display: none;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Real-time Info Area -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Real-time Activity</h5>
+                    <span class="badge bg-success" id="connection-status">Connected</span>
+                </div>
+                <div class="card-body">
+                    <div id="activity-log" class="activity-log" style="height: 300px; overflow-y: auto;">
+                        <!-- Activity will be added here dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Session Info</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tbody>
+                            <tr>
+                                <th scope="row">ID</th>
+                                <td id="session-id">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Status</th>
+                                <td><span class="badge bg-success" id="session-status-info">Running</span></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Created</th>
+                                <td id="session-created">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Architect</th>
+                                <td id="session-architect">Loading...</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Workers</th>
+                                <td id="session-workers">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Agent Status</h5>
+                </div>
+                <div class="card-body p-0" id="agent-status-container">
+                    <ul class="list-group list-group-flush" id="agent-status-list">
+                        <li class="list-group-item text-center py-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="ms-2">Loading agents...</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Include D3.js for visualization -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<!-- Include WebSocket client -->
+<script src="/static/js/websocket_client.js"></script>
+
+<!-- Include visualization scripts -->
+<script src="/static/js/visualization/task_visualizer.js"></script>
+<script src="/static/js/visualization/real_time_visualization.js"></script>
+
+<script>
+    // Session details
+    const sessionId = '{{ session_id }}';
+    let sessionData = null;
+    let visualizationManager = null;
+    let currentView = 'graph';
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Fetch session data
+        fetchSessionData();
+        
+        // Initialize visualization manager
+        initializeVisualization();
+        
+        // Set up event listeners
+        document.getElementById('pauseSessionBtn').addEventListener('click', pauseSession);
+        document.getElementById('stopSessionBtn').addEventListener('click', stopSession);
+        
+        // Handle view switching
+        document.getElementById('view-graph-btn').addEventListener('click', () => switchView('graph'));
+        document.getElementById('view-timeline-btn').addEventListener('click', () => switchView('timeline'));
+        
+        // Listen for agent status changes
+        document.addEventListener('agent-status-change', handleAgentStatusChange);
+        
+        // Listen for session status changes
+        document.addEventListener('session-status-change', handleSessionStatusChange);
+        
+        // Handle window resize
+        window.addEventListener('resize', handleWindowResize);
+    });
+    
+    function fetchSessionData() {
+        fetch(`/api/sessions/${sessionId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Failed to load session: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                sessionData = data;
+                updateSessionUI(data);
+            })
+            .catch(error => {
+                console.error('Error loading session:', error);
+                showNotification('error', `Error loading session: ${error.message}`);
+            });
+    }
+    
+    function initializeVisualization() {
+        // Initialize real-time visualization manager
+        visualizationManager = new RealTimeVisualizationManager(
+            'task-graph-container',
+            'task-timeline-container',
+            sessionId,
+            {
+                wsBaseUrl: `ws://${window.location.host}/api/ws`,
+                debug: true,
+                autoConnect: true
+            }
+        );
+        
+        // Set up custom WebSocket for activity log
+        initializeActivityLog();
+    }
+    
+    function initializeActivityLog() {
+        // Create WebSocket client for activity log
+        const wsClient = new EnhancedWebSocketClient(
+            `ws://${window.location.host}/api/ws`,
+            sessionId,
+            {
+                debug: true,
+                subscriptions: [
+                    'agent_thinking',
+                    'agent_typing',
+                    'tool_execution',
+                    'task_created',
+                    'task_started',
+                    'task_completed',
+                    'task_failed',
+                    'session_status'
+                ]
+            }
+        );
+        
+        // Connect to WebSocket
+        wsClient.connect().catch(error => {
+            console.error('Failed to connect to WebSocket:', error);
+            updateConnectionStatus(false);
+        });
+        
+        // Set up event handlers
+        wsClient.on('connect', () => {
+            updateConnectionStatus(true);
+            addActivityLogEntry('system', 'Connected to WebSocket server');
+        });
+        
+        wsClient.on('disconnect', () => {
+            updateConnectionStatus(false);
+            addActivityLogEntry('system', 'Disconnected from WebSocket server');
+        });
+        
+        wsClient.on('error', (data) => {
+            addActivityLogEntry('error', `Error: ${data.error}`);
+        });
+        
+        // Handle agent thinking events
+        wsClient.on('agent_thinking', (data) => {
+            const agentId = data.data.agent_id;
+            const isThinking = data.data.is_thinking;
+            const topic = data.data.topic;
+            
+            if (isThinking) {
+                addActivityLogEntry('thinking', `${formatAgentName(agentId)} is thinking about ${topic || 'a task'}`);
+            } else {
+                addActivityLogEntry('thinking', `${formatAgentName(agentId)} finished thinking`);
+            }
+        });
+        
+        // Handle agent typing events
+        wsClient.on('agent_typing', (data) => {
+            const agentId = data.data.agent_id;
+            const isTyping = data.data.is_typing;
+            
+            if (isTyping) {
+                addActivityLogEntry('typing', `${formatAgentName(agentId)} is typing...`);
+            }
+        });
+        
+        // Handle tool execution events
+        wsClient.on('tool_execution', (data) => {
+            const agentId = data.data.agent_id;
+            const toolName = data.data.tool_name;
+            const status = data.data.status;
+            
+            if (status === 'started') {
+                addActivityLogEntry('tool', `${formatAgentName(agentId)} is executing tool: ${toolName}`);
+            } else if (status === 'completed') {
+                addActivityLogEntry('tool', `${formatAgentName(agentId)} completed tool: ${toolName}`);
+            } else if (status === 'failed') {
+                addActivityLogEntry('tool', `${formatAgentName(agentId)} failed to execute tool: ${toolName}`);
+            }
+        });
+        
+        // Handle task events
+        wsClient.on('task_created', (data) => {
+            addActivityLogEntry('task', `Task created: ${data.data.title}`);
+        });
+        
+        wsClient.on('task_started', (data) => {
+            const assignedTo = data.data.assigned_to;
+            addActivityLogEntry('task', `Task started: ${data.data.title}${assignedTo ? ` (assigned to ${formatAgentName(assignedTo)})` : ''}`);
+        });
+        
+        wsClient.on('task_completed', (data) => {
+            addActivityLogEntry('task', `Task completed: ${data.data.title}`);
+        });
+        
+        wsClient.on('task_failed', (data) => {
+            addActivityLogEntry('task', `Task failed: ${data.data.title}`);
+        });
+        
+        // Handle session status events
+        wsClient.on('session_status', (data) => {
+            addActivityLogEntry('status', `Session status changed to: ${data.data.status}`);
+        });
+    }
+    
+    function updateSessionUI(session) {
+        // Update session info
+        document.getElementById('session-name').textContent = session.name;
+        document.getElementById('session-id').textContent = session.id;
+        
+        const statusBadge = document.getElementById('session-status-info');
+        statusBadge.textContent = formatStatus(session.status);
+        statusBadge.className = `badge ${getStatusBadgeClass(session.status)}`;
+        
+        document.getElementById('session-created').textContent = formatDate(session.created_at);
+        document.getElementById('session-architect').textContent = session.config.architect.model;
+        document.getElementById('session-workers').textContent = session.config.workers.length.toString();
+        
+        // Update agent status list
+        updateAgentStatusList(session);
+        
+        // Update control buttons based on session status
+        updateControlButtons(session.status);
+    }
+    
+    function updateAgentStatusList(session) {
+        const container = document.getElementById('agent-status-list');
+        let html = '';
+        
+        // Add architect
+        html += `
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>Architect</strong>
+                    <span class="badge bg-success ms-2">active</span>
+                </div>
+                <span class="badge bg-primary rounded-pill">${session.config.architect.model}</span>
+            </li>
+        `;
+        
+        // Add workers
+        session.config.workers.forEach((worker, index) => {
+            html += `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${worker.name || `Worker ${index + 1}`}</strong>
+                        <span class="badge bg-secondary ms-2" id="worker-${index}-status">idle</span>
+                    </div>
+                    <span class="badge bg-primary rounded-pill">${worker.model}</span>
+                </li>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function updateConnectionStatus(connected) {
+        const statusElement = document.getElementById('connection-status');
+        
+        if (connected) {
+            statusElement.textContent = 'Connected';
+            statusElement.className = 'badge bg-success';
+        } else {
+            statusElement.textContent = 'Disconnected';
+            statusElement.className = 'badge bg-danger';
+        }
+    }
+    
+    function addActivityLogEntry(type, message) {
+        const logContainer = document.getElementById('activity-log');
+        const timestamp = new Date().toLocaleTimeString();
+        
+        let iconClass = '';
+        let textClass = '';
+        
+        switch (type) {
+            case 'system':
+                iconClass = 'bi-info-circle-fill text-info';
+                break;
+            case 'error':
+                iconClass = 'bi-exclamation-triangle-fill text-danger';
+                textClass = 'text-danger';
+                break;
+            case 'thinking':
+                iconClass = 'bi-lightbulb-fill text-warning';
+                break;
+            case 'typing':
+                iconClass = 'bi-pencil-fill text-primary';
+                break;
+            case 'tool':
+                iconClass = 'bi-tools text-primary';
+                break;
+            case 'task':
+                iconClass = 'bi-check2-square text-success';
+                break;
+            case 'status':
+                iconClass = 'bi-activity text-info';
+                break;
+            default:
+                iconClass = 'bi-circle-fill text-secondary';
+        }
+        
+        const entryHTML = `
+            <div class="activity-entry mb-2">
+                <small class="text-muted">${timestamp}</small>
+                <div class="d-flex align-items-start mt-1">
+                    <i class="bi ${iconClass} me-2 mt-1"></i>
+                    <div class="${textClass}">${message}</div>
+                </div>
+            </div>
+        `;
+        
+        logContainer.innerHTML += entryHTML;
+        
+        // Scroll to bottom
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+    
+    function handleAgentStatusChange(event) {
+        const { agentId, status } = event.detail;
+        
+        // Update agent status in the UI
+        if (agentId === 'architect') {
+            // Update architect status
+            const statusElements = document.querySelectorAll(`#agent-status-list li:first-child .badge:not(.rounded-pill)`);
+            if (statusElements.length > 0) {
+                const statusElement = statusElements[0];
+                statusElement.textContent = status;
+                statusElement.className = `badge ms-2 ${getAgentStatusBadgeClass(status)}`;
+            }
+        } else if (agentId.startsWith('worker')) {
+            // Extract worker index
+            const workerIndex = agentId.replace('worker', '');
+            
+            // Update worker status
+            const statusElement = document.getElementById(`worker-${workerIndex}-status`);
+            if (statusElement) {
+                statusElement.textContent = status;
+                statusElement.className = `badge ms-2 ${getAgentStatusBadgeClass(status)}`;
+            }
+        }
+    }
+    
+    function handleSessionStatusChange(event) {
+        const { status } = event.detail;
+        
+        // Update session status in the UI
+        const statusBadge = document.getElementById('session-status-info');
+        statusBadge.textContent = formatStatus(status);
+        statusBadge.className = `badge ${getStatusBadgeClass(status)}`;
+        
+        // Update control buttons
+        updateControlButtons(status);
+    }
+    
+    function handleWindowResize() {
+        if (visualizationManager) {
+            visualizationManager.resize();
+        }
+    }
+    
+    function switchView(view) {
+        if (view === currentView) return;
+        
+        currentView = view;
+        
+        // Update button states
+        document.getElementById('view-graph-btn').classList.toggle('active', view === 'graph');
+        document.getElementById('view-timeline-btn').classList.toggle('active', view === 'timeline');
+        
+        // Show/hide appropriate view
+        document.getElementById('task-graph-container').style.display = view === 'graph' ? 'block' : 'none';
+        document.getElementById('task-timeline-container').style.display = view === 'timeline' ? 'block' : 'none';
+        
+        // Resize visualizations
+        handleWindowResize();
+    }
+    
+    async function pauseSession() {
+        // Get current status
+        const statusBadge = document.getElementById('session-status-info');
+        const isPaused = statusBadge.textContent.toLowerCase() === 'paused';
+        
+        try {
+            let response;
+            
+            if (isPaused) {
+                // Resume the session
+                response = await fetch(`/api/sessions/${sessionId}/resume`, {
+                    method: 'POST'
+                });
+            } else {
+                // Pause the session
+                response = await fetch(`/api/sessions/${sessionId}/pause`, {
+                    method: 'POST'
+                });
+            }
+            
+            if (!response.ok) {
+                throw new Error(`Failed to ${isPaused ? 'resume' : 'pause'} session: ${response.status} ${response.statusText}`);
+            }
+            
+            // Update session status
+            const data = await response.json();
+            
+            // Add to activity log
+            addActivityLogEntry('system', `Session ${isPaused ? 'resumed' : 'paused'}`);
+            
+            // Show notification
+            showNotification('success', `Session ${isPaused ? 'resumed' : 'paused'} successfully`);
+            
+        } catch (error) {
+            console.error(`Error ${isPaused ? 'resuming' : 'pausing'} session:`, error);
+            showNotification('error', `Error ${isPaused ? 'resuming' : 'pausing'} session: ${error.message}`);
+        }
+    }
+    
+    async function stopSession() {
+        if (!confirm('Are you sure you want to stop this session? This action cannot be undone.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/sessions/${sessionId}/stop`, {
+                method: 'POST'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to stop session: ${response.status} ${response.statusText}`);
+            }
+            
+            // Update session status
+            const data = await response.json();
+            
+            // Add to activity log
+            addActivityLogEntry('system', 'Session stopped');
+            
+            // Show notification
+            showNotification('success', 'Session stopped successfully');
+            
+        } catch (error) {
+            console.error('Error stopping session:', error);
+            showNotification('error', `Error stopping session: ${error.message}`);
+        }
+    }
+    
+    function formatAgentName(agentId) {
+        switch (agentId) {
+            case 'architect': return 'Architect';
+            case 'system': return 'System';
+            default:
+                if (agentId.startsWith('worker')) {
+                    const index = agentId.replace('worker', '');
+                    if (sessionData && sessionData.config && sessionData.config.workers && sessionData.config.workers[index]) {
+                        return sessionData.config.workers[index].name || `Worker ${parseInt(index) + 1}`;
+                    }
+                    return `Worker ${parseInt(index) + 1}`;
+                }
+                return agentId;
+        }
+    }
+    
+    function formatStatus(status) {
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+    
+    function formatDate(timestamp) {
+        return new Date(timestamp).toLocaleString();
+    }
+    
+    function getStatusBadgeClass(status) {
+        switch (status) {
+            case 'running': return 'bg-success';
+            case 'paused': return 'bg-warning';
+            case 'initialized': return 'bg-info';
+            case 'stopped': return 'bg-danger';
+            case 'completed': return 'bg-secondary';
+            case 'error': return 'bg-danger';
+            default: return 'bg-secondary';
+        }
+    }
+    
+    function getAgentStatusBadgeClass(status) {
+        switch (status) {
+            case 'active': return 'bg-success';
+            case 'busy': return 'bg-warning';
+            case 'idle': return 'bg-secondary';
+            case 'error': return 'bg-danger';
+            default: return 'bg-secondary';
+        }
+    }
+    
+    function updateControlButtons(status) {
+        const pauseBtn = document.getElementById('pauseSessionBtn');
+        const stopBtn = document.getElementById('stopSessionBtn');
+        
+        if (status === 'running') {
+            pauseBtn.innerHTML = '<i class="bi bi-pause-fill"></i> Pause Session';
+            pauseBtn.className = 'btn btn-warning me-2';
+            pauseBtn.disabled = false;
+            stopBtn.disabled = false;
+        } else if (status === 'paused') {
+            pauseBtn.innerHTML = '<i class="bi bi-play-fill"></i> Resume Session';
+            pauseBtn.className = 'btn btn-success me-2';
+            pauseBtn.disabled = false;
+            stopBtn.disabled = false;
+        } else if (status === 'completed' || status === 'stopped') {
+            pauseBtn.disabled = true;
+            stopBtn.disabled = true;
+        }
+    }
+    
+    function showNotification(type, message) {
+        // Create notification container if it doesn't exist
+        let notifContainer = document.querySelector('.notification-container');
+        if (!notifContainer) {
+            notifContainer = document.createElement('div');
+            notifContainer.className = 'notification-container position-fixed top-0 end-0 p-3';
+            document.body.appendChild(notifContainer);
+        }
+        
+        // Create notification
+        const notifId = 'notif-' + Date.now();
+        const notif = document.createElement('div');
+        notif.className = `alert alert-${type} alert-dismissible fade show`;
+        notif.setAttribute('role', 'alert');
+        notif.id = notifId;
+        
+        notif.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Add to container
+        notifContainer.appendChild(notif);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            const alertElement = document.getElementById(notifId);
+            if (alertElement) {
+                const bsAlert = new bootstrap.Alert(alertElement);
+                bsAlert.close();
+            }
+        }, 5000);
+    }
+</script>
+{% endblock %}

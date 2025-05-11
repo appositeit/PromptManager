@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Fragments{% endblock %}
+
+{% block header_title %}Fragment Management{% endblock %}
+
+{% block header_actions %}
+<div class="btn-group">
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newFragmentModal">
+        <i class="bi bi-plus-circle"></i> New Fragment
+    </button>
+    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addDirectoryModal">
+        <i class="bi bi-folder-plus"></i> Add Directory
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">Prompt Fragments</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="fragment-search" placeholder="Search fragments...">
+                                <button class="btn btn-outline-secondary" type="button" id="fragment-search-btn">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-funnel"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><h6 class="dropdown-header">Filter by Tag</h6></li>
+                                    <li><a class="dropdown-item" href="#" data-tag="all">All Fragments</a></li>
+                                    <div id="tag-filters">
+                                        <!-- Tags will be populated dynamically -->
+                                    </div>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Description</th>
+                                    <th>Directory</th>
+                                    <th>Tags</th>
+                                    <th>Last Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fragments-table-body">
+                                <!-- Fragments will be loaded dynamically -->
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mb-0 mt-2">Loading fragments...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Directories</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Path</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="directories-table-body">
+                                <!-- Directories will be loaded dynamically -->
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p class="mb-0 mt-2">Loading directories...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Fragment Confirmation Modal -->
+<div class="modal fade" id="deleteFragmentModal" tabindex="-1" aria-labelledby="deleteFragmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteFragmentModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the fragment <strong id="delete-fragment-id"></strong>?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Global variables
+    let fragments = [];
+    let directories = [];
+    let currentFilter = 'all';
+    let currentSearch = '';
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load fragments
+        loadFragments();
+        
+        // Load directories
+        loadDirectories();
+        
+        // Set up event handlers
+        document.getElementById('fragment-search').addEventListener('input', function() {
+            currentSearch = this.value;
+            filterFragments();
+        });
+        
+        document.getElementById('fragment-search-btn').addEventListener('click', function() {
+            currentSearch = document.getElementById('fragment-search').value;
+            filterFragments();
+        });
+        
+        // Create fragment form handler
+        document.getElementById('createFragmentBtn').addEventListener('click', createFragment);
+        
+        // Add directory form handler
+        document.getElementById('addDirectoryBtn').addEventListener('click', addDirectory);
+        
+        // Delete fragment confirmation
+        document.getElementById('confirm-delete-btn').addEventListener('click', function() {
+            const fragmentId = document.getElementById('delete-fragment-id').textContent;
+            deleteFragment(fragmentId);
+        });
+    });
+    
+    function loadFragments() {
+        const tableBody = document.getElementById('fragments-table-body');
+        
+        // Show loading indicator
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mb-0 mt-2">Loading fragments...</p>
+                </td>
+            </tr>
+        `;
+        
+        fetch('/api/prompts/fragments')
+            .then(response => response.json())
+            .then(data => {
+                fragments = data;
+                updateFragmentsTable();
+                updateTagFilters();
+            })
+            .catch(error => {
+                console.error('Error loading fragments:', error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-danger">
+                            <i class="bi bi-exclamation-circle fs-4"></i>
+                            <p class="mb-0 mt-2">Error loading fragments. Please try again.</p>
+                        </td>
+                    </tr>
+                `;
+            });
+    }
+    
+    function updateFragmentsTable() {
+        const tableBody = document.getElementById('fragments-table-body');
+        
+        // Filter fragments based on current filter and search
+        let filteredFragments = fragments;
+        
+        if (currentFilter !== 'all') {
+            filteredFragments = filteredFragments.filter(fragment => 
+                fragment.tags.includes(currentFilter)
+            );
+        }
+        
+        if (currentSearch) {
+            const searchLower = currentSearch.toLowerCase();
+            filteredFragments = filteredFragments.filter(fragment => 
+                fragment.id.toLowerCase().includes(searchLower) ||
+                (fragment.description && fragment.description.toLowerCase().includes(searchLower))
+            );
+        }
+        
+        // Sort by ID
+        filteredFragments.sort((a, b) => a.id.localeCompare(b.id));
+        
+        // Clear table
+        tableBody.innerHTML = '';
+        
+        // Check if no fragments
+        if (filteredFragments.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4">
+                        <p class="mb-0">No fragments found.</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        // Add fragments to table
+        filteredFragments.forEach(fragment => {
+            const row = document.createElement('tr');
+            
+            // ID cell
+            const idCell = document.createElement('td');
+            const idLink = document.createElement('a');
+            idLink.href = `/fragments/${fragment.id}`;
+            idLink.textContent = fragment.id;
+            idCell.appendChild(idLink);
+            
+            // Description cell
+            const descCell = document.createElement('td');
+            descCell.textContent = fragment.description || '';
+            
+            // Directory cell
+            const dirCell = document.createElement('td');
+            dirCell.textContent = fragment.directory.split('/').pop();
+            dirCell.title = fragment.directory;
+            
+            // Tags cell
+            const tagsCell = document.createElement('td');
+            if (fragment.tags && fragment.tags.length > 0) {
+                fragment.tags.forEach(tag => {
+                    const tagBadge = document.createElement('span');
+                    tagBadge.className = 'badge bg-secondary me-1';
+                    tagBadge.textContent = tag;
+                    tagsCell.appendChild(tagBadge);
+                });
+            } else {
+                tagsCell.textContent = '-';
+            }
+            
+            // Updated cell
+            const updatedCell = document.createElement('td');
+            updatedCell.textContent = dayjs(fragment.updated_at).fromNow();
+            
+            // Actions cell
+            const actionsCell = document.createElement('td');
+            
+            // Edit button
+            const editBtn = document.createElement('a');
+            editBtn.href = `/fragments/${fragment.id}`;
+            editBtn.className = 'btn btn-sm btn-outline-primary me-1';
+            editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+            editBtn.title = 'Edit';
+            
+            // Delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn btn-sm btn-outline-danger';
+            deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+            deleteBtn.title = 'Delete';
+            deleteBtn.dataset.fragmentId = fragment.id;
+            deleteBtn.addEventListener('click', function() {
+                showDeleteConfirmation(fragment.id);
+            });
+            
+            actionsCell.appendChild(editBtn);
+            actionsCell.appendChild(deleteBtn);
+            
+            // Add cells to row
+            row.appendChild(idCell);
+            row.appendChild(descCell);
+            row.appendChild(dirCell);
+            row.appendChild(tagsCell);
+            row.appendChild(updatedCell);
+            row.appendChild(actionsCell);
+            
+            tableBody.appendChild(row);
+        });
+    }
+    
+    function loadDirectories() {
+        const tableBody = document.getElementById('directories-table-body');
+        const fragmentDirectorySelect = document.getElementById('fragmentDirectory');
+        
+        // Show loading indicator
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mb-0 mt-2">Loading directories...</p>
+                </td>
+            </tr>
+        `;
+        
+        fetch('/api/prompts/directories')
+            .then(response => response.json())
+            .then(data => {
+                directories = data;
+                
+                // Clear table
+                tableBody.innerHTML = '';
+                
+                // Check if no directories
+                if (directories.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-4">
+                                <p class="mb-0">No directories configured.</p>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                // Add directories to table
+                directories.forEach(dir => {
+                    const row = document.createElement('tr');
+                    
+                    // Name cell
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = dir.name;
+                    
+                    // Path cell
+                    const pathCell = document.createElement('td');
+                    pathCell.textContent = dir.path;
+                    
+                    // Description cell
+                    const descCell = document.createElement('td');
+                    descCell.textContent = dir.description || '';
+                    
+                    // Status cell
+                    const statusCell = document.createElement('td');
+                    const statusBadge = document.createElement('span');
+                    statusBadge.className = dir.enabled ? 'badge bg-success' : 'badge bg-danger';
+                    statusBadge.textContent = dir.enabled ? 'Enabled' : 'Disabled';
+                    statusCell.appendChild(statusBadge);
+                    
+                    // Actions cell
+                    const actionsCell = document.createElement('td');
+                    
+                    // Refresh button
+                    const refreshBtn = document.createElement('button');
+                    refreshBtn.className = 'btn btn-sm btn-outline-primary me-1';
+                    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+                    refreshBtn.title = 'Refresh';
+                    refreshBtn.addEventListener('click', function() {
+                        // This would reload fragments from this directory
+                        // Not implemented in detail
+                        showToast('Refreshing directory...');
+                        loadFragments();
+                    });
+                    
+                    actionsCell.appendChild(refreshBtn);
+                    
+                    // Add cells to row
+                    row.appendChild(nameCell);
+                    row.appendChild(pathCell);
+                    row.appendChild(descCell);
+                    row.appendChild(statusCell);
+                    row.appendChild(actionsCell);
+                    
+                    tableBody.appendChild(row);
+                });
+                
+                // Populate directory select in the New Fragment modal
+                if (fragmentDirectorySelect) {
+                    fragmentDirectorySelect.innerHTML = '';
+                    directories.forEach(dir => {
+                        if (dir.enabled) {
+                            const option = document.createElement('option');
+                            option.value = dir.path;
+                            option.textContent = dir.name;
+                            fragmentDirectorySelect.appendChild(option);
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading directories:', error);
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-danger">
+                            <i class="bi bi-exclamation-circle fs-4"></i>
+                            <p class="mb-0 mt-2">Error loading directories. Please try again.</p>
+                        </td>
+                    </tr>
+                `;
+            });
+    }
+    
+    function updateTagFilters() {
+        const tagFiltersContainer = document.getElementById('tag-filters');
+        
+        // Collect all unique tags
+        const tags = new Set();
+        fragments.forEach(fragment => {
+            if (fragment.tags) {
+                fragment.tags.forEach(tag => tags.add(tag));
+            }
+        });
+        
+        // Clear container
+        tagFiltersContainer.innerHTML = '';
+        
+        // Create filter items
+        Array.from(tags).sort().forEach(tag => {
+            const item = document.createElement('li');
+            const link = document.createElement('a');
+            link.className = 'dropdown-item';
+            link.href = '#';
+            link.dataset.tag = tag;
+            link.textContent = tag;
+            
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                currentFilter = tag;
+                filterFragments();
+            });
+            
+            item.appendChild(link);
+            tagFiltersContainer.appendChild(item);
+        });
+        
+        // Add event listener to "All Fragments" option
+        document.querySelector('[data-tag="all"]').addEventListener('click', function(e) {
+            e.preventDefault();
+            currentFilter = 'all';
+            filterFragments();
+        });
+    }
+    
+    function filterFragments() {
+        updateFragmentsTable();
+    }
+    
+    function createFragment() {
+        const id = document.getElementById('fragmentId').value.trim();
+        const directory = document.getElementById('fragmentDirectory').value;
+        const description = document.getElementById('fragmentDescription').value.trim();
+        const tags = document.getElementById('fragmentTags').value.trim();
+        
+        // Validate
+        if (!id) {
+            alert('Fragment ID is required');
+            return;
+        }
+        
+        if (!directory) {
+            alert('Directory is required');
+            return;
+        }
+        
+        // Create tag array
+        const tagArray = tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+        
+        // Create fragment data
+        const fragmentData = {
+            id: id,
+            content: `# ${id}\n\nEnter content here...`,
+            directory: directory,
+            description: description,
+            tags: tagArray
+        };
+        
+        // Send POST request
+        fetch('/api/prompts/fragments', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(fragmentData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to create fragment');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Success - reload fragments and show toast
+            loadFragments();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('newFragmentModal'));
+            modal.hide();
+            
+            // Clear form
+            document.getElementById('fragmentId').value = '';
+            document.getElementById('fragmentDescription').value = '';
+            document.getElementById('fragmentTags').value = '';
+            
+            // Show toast
+            showToast('Fragment created successfully');
+            
+            // Redirect to edit page
+            window.location.href = `/fragments/${data.id}`;
+        })
+        .catch(error => {
+            console.error('Error creating fragment:', error);
+            alert('Error creating fragment. Please try again.');
+        });
+    }
+    
+    function addDirectory() {
+        const path = document.getElementById('directoryPath').value.trim();
+        const name = document.getElementById('directoryName').value.trim();
+        const description = document.getElementById('directoryDescription').value.trim();
+        
+        // Validate
+        if (!path) {
+            alert('Directory path is required');
+            return;
+        }
+        
+        // Create directory data
+        const directoryData = {
+            path: path,
+            name: name || undefined,
+            description: description || undefined
+        };
+        
+        // Send POST request
+        fetch('/api/prompts/directories', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(directoryData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to add directory');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Success - reload directories and show toast
+            loadDirectories();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addDirectoryModal'));
+            modal.hide();
+            
+            // Clear form
+            document.getElementById('directoryPath').value = '';
+            document.getElementById('directoryName').value = '';
+            document.getElementById('directoryDescription').value = '';
+            
+            // Show toast
+            showToast('Directory added successfully');
+        })
+        .catch(error => {
+            console.error('Error adding directory:', error);
+            alert('Error adding directory. Please try again.');
+        });
+    }
+    
+    function showDeleteConfirmation(fragmentId) {
+        document.getElementById('delete-fragment-id').textContent = fragmentId;
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteFragmentModal'));
+        deleteModal.show();
+    }
+    
+    function deleteFragment(fragmentId) {
+        // Send DELETE request
+        fetch(`/api/prompts/fragments/${fragmentId}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to delete fragment');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Success - reload fragments and show toast
+            loadFragments();
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteFragmentModal'));
+            modal.hide();
+            
+            // Show toast
+            showToast('Fragment deleted successfully');
+        })
+        .catch(error => {
+            console.error('Error deleting fragment:', error);
+            alert('Error deleting fragment. Please try again.');
+        });
+    }
+    
+    function showToast(message) {
+        // Create toast container if it doesn't exist
+        let toastContainer = document.querySelector('.toast-container');
+        
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+        
+        // Create toast element
+        const toastId = 'toast-' + Date.now();
+        const toastHtml = `
+            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <strong class="me-auto">Notification</strong>
+                    <small>Just now</small>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        
+        // Initialize and show the toast
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 3000 });
+        toast.show();
+        
+        // Remove toast after it's hidden
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            toastElement.remove();
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,671 @@
+{% extends "base.html" %}
+
+{% block title %}Fragment Editor - {{ fragment_id }}{% endblock %}
+
+{% block header_title %}Fragment Editor: <span id="fragment-title">{{ fragment_id }}</span>{% endblock %}
+
+{% block header_actions %}
+<div class="btn-group">
+    <button class="btn btn-primary" id="save-fragment-btn">
+        <i class="bi bi-save"></i> Save
+    </button>
+    <button class="btn btn-outline-secondary" id="toggle-view-btn">
+        <i class="bi bi-eye"></i> Preview
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12 mb-3">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-0">Fragment Details</h5>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary me-2" id="fragment-directory"></span>
+                        <span class="badge bg-info me-2" id="fragment-last-updated"></span>
+                        <span class="badge bg-primary" id="fragment-status">Idle</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="fragment-description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="fragment-description" placeholder="Fragment description">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="fragment-tags" class="form-label">Tags</label>
+                                <input type="text" class="form-control" id="fragment-tags" placeholder="Comma-separated tags">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="editor-tabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="edit-tab" data-bs-toggle="tab" href="#edit-pane">Edit</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="preview-tab" data-bs-toggle="tab" href="#preview-pane">Preview</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="expanded-tab" data-bs-toggle="tab" href="#expanded-pane">Expanded</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="edit-pane">
+                            <div id="editor-container">
+                                <textarea id="fragment-editor"></textarea>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="preview-pane">
+                            <div id="preview-container" class="markdown-preview">
+                                <div id="fragment-preview"></div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="expanded-pane">
+                            <div id="expanded-container" class="markdown-preview">
+                                <div id="fragment-expanded"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Dependencies</h5>
+                </div>
+                <div class="card-body">
+                    <div id="dependencies-container">
+                        <p class="text-muted" id="no-dependencies-message">No dependencies found.</p>
+                        <ul class="list-group" id="dependencies-list" style="display: none;">
+                            <!-- Dependencies will be loaded dynamically -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block prompt_sidebar %}
+<div class="prompt-fragments">
+    <h6>Fragment List</h6>
+    <div class="input-group mb-3">
+        <input type="text" class="form-control form-control-sm" id="sidebar-fragment-search" placeholder="Search fragments...">
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="sidebar-fragment-refresh">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+    <div id="sidebar-fragment-list" class="sidebar-fragment-list" data-simplebar>
+        <!-- Fragments will be loaded dynamically -->
+        <div class="text-center py-3">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-muted mb-0">Loading fragments...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    #editor-container {
+        height: 500px;
+    }
+    
+    .CodeMirror {
+        height: 100%;
+        font-family: 'Fira Code', monospace;
+        font-size: 14px;
+    }
+    
+    .markdown-preview {
+        height: 500px;
+        overflow: auto;
+        padding: 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        background-color: #f8f9fa;
+    }
+    
+    .sidebar-fragment-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .fragment-item {
+        padding: 8px 12px;
+        border-bottom: 1px solid #dee2e6;
+        cursor: pointer;
+    }
+    
+    .fragment-item:hover {
+        background-color: #f0f0f0;
+    }
+    
+    .fragment-item-title {
+        font-weight: 500;
+    }
+    
+    .fragment-item-meta {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize date/time formatting
+    dayjs.extend(dayjs_plugin_relativeTime);
+    
+    // Global variables
+    let editor;
+    let fragmentId = "{{ fragment_id }}";
+    let fragmentData = null;
+    let websocket = null;
+    let unsavedChanges = false;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize the editor
+        editor = CodeMirror.fromTextArea(document.getElementById('fragment-editor'), {
+            mode: 'markdown',
+            theme: 'default',
+            lineNumbers: true,
+            lineWrapping: true,
+            tabSize: 2,
+            autofocus: true,
+            extraKeys: {
+                'Tab': function(cm) {
+                    const spaces = Array(cm.getOption('indentUnit') + 1).join(' ');
+                    cm.replaceSelection(spaces);
+                },
+                'Ctrl-S': function(cm) {
+                    saveFragment();
+                },
+                'Ctrl-Space': function(cm) {
+                    // Show completion for fragment inclusions
+                    const cursor = cm.getCursor();
+                    const line = cm.getLine(cursor.line);
+                    const lineBeforeCursor = line.substring(0, cursor.ch);
+                    
+                    if (lineBeforeCursor.match(/\[\[(\w*)$/)) {
+                        showFragmentCompletion(cm);
+                    }
+                }
+            }
+        });
+        
+        // Track changes
+        editor.on('change', function() {
+            unsavedChanges = true;
+            document.getElementById('fragment-status').textContent = 'Unsaved Changes';
+            document.getElementById('fragment-status').classList.remove('bg-primary', 'bg-success');
+            document.getElementById('fragment-status').classList.add('bg-warning');
+        });
+        
+        // Load the fragment
+        loadFragment();
+        
+        // Load sidebar fragments
+        loadSidebarFragments();
+        
+        // Set up event handlers
+        document.getElementById('save-fragment-btn').addEventListener('click', saveFragment);
+        
+        document.getElementById('toggle-view-btn').addEventListener('click', function() {
+            const previewTab = document.getElementById('preview-tab');
+            const editTab = document.getElementById('edit-tab');
+            
+            if (previewTab.classList.contains('active')) {
+                // Switch to edit view
+                editTab.click();
+                this.innerHTML = '<i class="bi bi-eye"></i> Preview';
+            } else {
+                // Switch to preview view
+                previewTab.click();
+                this.innerHTML = '<i class="bi bi-pencil"></i> Edit';
+                
+                // Update preview content
+                updatePreview();
+            }
+        });
+        
+        // Tab change handler
+        document.querySelectorAll('#editor-tabs .nav-link').forEach(tab => {
+            tab.addEventListener('click', function(e) {
+                if (this.id === 'preview-tab') {
+                    updatePreview();
+                } else if (this.id === 'expanded-tab') {
+                    updateExpanded();
+                }
+            });
+        });
+        
+        // Sidebar fragment search
+        document.getElementById('sidebar-fragment-search').addEventListener('input', function() {
+            filterSidebarFragments(this.value);
+        });
+        
+        // Sidebar fragment refresh
+        document.getElementById('sidebar-fragment-refresh').addEventListener('click', function() {
+            loadSidebarFragments();
+        });
+        
+        // Setup WebSocket connection
+        setupWebSocket();
+        
+        // Handle beforeunload event to warn about unsaved changes
+        window.addEventListener('beforeunload', function(e) {
+            if (unsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        });
+    });
+    
+    function loadFragment() {
+        fetch(`/api/prompts/fragments/${fragmentId}`)
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else if (response.status === 404) {
+                    // Fragment doesn't exist, show modal to create it
+                    showCreateFragmentModal();
+                    throw new Error('Fragment not found');
+                } else {
+                    throw new Error('Failed to load fragment');
+                }
+            })
+            .then(data => {
+                fragmentData = data;
+                
+                // Set editor content
+                editor.setValue(data.content);
+                
+                // Set fragment details
+                document.getElementById('fragment-title').textContent = data.id;
+                document.getElementById('fragment-description').value = data.description || '';
+                document.getElementById('fragment-tags').value = data.tags.join(', ');
+                document.getElementById('fragment-directory').textContent = data.directory;
+                document.getElementById('fragment-last-updated').textContent = 'Updated ' + dayjs(data.updated_at).fromNow();
+                
+                // Reset status
+                document.getElementById('fragment-status').textContent = 'Loaded';
+                document.getElementById('fragment-status').classList.remove('bg-warning');
+                document.getElementById('fragment-status').classList.add('bg-primary');
+                
+                // Find dependencies
+                findFragmentDependencies(data.content);
+                
+                // Set as saved
+                unsavedChanges = false;
+            })
+            .catch(error => {
+                console.error('Error loading fragment:', error);
+                if (error.message !== 'Fragment not found') {
+                    alert('Error loading fragment. Please try again.');
+                }
+            });
+    }
+    
+    function saveFragment() {
+        if (!fragmentData) {
+            showCreateFragmentModal();
+            return;
+        }
+        
+        // Update fragment data
+        fragmentData.content = editor.getValue();
+        fragmentData.description = document.getElementById('fragment-description').value;
+        fragmentData.tags = document.getElementById('fragment-tags').value
+            .split(',')
+            .map(tag => tag.trim())
+            .filter(tag => tag);
+        
+        // Update status
+        document.getElementById('fragment-status').textContent = 'Saving...';
+        document.getElementById('fragment-status').classList.remove('bg-warning', 'bg-success', 'bg-primary');
+        document.getElementById('fragment-status').classList.add('bg-info');
+        
+        // Send update request
+        fetch(`/api/prompts/fragments/${fragmentId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                id: fragmentData.id,
+                content: fragmentData.content,
+                directory: fragmentData.directory,
+                description: fragmentData.description,
+                tags: fragmentData.tags
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to save fragment');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Update fragment data
+            fragmentData = data;
+            
+            // Update UI
+            document.getElementById('fragment-last-updated').textContent = 'Updated ' + dayjs(data.updated_at).fromNow();
+            document.getElementById('fragment-status').textContent = 'Saved';
+            document.getElementById('fragment-status').classList.remove('bg-info', 'bg-warning');
+            document.getElementById('fragment-status').classList.add('bg-success');
+            
+            // Find dependencies
+            findFragmentDependencies(data.content);
+            
+            // Reset unsaved changes flag
+            unsavedChanges = false;
+            
+            // Update sidebar fragments
+            loadSidebarFragments();
+            
+            // Show toast notification
+            showToast('Fragment saved successfully');
+        })
+        .catch(error => {
+            console.error('Error saving fragment:', error);
+            document.getElementById('fragment-status').textContent = 'Error Saving';
+            document.getElementById('fragment-status').classList.remove('bg-info');
+            document.getElementById('fragment-status').classList.add('bg-danger');
+            alert('Error saving fragment. Please try again.');
+        });
+    }
+    
+    function updatePreview() {
+        const content = editor.getValue();
+        const previewContainer = document.getElementById('fragment-preview');
+        
+        // Use marked to render Markdown
+        previewContainer.innerHTML = marked.parse(content);
+    }
+    
+    function updateExpanded() {
+        const content = editor.getValue();
+        const expandedContainer = document.getElementById('fragment-expanded');
+        
+        // Show loading indicator
+        expandedContainer.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="text-muted mb-0">Expanding fragment inclusions...</p></div>';
+        
+        // Send request to expand inclusions
+        fetch('/api/prompts/fragments/expand', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                content: content
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Update expanded view
+            expandedContainer.innerHTML = marked.parse(data.expanded);
+            
+            // Update dependencies
+            const dependencies = data.dependencies.split(', ').filter(dep => dep);
+            updateDependenciesList(dependencies);
+        })
+        .catch(error => {
+            console.error('Error expanding fragment:', error);
+            expandedContainer.innerHTML = '<div class="alert alert-danger">Error expanding fragment inclusions.</div>';
+        });
+    }
+    
+    function findFragmentDependencies(content) {
+        // Find all [[fragment]] references
+        const regex = /\[\[([^\]]+)\]\]/g;
+        const dependencies = [];
+        let match;
+        
+        while ((match = regex.exec(content)) !== null) {
+            dependencies.push(match[1]);
+        }
+        
+        // Update dependencies list
+        updateDependenciesList(dependencies);
+    }
+    
+    function updateDependenciesList(dependencies) {
+        const dependenciesList = document.getElementById('dependencies-list');
+        const noDependenciesMessage = document.getElementById('no-dependencies-message');
+        
+        if (dependencies.length === 0) {
+            dependenciesList.style.display = 'none';
+            noDependenciesMessage.style.display = 'block';
+            return;
+        }
+        
+        // Show the list and hide the message
+        dependenciesList.style.display = 'block';
+        noDependenciesMessage.style.display = 'none';
+        
+        // Clear the list
+        dependenciesList.innerHTML = '';
+        
+        // Add dependencies to the list
+        dependencies.forEach(dep => {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            
+            const link = document.createElement('a');
+            link.href = `/fragments/${dep}`;
+            link.textContent = dep;
+            
+            const badge = document.createElement('span');
+            badge.className = 'badge bg-primary rounded-pill';
+            badge.textContent = 'Fragment';
+            
+            li.appendChild(link);
+            li.appendChild(badge);
+            dependenciesList.appendChild(li);
+        });
+    }
+    
+    function loadSidebarFragments() {
+        const fragmentList = document.getElementById('sidebar-fragment-list');
+        
+        // Show loading indicator
+        fragmentList.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="text-muted mb-0">Loading fragments...</p></div>';
+        
+        fetch('/api/prompts/fragments')
+            .then(response => response.json())
+            .then(fragments => {
+                // Clear loading indicator
+                fragmentList.innerHTML = '';
+                
+                if (fragments.length === 0) {
+                    fragmentList.innerHTML = '<p class="text-muted p-3">No fragments found.</p>';
+                    return;
+                }
+                
+                // Sort by ID
+                fragments.sort((a, b) => a.id.localeCompare(b.id));
+                
+                // Create fragment items
+                fragments.forEach(fragment => {
+                    const item = document.createElement('div');
+                    item.className = 'fragment-item';
+                    item.dataset.id = fragment.id;
+                    
+                    const title = document.createElement('div');
+                    title.className = 'fragment-item-title';
+                    title.textContent = fragment.id;
+                    
+                    const meta = document.createElement('div');
+                    meta.className = 'fragment-item-meta';
+                    meta.textContent = fragment.description || '';
+                    
+                    item.appendChild(title);
+                    
+                    if (fragment.description) {
+                        item.appendChild(meta);
+                    }
+                    
+                    item.addEventListener('click', function() {
+                        insertFragmentInclusion(fragment.id);
+                    });
+                    
+                    fragmentList.appendChild(item);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading fragments:', error);
+                fragmentList.innerHTML = '<div class="alert alert-danger m-3">Error loading fragments.</div>';
+            });
+    }
+    
+    function filterSidebarFragments(searchTerm) {
+        const fragmentItems = document.querySelectorAll('.fragment-item');
+        searchTerm = searchTerm.toLowerCase();
+        
+        fragmentItems.forEach(item => {
+            const id = item.dataset.id.toLowerCase();
+            const description = item.querySelector('.fragment-item-meta')?.textContent.toLowerCase() || '';
+            
+            if (id.includes(searchTerm) || description.includes(searchTerm)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    function insertFragmentInclusion(fragmentId) {
+        const cursor = editor.getCursor();
+        editor.replaceRange(`[[${fragmentId}]]`, cursor);
+        editor.focus();
+    }
+    
+    function showFragmentCompletion(cm) {
+        // Implementation for fragment auto-completion would go here
+        // This would show a dropdown of matching fragments
+        // For simplicity, we're not implementing this in detail
+    }
+    
+    function setupWebSocket() {
+        // Close existing connection if any
+        if (websocket && websocket.readyState !== WebSocket.CLOSED) {
+            websocket.close();
+        }
+        
+        // Create new WebSocket connection
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/api/prompts/ws/fragments/${fragmentId}`;
+        
+        websocket = new WebSocket(wsUrl);
+        
+        websocket.onopen = function(event) {
+            console.log('WebSocket connection established');
+        };
+        
+        websocket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            if (data.action === 'initial') {
+                // Initial content load, already handled by REST API
+            } else if (data.action === 'update_status') {
+                if (data.success) {
+                    document.getElementById('fragment-status').textContent = 'Saved';
+                    document.getElementById('fragment-status').classList.remove('bg-info', 'bg-warning');
+                    document.getElementById('fragment-status').classList.add('bg-success');
+                    document.getElementById('fragment-last-updated').textContent = 'Updated ' + dayjs(data.timestamp).fromNow();
+                    unsavedChanges = false;
+                } else {
+                    document.getElementById('fragment-status').textContent = 'Error Saving';
+                    document.getElementById('fragment-status').classList.remove('bg-info');
+                    document.getElementById('fragment-status').classList.add('bg-danger');
+                }
+            } else if (data.action === 'expanded') {
+                document.getElementById('fragment-expanded').innerHTML = marked.parse(data.content);
+                updateDependenciesList(data.dependencies);
+            }
+        };
+        
+        websocket.onclose = function(event) {
+            console.log('WebSocket connection closed');
+            // Attempt to reconnect after a delay
+            setTimeout(setupWebSocket, 2000);
+        };
+        
+        websocket.onerror = function(error) {
+            console.error('WebSocket error:', error);
+        };
+    }
+    
+    function showCreateFragmentModal() {
+        // This would show a modal to create a new fragment
+        // For simplicity, we're just redirecting to the management page
+        window.location.href = "/manage/fragments";
+    }
+    
+    function showToast(message) {
+        // Create toast container if it doesn't exist
+        let toastContainer = document.querySelector('.toast-container');
+        
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+        
+        // Create toast element
+        const toastId = 'toast-' + Date.now();
+        const toastHtml = `
+            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <strong class="me-auto">Notification</strong>
+                    <small>Just now</small>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        
+        // Initialize and show the toast
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 3000 });
+        toast.show();
+        
+        // Remove toast after it's hidden
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            toastElement.remove();
+        });
+    }
+</script>
+{% endblock %}

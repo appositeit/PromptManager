@@ -1,0 +1,704 @@
+{% extends "base.html" %}
+
+{% block title %}Template Editor - {{ template_id }}{% endblock %}
+
+{% block header_title %}Template Editor: <span id="template-title">Loading...</span>{% endblock %}
+
+{% block header_actions %}
+<div class="btn-group">
+    <button class="btn btn-primary" id="save-template-btn">
+        <i class="bi bi-save"></i> Save
+    </button>
+    <button class="btn btn-outline-secondary" id="toggle-view-btn">
+        <i class="bi bi-eye"></i> Preview
+    </button>
+    <button class="btn btn-outline-secondary" id="render-btn" title="Render the template">
+        <i class="bi bi-gear"></i> Render
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12 mb-3">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-0">Template Details</h5>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary me-2" id="template-type"></span>
+                        <span class="badge bg-info me-2" id="template-last-updated"></span>
+                        <span class="badge bg-primary" id="template-status">Idle</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="template-name" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="template-name">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="template-type-select" class="form-label">Type</label>
+                                <select class="form-select" id="template-type-select">
+                                    <option value="custom">Custom</option>
+                                    <option value="project_start">Project Start</option>
+                                    <option value="resume">Resume</option>
+                                    <option value="worker_dispatch">Worker Dispatch</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="template-description" class="form-label">Description</label>
+                                <input type="text" class="form-control" id="template-description">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="editor-tabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" id="edit-tab" data-bs-toggle="tab" href="#edit-pane">Edit</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="preview-tab" data-bs-toggle="tab" href="#preview-pane">Preview</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="rendered-tab" data-bs-toggle="tab" href="#rendered-pane">Rendered</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="edit-pane">
+                            <div id="editor-container">
+                                <textarea id="template-editor"></textarea>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="preview-pane">
+                            <div id="preview-container" class="markdown-preview">
+                                <div id="template-preview"></div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="rendered-pane">
+                            <div id="rendered-container" class="markdown-preview">
+                                <div id="template-rendered">
+                                    <div class="text-center py-5">
+                                        <p class="text-muted">Click the "Render" button to view the fully rendered template with all inclusions expanded.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Fragment Dependencies</h5>
+                </div>
+                <div class="card-body">
+                    <div id="dependencies-container">
+                        <p class="text-muted" id="no-dependencies-message">No dependencies found.</p>
+                        <ul class="list-group" id="dependencies-list" style="display: none;">
+                            <!-- Dependencies will be loaded dynamically -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block prompt_sidebar %}
+<div class="prompt-fragments">
+    <h6>Fragment List</h6>
+    <div class="input-group mb-3">
+        <input type="text" class="form-control form-control-sm" id="sidebar-fragment-search" placeholder="Search fragments...">
+        <button class="btn btn-sm btn-outline-secondary" type="button" id="sidebar-fragment-refresh">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+    <div id="sidebar-fragment-list" class="sidebar-fragment-list" data-simplebar>
+        <!-- Fragments will be loaded dynamically -->
+        <div class="text-center py-3">
+            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-muted mb-0">Loading fragments...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    #editor-container {
+        height: 500px;
+    }
+    
+    .CodeMirror {
+        height: 100%;
+        font-family: 'Fira Code', monospace;
+        font-size: 14px;
+    }
+    
+    .markdown-preview {
+        height: 500px;
+        overflow: auto;
+        padding: 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        background-color: #f8f9fa;
+    }
+    
+    .sidebar-fragment-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .fragment-item {
+        padding: 8px 12px;
+        border-bottom: 1px solid #dee2e6;
+        cursor: pointer;
+    }
+    
+    .fragment-item:hover {
+        background-color: #f0f0f0;
+    }
+    
+    .fragment-item-title {
+        font-weight: 500;
+    }
+    
+    .fragment-item-meta {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .dependency-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        margin: 2px;
+        background-color: #f0f0f0;
+        border-radius: 12px;
+        font-size: 0.9rem;
+    }
+    
+    .dependency-tag a {
+        color: #495057;
+        text-decoration: none;
+    }
+    
+    .dependency-tag:hover {
+        background-color: #e0e0e0;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize date/time formatting
+    dayjs.extend(dayjs_plugin_relativeTime);
+    
+    // Global variables
+    let editor;
+    let templateId = "{{ template_id }}";
+    let templateData = null;
+    let unsavedChanges = false;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize the editor
+        editor = CodeMirror.fromTextArea(document.getElementById('template-editor'), {
+            mode: 'markdown',
+            theme: 'default',
+            lineNumbers: true,
+            lineWrapping: true,
+            tabSize: 2,
+            autofocus: true,
+            extraKeys: {
+                'Tab': function(cm) {
+                    const spaces = Array(cm.getOption('indentUnit') + 1).join(' ');
+                    cm.replaceSelection(spaces);
+                },
+                'Ctrl-S': function(cm) {
+                    saveTemplate();
+                },
+                'Ctrl-Space': function(cm) {
+                    // Show completion for fragment inclusions
+                    const cursor = cm.getCursor();
+                    const line = cm.getLine(cursor.line);
+                    const lineBeforeCursor = line.substring(0, cursor.ch);
+                    
+                    if (lineBeforeCursor.match(/\[\[(\w*)$/)) {
+                        showFragmentCompletion(cm);
+                    }
+                }
+            }
+        });
+        
+        // Track changes
+        editor.on('change', function() {
+            unsavedChanges = true;
+            document.getElementById('template-status').textContent = 'Unsaved Changes';
+            document.getElementById('template-status').classList.remove('bg-primary', 'bg-success');
+            document.getElementById('template-status').classList.add('bg-warning');
+        });
+        
+        // Load the template
+        loadTemplate();
+        
+        // Load sidebar fragments
+        loadSidebarFragments();
+        
+        // Set up event handlers
+        document.getElementById('save-template-btn').addEventListener('click', saveTemplate);
+        document.getElementById('render-btn').addEventListener('click', renderTemplate);
+        
+        document.getElementById('toggle-view-btn').addEventListener('click', function() {
+            const previewTab = document.getElementById('preview-tab');
+            const editTab = document.getElementById('edit-tab');
+            
+            if (previewTab.classList.contains('active')) {
+                // Switch to edit view
+                editTab.click();
+                this.innerHTML = '<i class="bi bi-eye"></i> Preview';
+            } else {
+                // Switch to preview view
+                previewTab.click();
+                this.innerHTML = '<i class="bi bi-pencil"></i> Edit';
+                
+                // Update preview content
+                updatePreview();
+            }
+        });
+        
+        // Tab change handler
+        document.querySelectorAll('#editor-tabs .nav-link').forEach(tab => {
+            tab.addEventListener('click', function(e) {
+                if (this.id === 'preview-tab') {
+                    updatePreview();
+                }
+            });
+        });
+        
+        // Sidebar fragment search
+        document.getElementById('sidebar-fragment-search').addEventListener('input', function() {
+            filterSidebarFragments(this.value);
+        });
+        
+        // Sidebar fragment refresh
+        document.getElementById('sidebar-fragment-refresh').addEventListener('click', function() {
+            loadSidebarFragments();
+        });
+        
+        // Template type change handler
+        document.getElementById('template-type-select').addEventListener('change', function() {
+            if (templateData) {
+                templateData.type = this.value;
+                document.getElementById('template-type').textContent = getTemplateBadgeText(this.value);
+                markUnsavedChanges();
+            }
+        });
+        
+        // Handle beforeunload event to warn about unsaved changes
+        window.addEventListener('beforeunload', function(e) {
+            if (unsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+                return '';
+            }
+        });
+    });
+    
+    function loadTemplate() {
+        fetch(`/api/prompts/templates/${templateId}`)
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else if (response.status === 404) {
+                    // Template doesn't exist, show modal to create it
+                    showCreateTemplateModal();
+                    throw new Error('Template not found');
+                } else {
+                    throw new Error('Failed to load template');
+                }
+            })
+            .then(data => {
+                templateData = data;
+                
+                // Set editor content
+                editor.setValue(data.content);
+                
+                // Set template details
+                document.getElementById('template-title').textContent = data.name;
+                document.getElementById('template-name').value = data.name;
+                document.getElementById('template-description').value = data.description || '';
+                document.getElementById('template-type-select').value = data.type;
+                document.getElementById('template-type').textContent = getTemplateBadgeText(data.type);
+                document.getElementById('template-last-updated').textContent = 'Updated ' + dayjs(data.updated_at).fromNow();
+                
+                // Reset status
+                document.getElementById('template-status').textContent = 'Loaded';
+                document.getElementById('template-status').classList.remove('bg-warning');
+                document.getElementById('template-status').classList.add('bg-primary');
+                
+                // Update dependencies list
+                updateDependenciesList(Array.from(data.fragment_dependencies));
+                
+                // Set as saved
+                unsavedChanges = false;
+            })
+            .catch(error => {
+                console.error('Error loading template:', error);
+                if (error.message !== 'Template not found') {
+                    alert('Error loading template. Please try again.');
+                }
+            });
+    }
+    
+    function saveTemplate() {
+        if (!templateData) {
+            showCreateTemplateModal();
+            return;
+        }
+        
+        // Update template data
+        templateData.content = editor.getValue();
+        templateData.name = document.getElementById('template-name').value;
+        templateData.description = document.getElementById('template-description').value;
+        templateData.type = document.getElementById('template-type-select').value;
+        
+        // Update status
+        document.getElementById('template-status').textContent = 'Saving...';
+        document.getElementById('template-status').classList.remove('bg-warning', 'bg-success', 'bg-primary');
+        document.getElementById('template-status').classList.add('bg-info');
+        
+        // Send update request
+        fetch(`/api/prompts/templates/${templateId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: templateData.name,
+                content: templateData.content,
+                type: templateData.type,
+                description: templateData.description
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to save template');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Update template data
+            templateData = data;
+            
+            // Update UI
+            document.getElementById('template-title').textContent = data.name;
+            document.getElementById('template-last-updated').textContent = 'Updated ' + dayjs(data.updated_at).fromNow();
+            document.getElementById('template-status').textContent = 'Saved';
+            document.getElementById('template-status').classList.remove('bg-info', 'bg-warning');
+            document.getElementById('template-status').classList.add('bg-success');
+            
+            // Update dependencies list
+            updateDependenciesList(Array.from(data.fragment_dependencies));
+            
+            // Reset unsaved changes flag
+            unsavedChanges = false;
+            
+            // Show toast notification
+            showToast('Template saved successfully');
+        })
+        .catch(error => {
+            console.error('Error saving template:', error);
+            document.getElementById('template-status').textContent = 'Error Saving';
+            document.getElementById('template-status').classList.remove('bg-info');
+            document.getElementById('template-status').classList.add('bg-danger');
+            alert('Error saving template. Please try again.');
+        });
+    }
+    
+    function updatePreview() {
+        const content = editor.getValue();
+        const previewContainer = document.getElementById('template-preview');
+        
+        // Use marked to render Markdown
+        previewContainer.innerHTML = marked.parse(content);
+    }
+    
+    function renderTemplate() {
+        // Show rendered tab
+        document.getElementById('rendered-tab').click();
+        
+        const renderedContainer = document.getElementById('template-rendered');
+        
+        // Show loading indicator
+        renderedContainer.innerHTML = '<div class="text-center py-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="text-muted mb-0">Rendering template...</p></div>';
+        
+        // Send request to render template
+        fetch(`/api/prompts/templates/${templateId}/render?expand=true`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to render template');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Update rendered view with markdown parsing
+                renderedContainer.innerHTML = marked.parse(data.content);
+            })
+            .catch(error => {
+                console.error('Error rendering template:', error);
+                renderedContainer.innerHTML = '<div class="alert alert-danger">Error rendering template. Please try again.</div>';
+            });
+    }
+    
+    function updateDependenciesList(dependencies) {
+        const dependenciesList = document.getElementById('dependencies-list');
+        const noDependenciesMessage = document.getElementById('no-dependencies-message');
+        
+        if (!dependencies || dependencies.length === 0) {
+            dependenciesList.style.display = 'none';
+            noDependenciesMessage.style.display = 'block';
+            return;
+        }
+        
+        // Show the list and hide the message
+        dependenciesList.style.display = 'block';
+        noDependenciesMessage.style.display = 'none';
+        
+        // Clear the list
+        dependenciesList.innerHTML = '';
+        
+        // Add dependencies to the list
+        const fragmentPromises = dependencies.map(fragmentId => 
+            fetch(`/api/prompts/fragments/${fragmentId}`)
+                .then(response => response.ok ? response.json() : null)
+                .catch(() => null)
+        );
+        
+        Promise.all(fragmentPromises)
+            .then(fragments => {
+                // Filter out failed requests
+                fragments = fragments.filter(f => f !== null);
+                
+                if (fragments.length === 0) {
+                    dependenciesList.style.display = 'none';
+                    noDependenciesMessage.style.display = 'block';
+                    return;
+                }
+                
+                // Sort by ID
+                fragments.sort((a, b) => a.id.localeCompare(b.id));
+                
+                // Create list items
+                fragments.forEach(fragment => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    
+                    const dependencyDiv = document.createElement('div');
+                    dependencyDiv.className = 'd-flex justify-content-between align-items-center';
+                    
+                    const link = document.createElement('a');
+                    link.href = `/fragments/${fragment.id}`;
+                    link.textContent = fragment.id;
+                    
+                    const description = document.createElement('small');
+                    description.className = 'text-muted ms-2';
+                    description.textContent = fragment.description || '';
+                    
+                    const leftDiv = document.createElement('div');
+                    leftDiv.appendChild(link);
+                    if (fragment.description) {
+                        leftDiv.appendChild(description);
+                    }
+                    
+                    const insertBtn = document.createElement('button');
+                    insertBtn.className = 'btn btn-sm btn-outline-secondary';
+                    insertBtn.innerHTML = '<i class="bi bi-plus-circle"></i> Insert';
+                    insertBtn.addEventListener('click', function() {
+                        insertFragmentInclusion(fragment.id);
+                    });
+                    
+                    dependencyDiv.appendChild(leftDiv);
+                    dependencyDiv.appendChild(insertBtn);
+                    
+                    li.appendChild(dependencyDiv);
+                    dependenciesList.appendChild(li);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading fragment dependencies:', error);
+                dependenciesList.innerHTML = '<li class="list-group-item text-danger">Error loading dependencies</li>';
+            });
+    }
+    
+    function loadSidebarFragments() {
+        const fragmentList = document.getElementById('sidebar-fragment-list');
+        
+        // Show loading indicator
+        fragmentList.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="text-muted mb-0">Loading fragments...</p></div>';
+        
+        fetch('/api/prompts/fragments')
+            .then(response => response.json())
+            .then(fragments => {
+                // Clear loading indicator
+                fragmentList.innerHTML = '';
+                
+                if (fragments.length === 0) {
+                    fragmentList.innerHTML = '<p class="text-muted p-3">No fragments found.</p>';
+                    return;
+                }
+                
+                // Sort by ID
+                fragments.sort((a, b) => a.id.localeCompare(b.id));
+                
+                // Create fragment items
+                fragments.forEach(fragment => {
+                    const item = document.createElement('div');
+                    item.className = 'fragment-item';
+                    item.dataset.id = fragment.id;
+                    
+                    const title = document.createElement('div');
+                    title.className = 'fragment-item-title';
+                    title.textContent = fragment.id;
+                    
+                    const meta = document.createElement('div');
+                    meta.className = 'fragment-item-meta';
+                    meta.textContent = fragment.description || '';
+                    
+                    item.appendChild(title);
+                    
+                    if (fragment.description) {
+                        item.appendChild(meta);
+                    }
+                    
+                    item.addEventListener('click', function() {
+                        insertFragmentInclusion(fragment.id);
+                    });
+                    
+                    fragmentList.appendChild(item);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading fragments:', error);
+                fragmentList.innerHTML = '<div class="alert alert-danger m-3">Error loading fragments.</div>';
+            });
+    }
+    
+    function filterSidebarFragments(searchTerm) {
+        const fragmentItems = document.querySelectorAll('.fragment-item');
+        searchTerm = searchTerm.toLowerCase();
+        
+        fragmentItems.forEach(item => {
+            const id = item.dataset.id.toLowerCase();
+            const description = item.querySelector('.fragment-item-meta')?.textContent.toLowerCase() || '';
+            
+            if (id.includes(searchTerm) || description.includes(searchTerm)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    function insertFragmentInclusion(fragmentId) {
+        const cursor = editor.getCursor();
+        editor.replaceRange(`[[${fragmentId}]]`, cursor);
+        editor.focus();
+        markUnsavedChanges();
+    }
+    
+    function showFragmentCompletion(cm) {
+        // Implementation for fragment auto-completion would go here
+        // This would show a dropdown of matching fragments
+        // For simplicity, we're not implementing this in detail
+    }
+    
+    function getTemplateBadgeText(type) {
+        switch (type) {
+            case 'project_start':
+                return 'Project Start';
+            case 'resume':
+                return 'Resume';
+            case 'worker_dispatch':
+                return 'Worker Dispatch';
+            case 'custom':
+            default:
+                return 'Custom';
+        }
+    }
+    
+    function markUnsavedChanges() {
+        unsavedChanges = true;
+        document.getElementById('template-status').textContent = 'Unsaved Changes';
+        document.getElementById('template-status').classList.remove('bg-primary', 'bg-success');
+        document.getElementById('template-status').classList.add('bg-warning');
+    }
+    
+    function showCreateTemplateModal() {
+        // This would show a modal to create a new template
+        // For simplicity, we're just redirecting to the management page
+        window.location.href = "/manage/templates";
+    }
+    
+    function showToast(message) {
+        // Create toast container if it doesn't exist
+        let toastContainer = document.querySelector('.toast-container');
+        
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
+        
+        // Create toast element
+        const toastId = 'toast-' + Date.now();
+        const toastHtml = `
+            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <strong class="me-auto">Notification</strong>
+                    <small>Just now</small>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        
+        // Initialize and show the toast
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 3000 });
+        toast.show();
+        
+        // Remove toast after it's hidden
+        toastElement.addEventListener('hidden.bs.toast', function() {
+            toastElement.remove();
+        });
+    }
+</script>
+{% endblock %}
