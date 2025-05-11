@@ -12,6 +12,9 @@
     <button class="btn btn-outline-secondary" id="toggle-view-btn">
         <i class="bi bi-eye"></i> Preview
     </button>
+    <button class="btn btn-outline-secondary" id="search-replace-btn" title="Search and Replace (Alt+R)">
+        <i class="bi bi-search"></i> Search/Replace
+    </button>
 </div>
 {% endblock %}
 
@@ -151,6 +154,24 @@
         background-color: #f8f9fa;
     }
     
+    /* Fix for expanded content view overflow issue */
+    #expanded-pane {
+        background-color: #fff;
+    }
+    
+    #expanded-container.markdown-preview {
+        background-color: #fff;
+        height: auto;
+        min-height: 500px;
+        overflow-x: hidden;
+        width: 100%;
+    }
+    
+    #fragment-expanded {
+        background-color: #fff;
+        width: 100%;
+    }
+    
     .sidebar-fragment-list {
         max-height: 400px;
         overflow-y: auto;
@@ -178,6 +199,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="/static/js/search-replace.js"></script>
 <script>
     // Initialize date/time formatting
     dayjs.extend(dayjs_plugin_relativeTime);
@@ -188,6 +210,7 @@
     let fragmentData = null;
     let websocket = null;
     let unsavedChanges = false;
+    let searchReplace = null;
     
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize the editor
@@ -206,6 +229,9 @@
                 'Ctrl-S': function(cm) {
                     saveFragment();
                 },
+                'Alt-R': function(cm) {
+                    if (searchReplace) searchReplace.showDialog();
+                },
                 'Ctrl-Space': function(cm) {
                     // Show completion for fragment inclusions
                     const cursor = cm.getCursor();
@@ -218,6 +244,9 @@
                 }
             }
         });
+        
+        // Initialize search and replace functionality
+        searchReplace = new SearchReplace(editor);
         
         // Track changes
         editor.on('change', function() {
@@ -235,6 +264,9 @@
         
         // Set up event handlers
         document.getElementById('save-fragment-btn').addEventListener('click', saveFragment);
+        document.getElementById('search-replace-btn').addEventListener('click', function() {
+            if (searchReplace) searchReplace.showDialog();
+        });
         
         document.getElementById('toggle-view-btn').addEventListener('click', function() {
             const previewTab = document.getElementById('preview-tab');
@@ -583,6 +615,7 @@
         // Create new WebSocket connection
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${protocol}//${window.location.host}/api/prompts/ws/fragments/${fragmentId}`;
+        console.log(`Connecting to WebSocket at: ${wsUrl}`);
         
         websocket = new WebSocket(wsUrl);
         
