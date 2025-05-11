@@ -9,8 +9,8 @@
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPromptModal">
         <i class="bi bi-plus-circle"></i> New Prompt
     </button>
-    <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addDirectoryModal">
-        <i class="bi bi-folder-plus"></i> Add Directory
+    <button class="btn btn-outline-secondary" id="refresh-all-btn">
+        <i class="bi bi-arrow-clockwise"></i> Refresh All
     </button>
 </div>
 {% endblock %}
@@ -57,6 +57,7 @@
                         <table class="table table-hover">
                             <thead>
                                 <tr class="sortable-headers">
+                                    <th data-sort="directory" class="sortable">Directory <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th data-sort="id" class="sortable">ID <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th data-sort="description" class="sortable">Description <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th data-sort="type" class="sortable">Type <i class="bi bi-sort-alpha-down sort-icon"></i></th>
@@ -68,7 +69,7 @@
                             <tbody id="prompts-table-body">
                                 <!-- Prompts will be loaded dynamically -->
                                 <tr>
-                                    <td colspan="6" class="text-center py-4">
+                                    <td colspan="7" class="text-center py-4">
                                         <div class="spinner-border text-primary" role="status">
                                             <span class="visually-hidden">Loading...</span>
                                         </div>
@@ -86,8 +87,11 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">Directories</h5>
+                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addDirectoryModal">
+                        <i class="bi bi-folder-plus"></i> Add Directory
+                    </button>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -256,37 +260,12 @@
     </div>
 </div>
 
-<!-- Create Default Prompts Modal -->
-<div class="modal fade" id="defaultPromptsModal" tabindex="-1" aria-labelledby="defaultPromptsModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="defaultPromptsModalLabel">Create Default Prompts</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>This will create the following default prompts in the selected directory:</p>
-                <ul>
-                    <li><strong>Architect Role</strong>: System prompt for the Architect AI</li>
-                    <li><strong>Worker Role</strong>: System prompt for Worker AIs</li>
-                </ul>
-                <div class="mb-3">
-                    <label for="defaultPromptsDirectory" class="form-label">Directory</label>
-                    <select class="form-select" id="defaultPromptsDirectory" required>
-                        <!-- Directories will be loaded dynamically -->
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="createDefaultPromptsBtn">Create Default Prompts</button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Create Default Prompts Modal Removed -->
 {% endblock %}
 
 {% block extra_js %}
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/directory_manager.js"></script>
 <style>
     /* Styles for sortable headers */
     .sortable {
@@ -320,21 +299,29 @@
         transform: translateY(-50%) rotate(180deg);
     }
     
+    /* Directory column styling */
+    table th:nth-child(1), /* Directory */
+    table td:nth-child(1) {
+        max-width: 150px;
+        width: 15%;
+        word-break: break-word;
+    }
+    
     /* Make description and tags columns smaller */
-    table th:nth-child(2), /* Description */
-    table td:nth-child(2) {
+    table th:nth-child(3), /* Description */
+    table td:nth-child(3) {
         max-width: 200px;
         width: 15%;
     }
     
-    table th:nth-child(4), /* Tags */
-    table td:nth-child(4) {
+    table th:nth-child(5), /* Tags */
+    table td:nth-child(5) {
         max-width: 150px;
         width: 15%;
     }
     
-    table th:nth-child(5), /* Last Updated */
-    table td:nth-child(5) {
+    table th:nth-child(6), /* Last Updated */
+    table td:nth-child(6) {
         width: 10%;
     }
 </style>
@@ -350,9 +337,31 @@
     
     // Sort settings
     let currentSort = {
-        column: 'id',
+        column: 'directory',
         direction: 'asc'
     };
+    
+    /**
+     * Perform a stable sort on an array based on a given comparison function.
+     * This ensures that equal elements maintain their relative order.
+     * 
+     * @param {Array} array - The array to sort
+     * @param {Function} compareFunction - Function that defines the sort order
+     * @returns {Array} The sorted array
+     */
+    function stableSort(array, compareFunction) {
+        // Add indices to track original order
+        const indexed = array.map((item, index) => [item, index]);
+        
+        // Sort with original index as tiebreaker
+        indexed.sort((a, b) => {
+            const compareResult = compareFunction(a[0], b[0]);
+            return compareResult === 0 ? a[1] - b[1] : compareResult;
+        });
+        
+        // Extract the sorted items
+        return indexed.map(pair => pair[0]);
+    }
     
     // Default prompts content
     const defaultPrompts = {
@@ -407,6 +416,48 @@ Remember that you're part of a team - your specialized work contributes to solvi
         }
     };
     
+    // Function to refresh a specific directory - using the imported function from directory_manager.js
+    function refreshDirectory(directoryPath) {
+        // Show loading toast
+        showToast('Refreshing directory...', 'info');
+        
+        // Use the imported function
+        reloadDirectory(directoryPath)
+            .then(data => {
+                // Reload prompts to reflect changes
+                loadPrompts();
+                showToast(`Successfully reloaded ${data.count} prompts from directory`, 'success');
+            })
+            .catch(error => {
+                console.error('Error refreshing directory:', error);
+                showToast(`Error refreshing directory: ${error.message}`, 'danger');
+                
+                // Try refreshing all as a fallback
+                loadPrompts();
+            });
+    }
+    
+    // Function to refresh all directories - using the imported function from directory_manager.js
+    function refreshAllDirectories() {
+        // Show loading toast
+        showToast('Refreshing all directories...', 'info');
+        
+        // Use the imported function
+        reloadAllPrompts()
+            .then(data => {
+                // Reload prompts to reflect changes
+                loadPrompts();
+                showToast(`Successfully reloaded ${data.count} prompts from all directories`, 'success');
+            })
+            .catch(error => {
+                console.error('Error refreshing directories:', error);
+                showToast(`Error refreshing directories: ${error.message}`, 'danger');
+                
+                // Try regular reload as a fallback
+                loadPrompts();
+            });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // Load prompts
         loadPrompts();
@@ -414,15 +465,33 @@ Remember that you're part of a team - your specialized work contributes to solvi
         // Load directories
         loadDirectories();
         
-        // Set up event handlers
+        // Set up refresh all button
+        document.getElementById('refresh-all-btn').addEventListener('click', refreshAllDirectories);
+        
+        // Set up event handlers - search immediately on typing
         document.getElementById('prompt-search').addEventListener('input', function() {
             currentFilter.search = this.value;
             filterPrompts();
         });
         
+        // Keep the button functionality for compatibility
         document.getElementById('prompt-search-btn').addEventListener('click', function() {
             currentFilter.search = document.getElementById('prompt-search').value;
             filterPrompts();
+        });
+        
+        // Add focus to search box when page loads and when no item is selected
+        document.addEventListener('keydown', function(event) {
+            // If a text input or textarea isn't focused and user starts typing a letter/number
+            if (document.activeElement.tagName !== 'INPUT' && 
+                document.activeElement.tagName !== 'TEXTAREA' &&
+                document.activeElement.tagName !== 'SELECT' &&
+                event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+                // Focus the search box and add the typed character
+                const searchBox = document.getElementById('prompt-search');
+                searchBox.focus();
+                // Don't overwrite the value as the input event will handle the filtering
+            }
         });
         
         // Set up sorting functionality
@@ -587,20 +656,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
             });
         });
         
-        // Add Create Default Prompts button to the header actions
-        const headerActions = document.querySelector('.btn-group');
-        if (headerActions) {
-            const defaultPromptsBtn = document.createElement('button');
-            defaultPromptsBtn.className = 'btn btn-outline-secondary';
-            defaultPromptsBtn.innerHTML = '<i class="bi bi-lightning"></i> Create Default Prompts';
-            defaultPromptsBtn.addEventListener('click', function() {
-                const modal = new bootstrap.Modal(document.getElementById('defaultPromptsModal'));
-                populateDirectorySelect('defaultPromptsDirectory');
-                modal.show();
-            });
-            
-            headerActions.appendChild(defaultPromptsBtn);
-        }
+        // No longer adding the Create Default Prompts button
     });
     
     // Function to update the sort header icons and classes
@@ -660,7 +716,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 console.error('Error loading prompts:', error);
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="text-center py-4 text-danger">
+                        <td colspan="7" class="text-center py-4 text-danger">
                             <i class="bi bi-exclamation-circle fs-4"></i>
                             <p class="mb-0 mt-2">Error loading prompts: ${error.message}</p>
                             <p class="small">Try adding prompt directories in the section below.</p>
@@ -697,16 +753,21 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 const searchLower = currentFilter.search.toLowerCase();
                 filteredPrompts = filteredPrompts.filter(prompt => 
                     prompt.id.toLowerCase().includes(searchLower) ||
-                    (prompt.description && prompt.description.toLowerCase().includes(searchLower))
+                    (prompt.description && prompt.description.toLowerCase().includes(searchLower)) ||
+                    (prompt.directory && prompt.directory.toLowerCase().includes(searchLower))
                 );
             }
             
-            // Sort based on current sort settings
-            filteredPrompts.sort((a, b) => {
+            // Sort based on current sort settings using stableSort for a stable sort algorithm
+            filteredPrompts = stableSort(filteredPrompts, (a, b) => {
                 let aValue, bValue;
                 
                 // Get the values to compare based on the sort column
                 switch (currentSort.column) {
+                    case 'directory':
+                        aValue = a.directory || '';
+                        bValue = b.directory || '';
+                        break;
                     case 'id':
                         aValue = a.id;
                         bValue = b.id;
@@ -753,7 +814,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
             if (filteredPrompts.length === 0) {
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="text-center py-4">
+                        <td colspan="7" class="text-center py-4">
                             <p class="mb-0">No prompts found.</p>
                         </td>
                     </tr>
@@ -764,6 +825,11 @@ Remember that you're part of a team - your specialized work contributes to solvi
             // Add prompts to table
             filteredPrompts.forEach(prompt => {
                 const row = document.createElement('tr');
+                
+                // Directory cell
+                const dirCell = document.createElement('td');
+                dirCell.textContent = prompt.directory || '';
+                dirCell.title = prompt.directory || '';
                 
                 // ID cell
                 const idCell = document.createElement('td');
@@ -833,6 +899,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 actionsCell.appendChild(deleteBtn);
                 
                 // Add cells to row
+                row.appendChild(dirCell);
                 row.appendChild(idCell);
                 row.appendChild(descCell);
                 row.appendChild(typeCell);
@@ -922,9 +989,8 @@ Remember that you're part of a team - your specialized work contributes to solvi
                     refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
                     refreshBtn.title = 'Refresh';
                     refreshBtn.addEventListener('click', function() {
-                        // This would reload prompts from this directory
-                        showToast('Refreshing directory...');
-                        loadPrompts();
+                        // Reload prompts from this directory
+                        refreshDirectory(dir.path);
                     });
                     
                     // Delete button
