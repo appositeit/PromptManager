@@ -177,6 +177,22 @@
         padding: 0.5rem 1rem;
     }
     
+    /* Fix for expanded content view overflow issue */
+    #expanded-content {
+        background-color: #fff;
+    }
+    
+    #preview {
+        background-color: #fff;
+        height: auto;
+        min-height: 600px;
+        padding: 15px;
+        width: 100%;
+        overflow-x: hidden;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    
     /* Make metadata elements smaller and more compact */
     .form-control-sm {
         height: 30px;
@@ -383,7 +399,11 @@
         document.getElementById('confirm-delete-btn').addEventListener('click', deletePrompt);
         
         // Handle tab changes
-        document.getElementById('expanded-tab').addEventListener('click', updateExpandedView);
+        document.getElementById('expanded-tab').addEventListener('click', function() {
+            // Set background to white for extended content
+            document.getElementById('expanded-content').style.backgroundColor = '#ffffff';
+            updateExpandedView();
+        });
     });
     
     function loadPromptData() {
@@ -498,6 +518,13 @@
                             try {
                                 console.log('Updating preview with expanded content');
                                 document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
+                                
+                                // Force the preview container to extend its height
+                                const previewElement = document.getElementById('preview');
+                                const contentHeight = previewElement.scrollHeight;
+                                if (contentHeight > 600) {
+                                    previewElement.style.height = contentHeight + 'px';
+                                }
                             } catch (error) {
                                 console.error('Error rendering expanded content:', error);
                                 document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
@@ -582,6 +609,13 @@
             try {
                 console.log('Updating preview with expanded content from API');
                 document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
+                
+                // Force the preview container to extend its height
+                const previewElement = document.getElementById('preview');
+                const contentHeight = previewElement.scrollHeight;
+                if (contentHeight > 600) {
+                    previewElement.style.height = contentHeight + 'px';
+                }
             } catch (error) {
                 console.error('Error rendering expanded content:', error);
                 document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
@@ -766,6 +800,10 @@
         // Get current content
         const content = editor.getValue();
         console.log('Current editor content:', content);
+        
+        // Ensure the expanded content tab has white background extending fully
+        const expandedContent = document.getElementById('expanded-content');
+        expandedContent.style.backgroundColor = '#ffffff';
         
         // Send expansion request via WebSocket
         if (socket && socket.readyState === WebSocket.OPEN) {
