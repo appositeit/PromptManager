@@ -2,6 +2,10 @@
 
 {% block title %}Prompt Editor{% endblock %}
 
+{% block extra_js_head %}
+<script src="{{ url_for('static', path='js/utils.js') }}"></script>
+{% endblock %}
+
 {% block header_title %}Prompt Editor: {{ prompt_id }}{% endblock %}
 
 {% block header_actions %}
@@ -29,9 +33,23 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
-                    <div class="d-flex align-items-center mb-2">
-                        <span class="badge rounded-pill me-2" id="prompt-type-badge">Standard</span>
-                        <span id="prompt-id" class="fw-bold">{{ prompt_id }}</span>
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge rounded-pill me-2" id="prompt-type-badge">Standard</span>
+                            <span id="prompt-id" class="fw-bold">{{ prompt_id }}</span>
+                            <span class="ms-auto small text-muted">Last updated: <span id="last-updated">-</span></span>
+                        </div>
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label for="prompt-description" class="form-label">Description</label>
+                                <input type="text" class="form-control form-control-sm" id="prompt-description">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="prompt-tags" class="form-label">Tags</label>
+                                <input type="text" class="form-control form-control-sm" id="prompt-tags" placeholder="tag1, tag2, tag3">
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="editor-container">
@@ -152,44 +170,8 @@
 
 {% block extra_js %}
 <script>
-    // Helper function to show a toast notification
-    function showToast(message, type = 'success') {
-        // Create toast container if it doesn't exist
-        let toastContainer = document.querySelector('.toast-container');
-        
-        if (!toastContainer) {
-            toastContainer = document.createElement('div');
-            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-            document.body.appendChild(toastContainer);
-        }
-        
-        // Create toast element
-        const toastId = 'toast-' + Date.now();
-        const toastHtml = `
-            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header ${type === 'success' ? 'bg-success text-white' : type === 'danger' ? 'bg-danger text-white' : ''}">
-                    <strong class="me-auto">Notification</strong>
-                    <small>Just now</small>
-                    <button type="button" class="btn-close ${type === 'success' || type === 'danger' ? 'btn-close-white' : ''}" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-                <div class="toast-body">
-                    ${message}
-                </div>
-            </div>
-        `;
-        
-        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-        
-        // Initialize and show the toast
-        const toastElement = document.getElementById(toastId);
-        const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 3000 });
-        toast.show();
-        
-        // Remove toast after it's hidden
-        toastElement.addEventListener('hidden.bs.toast', function() {
-            toastElement.remove();
-        });
-    }
+    // Import utility functions
+    // Use the showToast function from utils.js
     
     // Format date function
     function formatDate(dateString) {
