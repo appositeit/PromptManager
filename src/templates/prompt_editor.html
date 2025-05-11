@@ -3,7 +3,7 @@
 {% block title %}Prompt Editor{% endblock %}
 
 {% block extra_js_head %}
-<script src="{{ url_for('static', path='js/utils.js') }}"></script>
+<script src="/static/js/utils.js"></script>
 {% endblock %}
 
 {% block header_title %}{{ prompt_id }}{% endblock %}
@@ -21,6 +21,9 @@
     <button id="toggle-view-btn" class="btn btn-outline-primary" title="Toggle between raw and expanded view (Alt+T)">
         <i class="bi bi-eye"></i> Toggle View
     </button>
+    <button id="search-replace-btn" class="btn btn-outline-primary" title="Search and Replace (Alt+R)">
+        <i class="bi bi-search"></i> Search/Replace
+    </button>
     <button id="save-btn" class="btn btn-outline-success" title="Save changes (Alt+S)">
         <i class="bi bi-save"></i> Save
     </button>
@@ -31,67 +34,20 @@
 {% endblock %}
 
 {% block content %}
+<!-- Hidden element to store prompt ID for JavaScript -->
+<span id="prompt-id" class="d-none">{{ prompt_id }}</span>
+
 <div class="container-fluid">
     <div class="row">
-        <div class="col-12">
+        <!-- Main editor column - takes up more space -->
+        <div class="col-md-9">
             <div class="card">
                 <div class="card-body">
-                    <div class="mb-3">
-                        <div class="d-flex align-items-center mb-2">
-                            <span class="badge rounded-pill me-2" id="prompt-type-badge">Standard</span>
-                            <span id="prompt-id" class="fw-bold">{{ prompt_id }}</span>
-                            <span class="ms-auto small text-muted">Last updated: <span id="last-updated">-</span></span>
-                        </div>
-                        
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-6">
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">Description</span>
-                                    <input type="text" class="form-control" id="prompt-description">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">Tags</span>
-                                    <input type="text" class="form-control" id="prompt-tags" placeholder="tag1, tag2, tag3">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
                     <div class="editor-container">
                         <div id="editor-tabs" class="nav nav-tabs">
                             <button class="nav-link active" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw-content" title="View and edit original content with inclusion references">Raw Content</button>
                             <button class="nav-link" id="expanded-tab" data-bs-toggle="tab" data-bs-target="#expanded-content" title="View content with all inclusions expanded">Expanded Content</button>
                         </div>
-                        <style>
-                            #editor, #preview {
-                                height: calc(80vh - 150px);
-                                min-height: 500px;
-                            }
-                            .CodeMirror {
-                                height: 100%;
-                                font-size: 14px;
-                                line-height: 1.6;
-                            }
-                            /* Style the tabs */
-                            #editor-tabs .nav-link {
-                                font-size: 0.9rem;
-                                padding: 0.5rem 1rem;
-                            }
-                            /* Make metadata elements smaller and more compact */
-                            .form-control-sm {
-                                height: 30px;
-                                padding: 0.25rem 0.5rem;
-                                font-size: 0.875rem;
-                            }
-                            .card-header {
-                                padding: 0.5rem 1rem;
-                            }
-                            .small {
-                                font-size: 0.875rem;
-                            }
-                        </style>
                         
                         <div class="tab-content">
                             <div class="tab-pane fade show active" id="raw-content">
@@ -104,12 +60,57 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Warnings card remains below the editor -->
+            <div class="row mt-3">
+                <div class="col-12">
+                    <div class="card" id="warnings-card" style="display: none;">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                Warnings
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="warnings">
+                                <!-- Warnings will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-    
-    <div class="row mt-4">
-        <div class="col-md-4">
-            <div class="card">
+        
+        <!-- Sidebar with metadata and references - takes up less space -->
+        <div class="col-md-3">
+            <!-- Description and Tags card -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Metadata</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <div class="d-flex align-items-center">
+                            <span class="badge rounded-pill me-2" id="prompt-type-badge">Standard</span>
+                            <span class="ms-auto small text-muted">Last updated: <span id="last-updated">-</span></span>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <span class="small text-muted">Directory: <span id="prompt-directory" class="fw-semibold">-</span></span>
+                    </div>
+                    <div class="mb-3">
+                        <label for="prompt-description" class="form-label">Description</label>
+                        <input type="text" class="form-control form-control-sm" id="prompt-description">
+                    </div>
+                    <div class="mb-3">
+                        <label for="prompt-tags" class="form-label">Tags</label>
+                        <input type="text" class="form-control form-control-sm" id="prompt-tags" placeholder="tag1, tag2, tag3">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dependencies card -->
+            <div class="card mb-3">
                 <div class="card-header">
                     <h5 class="card-title mb-0">Dependencies</h5>
                 </div>
@@ -119,34 +120,15 @@
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="col-md-6">
-            <div class="card">
+            
+            <!-- Referenced By card -->
+            <div class="card mb-3">
                 <div class="card-header">
                     <h5 class="card-title mb-0">Referenced By</h5>
                 </div>
                 <div class="card-body">
                     <div id="referenced-by">
                         <p class="text-muted">Loading references...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card" id="warnings-card" style="display: none;">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="card-title mb-0">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        Warnings
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div id="warnings">
-                        <!-- Warnings will be populated here -->
                     </div>
                 </div>
             </div>
@@ -175,7 +157,74 @@
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Make the editor take up maximum vertical space */
+    #editor, #preview {
+        height: calc(85vh - 90px);
+        min-height: 600px;
+    }
+    
+    .CodeMirror {
+        height: 100%;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    
+    /* Style the tabs */
+    #editor-tabs .nav-link {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    /* Make metadata elements smaller and more compact */
+    .form-control-sm {
+        height: 30px;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .card-header {
+        padding: 0.5rem 1rem;
+    }
+    
+    .small {
+        font-size: 0.875rem;
+    }
+    
+    /* Style the sidebar cards to be more compact */
+    .col-md-3 .card {
+        font-size: 0.9rem;
+    }
+    
+    .col-md-3 .card-body {
+        padding: 0.75rem;
+    }
+    
+    .col-md-3 .form-label {
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+    
+    /* Make the list groups in sidebar more compact */
+    .col-md-3 .list-group-item {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    /* Sticky sidebar */
+    @media (min-width: 768px) {
+        .col-md-3 {
+            position: sticky;
+            top: 0;
+            height: calc(100vh - 70px);
+            overflow-y: auto;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block extra_js %}
+<script src="/static/js/search-replace.js"></script>
 <script>
     // Import utility functions
     // Use the showToast function from utils.js
@@ -229,6 +278,7 @@
     let saveTimeout = null;
     let isComposite = false;
     let allPrompts = []; // Store all available prompts for autocomplete
+    let searchReplace = null; // Search and replace functionality
     
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize CodeMirror editor
@@ -253,9 +303,17 @@
                 },
                 "Alt-T": function(cm) {
                     toggleView();
+                },
+                "Alt-R": function(cm) {
+                    if (searchReplace && document.getElementById('raw-tab').classList.contains('active')) {
+                        searchReplace.showDialog();
+                    }
                 }
             }
         });
+        
+        // Initialize search and replace functionality
+        searchReplace = new SearchReplace(editor);
         
         // Setup the custom hint function
         setupPromptCompletion();
@@ -301,6 +359,17 @@
         
         document.getElementById('copy-btn').addEventListener('click', copyPromptContent);
         document.getElementById('toggle-view-btn').addEventListener('click', toggleView);
+        document.getElementById('search-replace-btn').addEventListener('click', function() {
+            if (searchReplace && document.getElementById('raw-tab').classList.contains('active')) {
+                searchReplace.showDialog();
+            } else if (!document.getElementById('raw-tab').classList.contains('active')) {
+                // If not in raw tab, switch to it first
+                document.getElementById('raw-tab').click();
+                setTimeout(() => {
+                    if (searchReplace) searchReplace.showDialog();
+                }, 100);
+            }
+        });
         document.getElementById('save-btn').addEventListener('click', function() {
             const content = editor.getValue();
             saveViaApi(content);
@@ -335,6 +404,7 @@
                 document.getElementById('prompt-description').value = data.description || '';
                 document.getElementById('prompt-tags').value = data.tags.join(', ');
                 document.getElementById('last-updated').textContent = formatDate(data.updated_at);
+                document.getElementById('prompt-directory').textContent = data.directory || 'Not specified';
                 
                 // Set prompt type badge
                 const badge = document.getElementById('prompt-type-badge');
@@ -369,7 +439,8 @@
     function setupWebSocket() {
         try {
             // Create WebSocket connection
-            const wsUrl = `ws://${window.location.host}/api/prompts/ws/${promptId}`;
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/api/prompts/ws/${promptId}`;
             console.log(`Connecting to WebSocket at: ${wsUrl}`);
             socket = new WebSocket(wsUrl);
         
@@ -725,11 +796,11 @@
             return;
         }
         
-        let html = '<ul class="list-group">';
+        let html = '<ul class="list-group list-group-flush">';
         
         dependencies.forEach(dep => {
             html += `
-                <li class="list-group-item d-flex justify-content-between align-items-center">
+                <li class="list-group-item py-1 px-2">
                     <a href="/prompts/${dep}">${dep}</a>
                 </li>
             `;
@@ -759,11 +830,11 @@
                     return;
                 }
                 
-                let html = '<ul class="list-group">';
+                let html = '<ul class="list-group list-group-flush">';
                 
                 references.forEach(ref => {
                     html += `
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <li class="list-group-item py-1 px-2">
                             <div>
                                 <a href="/prompts/${ref.id}">${ref.id}</a>
                                 ${ref.description ? `<small class="text-muted d-block">${ref.description}</small>` : ''}
