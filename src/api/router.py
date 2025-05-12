@@ -353,7 +353,12 @@ async def toggle_directory_status(directory_path: str, data: DirectoryStatusTogg
 
 @router.delete("/directories/{directory_path:path}", response_model=Dict)
 async def remove_directory(directory_path: str):
-    """Remove a prompt directory."""
+    """
+    Remove a prompt directory.
+    
+    Args:
+        directory_path: Path to the directory to remove
+    """
     prompt_service = get_prompt_service()
     
     # Find the directory
@@ -414,6 +419,81 @@ async def reload_prompts():
         raise HTTPException(status_code=500, detail=f"Error reloading prompts: {str(e)}")
 
 
+@router.post("/rename", response_model=Dict)
+async def rename_prompt(data: Dict):
+    """
+    Rename a prompt and move its file.
+    
+    Args:
+        data: Dictionary containing:
+            - old_id: Current prompt ID
+            - new_id: New prompt ID
+            - content: Current content (optional)
+            - description: Current description (optional)
+            - tags: Current tags (optional)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Renaming prompt with data: {data}")
+    
+    if not data.get("old_id") or not data.get("new_id"):
+        raise HTTPException(status_code=400, detail="Both old_id and new_id are required")
+    
+    prompt_service = get_prompt_service()
+    
+    # Get the existing prompt
+    old_id = data["old_id"]
+    new_id = data["new_id"]
+    prompt = prompt_service.get_prompt(old_id)
+    
+    if not prompt:
+        raise HTTPException(status_code=404, detail=f"Prompt '{old_id}' not found")
+    
+    # Check if the new ID already exists
+    if prompt_service.get_prompt(new_id):
+        raise HTTPException(status_code=400, detail=f"Prompt with ID '{new_id}' already exists")
+    
+    try:
+        # Call rename function in service
+        result = prompt_service.rename_prompt(
+            old_id, 
+            new_id,
+            content=data.get("content"),
+            description=data.get("description"),
+            tags=data.get("tags")
+        )
+        
+        if not result:
+            raise HTTPException(status_code=500, detail=f"Failed to rename prompt from '{old_id}' to '{new_id}'")
+        
+        return {
+            "success": True,
+            "old_id": old_id,
+            "new_id": new_id,
+            "message": f"Successfully renamed prompt from '{old_id}' to '{new_id}'"
+        }
+    except Exception as e:
+        logger.error(f"Error renaming prompt: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error renaming prompt: {str(e)}")
+
+@router.get("/check_exists/{prompt_id}", response_model=Dict)
+async def check_prompt_exists(prompt_id: str):
+    """
+    Check if a prompt with the given ID already exists.
+    
+    Args:
+        prompt_id: The prompt ID to check
+    """
+    prompt_service = get_prompt_service()
+    
+    # Check if the ID exists
+    exists = prompt_service.get_prompt(prompt_id) is not None
+    
+    return {
+        "exists": exists,
+        "id": prompt_id
+    }
+
 # Expansion endpoint for API fallback
 class ExpandRequest(BaseModel):
     content: str
@@ -438,6 +518,8 @@ async def expand_content(request: ExpandRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error expanding content: {str(e)}")
+
+
 
 
 @router.post("/directories/{directory_path:path}/reload", response_model=Dict)

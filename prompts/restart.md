@@ -43,6 +43,17 @@ prompt_manager/
 
 [[project_maintenance_rules]]
 
-There is a "type" associated with each prompt. I don't think that is useful. Please remove "type" from the codebase, and make sure that type is removed from the metadata associated with each prompt so that we don't have problems loading prompts and their metadata.
+Also, we should be able to rename a prompt, which will also require renaming the underlying file. We need to be careful to make sure the user can't accidentally rename to an existing file and over write it, but otherwise we should support a rename operation.
 
-When I try to update a directory entry, I click on the edit/pencil icon, make my change and click update, then browser freezes. There is a js error:manipulator.js:37 UncaughtF@manipulator.js:37getDataAttribute@manipulator.js:67_mergeConfigObj@config.js:41_getConfig@base-component.js:53W@base-component.js:33Nn@toast.js:53showToast@utils.js:46updateDirectory@prompts:1354updateDirectory@prompts:1357updateDirectory@prompts:1357updateDirectory@prompts:1357updateDirectory@prompts:1357The updateDirectory@prompts:1357 entries continue to repeat.
+You have started implementing this change:
+
+Now, let's add a rename functionality. I think the best place to add this would be in the prompt editor page, since that's where users are already editing the prompt. Let's add a "Rename" button in the prompt editor.
+Now, let's add a modal dialog for renaming the prompt
+Now, let's add the JavaScript to handle the rename functionality
+Now, let's add the functions to handle showing the rename modal and performing the rename operation
+Now, we need to add the backend API endpoint to handle renaming. Let's look at the prompt API implementation
+Now, we need to add the backend API endpoint to handle renaming. Let's look at the prompt API implementation
+Let's look at the unified_router.py which likely handles the prompts API
+Let's look at router.py which is included first
+
+Please continue.

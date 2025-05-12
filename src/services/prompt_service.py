@@ -44,19 +44,22 @@ class PromptService:
         # Load saved directories from config if it exists
         saved_dirs = self._load_directory_config()
         
-        # Add base directories provided in constructor
-        if base_directories:
-            for directory in base_directories:
-                self.add_directory(directory)
-                
-        # Add saved directories that aren't already added
-        for saved_dir in saved_dirs:
-            if not any(d.path == saved_dir["path"] for d in self.directories):
+        if saved_dirs:
+            # If we have saved directories, use those and ignore base_directories
+            # This ensures user preferences are respected
+            logger.info(f"Found {len(saved_dirs)} saved directories in configuration")
+            for saved_dir in saved_dirs:
                 self.add_directory(
                     saved_dir["path"], 
                     saved_dir.get("name"), 
-                    saved_dir.get("description")
+                    saved_dir.get("description"),
+                    saved_dir.get("enabled", True)
                 )
+        elif base_directories:
+            # Only use base_directories if no saved config exists
+            logger.info(f"No saved directories found, using {len(base_directories)} base directories")
+            for directory in base_directories:
+                self.add_directory(directory)
         
         if auto_load:
             self.load_all_prompts()
@@ -65,6 +68,7 @@ class PromptService:
         """Load directory configuration from disk."""
         logger.debug(f"Loading directory configuration from {self.CONFIG_FILE}")
         
+        # Load the regular configuration
         if not os.path.exists(self.CONFIG_FILE):
             logger.debug("Directory configuration file not found, creating empty list")
             # Ensure directory exists
@@ -80,21 +84,27 @@ class PromptService:
             logger.opt(exception=True).error(f"Error loading directory configuration: {str(e)}")
             return []
             
-    def _save_directory_config(self):
-        """Save directory configuration to disk."""
+    def _save_directory_config(self, dirs_data=None):
+        """
+        Save directory configuration to disk.
+        
+        Args:
+            dirs_data: Optional custom directory data to save. If None, uses self.directories.
+        """
         logger.debug(f"Saving directory configuration to {self.CONFIG_FILE}")
         
         try:
-            # Convert directories to serializable format
-            dirs_data = []
-            for directory in self.directories:
-                dirs_data.append({
-                    "path": directory.path,
-                    "name": directory.name,
-                    "description": directory.description,
-                    "enabled": directory.enabled
-                })
-                
+            # If no custom data provided, convert directories to serializable format
+            if dirs_data is None:
+                dirs_data = []
+                for directory in self.directories:
+                    dirs_data.append({
+                        "path": directory.path,
+                        "name": directory.name,
+                        "description": directory.description,
+                        "enabled": directory.enabled
+                    })
+            
             # Write to file
             with open(self.CONFIG_FILE, 'w') as f:
                 json.dump(dirs_data, f, indent=2)
@@ -106,7 +116,7 @@ class PromptService:
             return False
             
     def add_directory(self, path: str, name: Optional[str] = None, 
-                     description: Optional[str] = None) -> bool:
+                     description: Optional[str] = None, enabled: bool = True) -> bool:
         """
         Add a directory of prompts.
         
@@ -114,11 +124,12 @@ class PromptService:
             path: Path to the directory
             name: Optional name for the directory
             description: Optional description of the directory
+            enabled: Whether the directory is enabled
             
         Returns:
             True if the directory was added, False otherwise
         """
-        logger.debug(f"Adding directory: path={path}, name={name}")
+        logger.debug(f"Adding directory: path={path}, name={name}, enabled={enabled}")
         
         # Check if directory exists
         if not os.path.isdir(path):
@@ -129,9 +140,17 @@ class PromptService:
         for existing_dir in self.directories:
             if existing_dir.path == path:
                 logger.warning(f"Directory already exists in service: {path}")
-                # Even though it exists, try to reload prompts from it
-                count = self.load_prompts_from_directory(path)
-                logger.info(f"Reloaded {count} prompts from existing directory: {path}")
+                # If the enabled status changed, update it
+                if existing_dir.enabled != enabled:
+                    logger.info(f"Updating enabled status for directory: {path} to {enabled}")
+                    existing_dir.enabled = enabled
+                    self._save_directory_config()
+                
+                # Only reload prompts if directory is enabled
+                if enabled:
+                    count = self.load_prompts_from_directory(path)
+                    logger.info(f"Reloaded {count} prompts from existing directory: {path}")
+                
                 return True
             
         # If name not provided, use the directory name
@@ -143,11 +162,11 @@ class PromptService:
             path=path,
             name=name,
             description=description,
-            enabled=True
+            enabled=enabled
         )
         
         self.directories.append(directory)
-        logger.info(f"Added prompt directory: {path} (name: {name})")
+        logger.info(f"Added prompt directory: {path} (name: {name}, enabled: {enabled})")
         
         # Save the updated directory configuration
         self._save_directory_config()
@@ -637,30 +656,109 @@ class PromptService:
             logger.error(f"Error deleting prompt {prompt_id}: {e}")
             return False
     
-    def expand_inclusions(self, content: str, depth: int = 0, 
-                         visited: Optional[Set[str]] = None,
-                         root_id: Optional[str] = None) -> Tuple[str, Set[str], List[str]]:
+    def rename_prompt(self, old_id: str, new_id: str, 
+                     content: Optional[str] = None,
+                     description: Optional[str] = None,
+                     tags: Optional[List[str]] = None) -> bool:
+        """
+        Rename a prompt and its underlying file.
+        
+        Args:
+            old_id: Current prompt ID
+            new_id: New prompt ID
+            content: Optional updated content
+            description: Optional updated description
+            tags: Optional updated tags
+            
+        Returns:
+            True if renamed successfully, False otherwise
+        """
+        # Get the existing prompt
+        prompt = self.get_prompt(old_id)
+        if not prompt:
+            logger.warning(f"Prompt not found for rename: {old_id}")
+            return False
+            
+        try:
+            # Create path for the new file
+            old_path = prompt.full_path
+            new_filename = f"{new_id}.md"
+            new_path = os.path.join(prompt.directory, new_filename)
+            
+            # Check if the new path already exists
+            if os.path.exists(new_path):
+                logger.error(f"Cannot rename: file already exists at {new_path}")
+                return False
+                
+            # Update prompt properties
+            prompt.id = new_id
+            prompt.filename = new_filename
+            
+            # Update content and metadata if provided
+            if content is not None:
+                prompt.content = content
+                
+            if description is not None:
+                prompt.description = description
+                
+            if tags is not None:
+                prompt.tags = tags
+                
+            # Generate new unique ID
+            new_unique_id = prompt.get_unique_id
+            old_unique_id = prompt.unique_id or old_id
+            
+            # Update the unique ID
+            prompt.unique_id = new_unique_id
+            
+            # Save the prompt to the new file
+            success = self.save_prompt(prompt)
+            if not success:
+                logger.error(f"Failed to save renamed prompt to {new_path}")
+                return False
+                
+            # Remove the old file
+            try:
+                os.remove(old_path)
+                logger.info(f"Deleted old prompt file at {old_path}")
+            except Exception as e:
+                logger.warning(f"Could not delete old prompt file at {old_path}: {e}")
+                # Continue anyway - the important part is that the new file is created
+            
+            # Update the prompts dictionary
+            if old_unique_id in self.prompts:
+                # Remove the old reference
+                del self.prompts[old_unique_id]
+                
+            # Add the new reference
+            self.prompts[new_unique_id] = prompt
+            
+            logger.info(f"Successfully renamed prompt from {old_id} to {new_id}")
+            return True
+            
+        except Exception as e:
+            logger.opt(exception=True).error(f"Error renaming prompt {old_id} to {new_id}: {str(e)}")
+            return False
+    
+    def expand_inclusions(self, content: str, 
+                         inclusions: Optional[Set[str]] = None,
+                         parent_id: Optional[str] = None) -> Tuple[str, Set[str], List[str]]:
         """
         Expand inclusion markers in content.
         
         Args:
             content: Content with inclusion markers
-            depth: Current recursion depth
-            visited: Set of already visited prompt IDs to detect cycles
-            root_id: ID of the root prompt being expanded (to prevent circular references)
+            inclusions: Set of already included prompt IDs to detect cycles
+            parent_id: ID of the parent prompt being expanded
             
         Returns:
             Tuple of (expanded content, set of prompt IDs used, list of warnings)
         """
-        # Maximum recursion depth
-        if depth > 10:
-            warning = "Maximum inclusion depth reached, stopping recursion"
-            logger.warning(warning)
-            return content, set(), [warning]
-            
-        # Initialize visited set if not provided
-        if visited is None:
-            visited = set()
+        # Initialize inclusions set if not provided
+        if inclusions is None:
+            inclusions = set()
+            if parent_id:
+                inclusions.add(parent_id)
             
         dependencies = set()
         warnings = []
@@ -672,19 +770,12 @@ class PromptService:
             if prompt_id.endswith('.md'):
                 prompt_id = prompt_id[:-3]
             
-            # Check for direct cycles
-            if prompt_id in visited:
+            # Check for circular dependency
+            if prompt_id in inclusions:
                 warning = f"Circular dependency detected: '{prompt_id}' has already been included in this expansion chain"
                 logger.warning(warning)
                 warnings.append(warning)
                 return f"[[CIRCULAR DEPENDENCY: {prompt_id}]]"
-            
-            # Check if this would create a circular reference to the root prompt
-            if root_id and prompt_id == root_id:
-                warning = f"Self-reference detected: Prompt '{prompt_id}' would create a circular reference"
-                logger.warning(warning)
-                warnings.append(warning)
-                return f"[[SELF-REFERENCE: {prompt_id}]]"
                 
             # Fetch the prompt
             prompt = self.get_prompt(prompt_id)
@@ -697,15 +788,13 @@ class PromptService:
             # Track dependency
             dependencies.add(prompt_id)
             
+            # Add this prompt to the inclusions set for cycle detection
+            new_inclusions = inclusions.copy()
+            new_inclusions.add(prompt_id)
+            
             # Recursively expand inclusions in the prompt
-            new_visited = visited.copy()
-            new_visited.add(prompt_id)
-            
-            # Pass the root_id down for circular reference detection
-            actual_root_id = root_id if root_id else prompt_id
-            
             expanded_content, sub_dependencies, sub_warnings = self.expand_inclusions(
-                prompt.content, depth + 1, new_visited, actual_root_id)
+                prompt.content, new_inclusions, prompt_id)
                 
             # Add sub-dependencies and warnings
             dependencies.update(sub_dependencies)

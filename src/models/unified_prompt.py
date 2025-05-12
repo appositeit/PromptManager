@@ -9,16 +9,6 @@ from typing import Dict, List, Optional, Set
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 from pathlib import Path
-from enum import Enum
-
-
-class PromptType(str, Enum):
-    """Types of prompts in the system."""
-    STANDARD = "standard"
-    COMPOSITE = "composite"
-    SYSTEM = "system"
-    USER = "user"
-    CUSTOM = "custom"
 
 
 class Prompt(BaseModel):

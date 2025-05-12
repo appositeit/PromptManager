@@ -420,48 +420,57 @@ async def search_replace_test_page(request: Request):
 
 
 def create_default_prompts():
-    """Create default prompts if none exist."""
-    # Get prompt service
+    """
+    Create default prompts only if no other directories exist in the configuration.
+    This ensures we don't override user preferences for removed directories.
+    """
+    logger.debug("Checking if default prompts need to be created")
+    
+    # First check if there are any configured directories
+    prompt_service = PromptService(auto_load=False)  # Don't auto-load to avoid creating directories
+    
+    # If there are already configured directories, respect user's settings
+    if prompt_service.directories:
+        logger.debug(f"Found {len(prompt_service.directories)} existing directories in configuration, skipping default prompt creation")
+        return
+    
+    logger.info("No directories found in configuration, creating default prompts")
+    
+    # If no directories exist, create the default directory and prompts
     config_dir = os.path.expanduser("~/.prompt_manager")
     prompts_dir = os.path.join(config_dir, "prompts")
     
-    # Ensure directories exist
+    # Ensure directory exists
     os.makedirs(prompts_dir, exist_ok=True)
     
-    # Create service
-    prompt_service = PromptService([prompts_dir])
+    # Add the directory to the service
+    prompt_service.add_directory(prompts_dir)
     
-    # Check if prompts exist
-    if len(prompt_service.prompts) == 0:
-        # Create default prompts
-        default_prompts = [
-            {
-                "id": "project_overview",
-                "content": "# Project Overview\n\nProvide a brief overview of the project here.",
-                "description": "Brief project overview",
-                "prompt_type": PromptType.STANDARD
-            },
-            {
-                "id": "requirements",
-                "content": "# Requirements\n\nList project requirements here.",
-                "description": "Project requirements",
-                "prompt_type": PromptType.STANDARD
-            },
-            {
-                "id": "maintenance",
-                "content": "# Project Maintenance\n\n- Use consistent file naming\n- Write clear comments\n- Update progress reports regularly",
-                "description": "Project maintenance guidelines",
-                "prompt_type": PromptType.STANDARD
-            },
-            {
-                "id": "initial_tasks",
-                "content": "# Initial Tasks\n\nDescribe the first steps to take in the project.",
-                "description": "Initial project tasks",
-                "prompt_type": PromptType.STANDARD
-            },
-            {
-                "id": "project_start",
-                "content": """# Project Start Template
+    # If no prompts exist in the added directory, create default prompts
+    default_prompts = [
+        {
+            "id": "project_overview",
+            "content": "# Project Overview\n\nProvide a brief overview of the project here.",
+            "description": "Brief project overview"
+        },
+        {
+            "id": "requirements",
+            "content": "# Requirements\n\nList project requirements here.",
+            "description": "Project requirements"
+        },
+        {
+            "id": "maintenance",
+            "content": "# Project Maintenance\n\n- Use consistent file naming\n- Write clear comments\n- Update progress reports regularly",
+            "description": "Project maintenance guidelines"
+        },
+        {
+            "id": "initial_tasks",
+            "content": "# Initial Tasks\n\nDescribe the first steps to take in the project.",
+            "description": "Initial project tasks"
+        },
+        {
+            "id": "project_start",
+            "content": """# Project Start Template
 
 ## Project Overview
 [[project_overview]]
@@ -475,35 +484,39 @@ def create_default_prompts():
 ## Initial Tasks
 [[initial_tasks]]
 """,
-                "description": "Template for starting a new project",
-                "prompt_type": PromptType.COMPOSITE
-            },
-            {
-                "id": "system_prompt",
-                "content": "You are a helpful AI assistant that specializes in helping with project development. You are knowledgeable about software development, project management, and technical writing.",
-                "description": "Default system prompt for project assistants",
-                "prompt_type": PromptType.SYSTEM
-            },
-            {
-                "id": "user_prompt",
-                "content": "I need help with my project. Could you assist me with [TASK]?",
-                "description": "Example user prompt",
-                "prompt_type": PromptType.USER
-            }
-        ]
-        
-        for p in default_prompts:
-            # Check if prompt already exists
-            if not prompt_service.get_prompt(p["id"]):
-                # Create prompt
+            "description": "Template for starting a new project"
+        },
+        {
+            "id": "system_prompt",
+            "content": "You are a helpful AI assistant that specializes in helping with project development. You are knowledgeable about software development, project management, and technical writing.",
+            "description": "Default system prompt for project assistants"
+        },
+        {
+            "id": "user_prompt",
+            "content": "I need help with my project. Could you assist me with [TASK]?",
+            "description": "Example user prompt"
+        }
+    ]
+    
+    # Load any existing prompts from the directory
+    prompt_service.load_prompts_from_directory(prompts_dir)
+    
+    # Create each default prompt if it doesn't already exist
+    for p in default_prompts:
+        # Check if prompt already exists
+        if not prompt_service.get_prompt(p["id"]):
+            # Create prompt
+            try:
                 prompt_service.create_prompt(
                     id=p["id"],
                     content=p["content"],
                     directory=prompts_dir,
-                    prompt_type=p["prompt_type"],
                     description=p["description"],
                     tags=[]
                 )
+                logger.debug(f"Created default prompt: {p['id']}")
+            except Exception as e:
+                logger.error(f"Error creating default prompt {p['id']}: {str(e)}")
 
 
 def main(args=None):

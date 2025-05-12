@@ -6,10 +6,10 @@
 
 {% block header_actions %}
 <div class="btn-group">
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPromptModal">
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPromptModal" id="new-prompt-btn" title="New Prompt (Alt+N)">
         <i class="bi bi-plus-circle"></i> New Prompt
     </button>
-    <button class="btn btn-outline-secondary" id="refresh-all-btn">
+    <button class="btn btn-outline-secondary" id="refresh-all-btn" title="Refresh All Prompts">
         <i class="bi bi-arrow-clockwise"></i> Refresh All
     </button>
 </div>
@@ -51,7 +51,7 @@
                             <thead>
                                 <tr class="sortable-headers">
                                     <th data-sort="directory" class="sortable">Directory <i class="bi bi-sort-alpha-down sort-icon"></i></th>
-                                    <th data-sort="id" class="sortable">ID <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="id" class="sortable">Name <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th data-sort="description" class="sortable">Description <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th data-sort="tags" class="sortable">Tags <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th data-sort="updated" class="sortable">Last Updated <i class="bi bi-sort-alpha-down sort-icon"></i></th>
@@ -91,9 +91,9 @@
                             <thead>
                                 <tr>
                                     <th>Name</th>
+                                    <th>Status</th>
                                     <th>Path</th>
                                     <th>Description</th>
-                                    <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -156,10 +156,7 @@
                         <input type="text" class="form-control" id="promptTags">
                         <div class="form-text">Comma-separated list of tags</div>
                     </div>
-                    <div class="mb-3">
-                        <label for="promptContent" class="form-label">Content</label>
-                        <textarea class="form-control" id="promptContent" rows="10"></textarea>
-                    </div>
+                    <!-- Content textarea removed as requested -->
                 </form>
             </div>
             <div class="modal-footer">
@@ -349,9 +346,21 @@
         box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
     }
     
-    /* Status toggle cursor */
+    /* Status toggle cursor and styling */
     .status-badge {
         cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+    
+    .status-badge:hover {
+        filter: brightness(90%);
+        box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+    }
+    
+    .status-badge:active {
+        transform: scale(0.95);
     }
 </style>
 <script>
@@ -518,6 +527,20 @@ Remember that you're part of a team - your specialized work contributes to solvi
     document.addEventListener('DOMContentLoaded', function() {
         console.log('DOM loaded - initializing UI and loading data');
         
+        // Add Alt+N shortcut for "New Prompt"
+        document.addEventListener('keydown', function(e) {
+            if (e.altKey && e.key === 'n') {
+                e.preventDefault();
+                // Open the New Prompt modal
+                const newPromptModal = new bootstrap.Modal(document.getElementById('newPromptModal'));
+                newPromptModal.show();
+                // Focus the ID field
+                setTimeout(() => {
+                    document.getElementById('promptId').focus();
+                }, 300);
+            }
+        });
+        
         // Initialize by loading prompts and directories
         Promise.all([
             loadPrompts(),
@@ -664,12 +687,8 @@ Remember that you're part of a team - your specialized work contributes to solvi
         if (promptRoleSelect) {
             promptRoleSelect.addEventListener('change', function() {
                 const role = this.value;
-                const contentArea = document.getElementById('promptContent');
                 
                 if (role && defaultPrompts[role]) {
-                    // Fill in content from default template
-                    contentArea.value = defaultPrompts[role].content;
-                    
                     // Update tags field to include the role
                     const tagsField = document.getElementById('promptTags');
                     const currentTags = tagsField.value.split(',').map(t => t.trim()).filter(t => t);
@@ -718,6 +737,8 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 deleteDirectory(directoryPath);
             });
         }
+        
+        // Blacklist functionality removed
         
         // Type filter buttons
         document.querySelectorAll('[data-type]').forEach(item => {
@@ -1081,107 +1102,19 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 .then(data => {
                     directories = data;
                     
-                    // Clear table
-                    tableBody.innerHTML = '';
-                    
-                    // Check if no directories
-                    if (directories.length === 0) {
-                        tableBody.innerHTML = `
-                            <tr>
-                                <td colspan="5" class="text-center py-4">
-                                    <p class="mb-0">No directories configured.</p>
-                                </td>
-                            </tr>
-                        `;
-                    } else {
-                        // Add directories to table
-                        directories.forEach(dir => {
-                            const row = document.createElement('tr');
-                            
-                            // Name cell
-                            const nameCell = document.createElement('td');
-                            nameCell.textContent = dir.name;
-                            
-                            // Path cell
-                            const pathCell = document.createElement('td');
-                            pathCell.textContent = dir.path;
-                            
-                            // Description cell
-                            const descCell = document.createElement('td');
-                            descCell.textContent = dir.description || '';
-                            
-                            // Status cell with toggle
-                            const statusCell = document.createElement('td');
-                            const statusBadge = document.createElement('span');
-                            statusBadge.className = `badge status-badge ${dir.enabled ? 'bg-success' : 'bg-danger'}`;
-                            statusBadge.textContent = dir.enabled ? 'Enabled' : 'Disabled';
-                            statusBadge.dataset.path = dir.path;
-                            statusBadge.dataset.enabled = dir.enabled;
-                            statusBadge.title = dir.enabled ? 'Click to disable' : 'Click to enable';
-                            statusBadge.addEventListener('click', function() {
-                                toggleDirectoryStatus(dir.path, dir.enabled);
-                            });
-                            statusCell.appendChild(statusBadge);
-                            
-                            // Actions cell
-                            const actionsCell = document.createElement('td');
-                            
-                            // Edit button
-                            const editBtn = document.createElement('button');
-                            editBtn.className = 'btn btn-sm btn-outline-primary me-1';
-                            editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
-                            editBtn.title = 'Edit';
-                            editBtn.addEventListener('click', function() {
-                                showEditDirectoryModal(dir);
-                            });
-                            
-                            // Refresh button
-                            const refreshBtn = document.createElement('button');
-                            refreshBtn.className = 'btn btn-sm btn-outline-secondary me-1';
-                            refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
-                            refreshBtn.title = 'Refresh';
-                            refreshBtn.addEventListener('click', function() {
-                                // Reload prompts from this directory
-                                refreshDirectory(dir.path);
-                            });
-                            
-                            // Delete button
-                            const deleteBtn = document.createElement('button');
-                            deleteBtn.className = 'btn btn-sm btn-outline-danger';
-                            deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
-                            deleteBtn.title = 'Remove';
-                            deleteBtn.dataset.directoryPath = dir.path;
-                            deleteBtn.addEventListener('click', function() {
-                                showDeleteDirectoryConfirmation(dir.path);
-                            });
-                            
-                            actionsCell.appendChild(editBtn);
-                            actionsCell.appendChild(refreshBtn);
-                            actionsCell.appendChild(deleteBtn);
-                            
-                            // Add cells to row
-                            row.appendChild(nameCell);
-                            row.appendChild(pathCell);
-                            row.appendChild(descCell);
-                            row.appendChild(statusCell);
-                            row.appendChild(actionsCell);
-                            
-                            tableBody.appendChild(row);
-                        });
-                    }
-                    
-                    // Populate directory select in the New Prompt modal
-                    populateDirectorySelect('promptDirectory');
-                    
-                    // After successfully loading directories, trigger a prompts reload
-                    // to ensure prompts table is populated
-                    if (directories.length > 0 && prompts.length === 0) {
-                        console.log("Found directories but no prompts - initiating automatic prompts reload");
-                        loadPrompts()
-                            .then(() => console.log("Successfully reloaded prompts after directory load"))
-                            .catch(err => console.warn("Failed to reload prompts after directory load:", err));
-                    }
-                    
+                    // Use the updateDirectoriesUI function to display the directories
+                    return updateDirectoriesUI().then(() => {
+                        // After successfully loading directories, trigger a prompts reload
+                        // to ensure prompts table is populated
+                        if (directories.length > 0 && prompts.length === 0) {
+                            console.log("Found directories but no prompts - initiating automatic prompts reload");
+                            return loadPrompts()
+                                .then(() => console.log("Successfully reloaded prompts after directory load"))
+                                .catch(err => console.warn("Failed to reload prompts after directory load:", err));
+                        }
+                    });
+                })
+                .then(() => {
                     resolve(directories);
                 })
                 .catch(error => {
@@ -1271,7 +1204,10 @@ Remember that you're part of a team - your specialized work contributes to solvi
     }
 
     // Function to handle toggling directory status
-    function toggleDirectoryStatus(directoryPath, currentStatus) {
+    function handleToggleDirectoryStatus(directoryPath, currentStatus) {
+        // Save the current scroll position
+        const scrollPosition = window.scrollY;
+        
         // Show loading toast
         showToast('Updating directory status...', 'info');
         
@@ -1284,16 +1220,138 @@ Remember that you're part of a team - your specialized work contributes to solvi
                     directories[dirIndex].enabled = data.enabled;
                 }
                 
-                // Refresh the directory list and prompts
-                loadDirectories();
-                loadPrompts();
+                // Get a reference to the directories section for scrolling back
+                const directoriesCard = document.querySelector('.row:nth-child(2) .card');
                 
-                showToast(`Directory ${data.enabled ? 'enabled' : 'disabled'} successfully`, 'success');
+                // Update prompts and directories without page reload
+                Promise.all([
+                    // Only update UI, don't reload the page
+                    updatePromptsWithFilteredData(),
+                    updateDirectoriesUI()
+                ]).then(() => {
+                    // Restore scroll position
+                    window.scrollTo({
+                        top: scrollPosition,
+                        behavior: 'auto' // Use 'auto' to prevent animation
+                    });
+                    
+                    showToast(`Directory ${data.enabled ? 'enabled' : 'disabled'} successfully`, 'success');
+                });
             })
             .catch(error => {
                 console.error('Error toggling directory status:', error);
                 showToast(`Error toggling directory status: ${error.message}`, 'danger');
+                
+                // Restore scroll position even on error
+                window.scrollTo({
+                    top: scrollPosition,
+                    behavior: 'auto'
+                });
             });
+    }
+    
+    // Function to update the prompts table without reloading all data
+    function updatePromptsWithFilteredData() {
+        return new Promise((resolve) => {
+            // Filter existing prompts based on enabled directories
+            const enabledDirectories = directories
+                .filter(dir => dir.enabled)
+                .map(dir => dir.path);
+            
+            // Filter and update the prompts table
+            updatePromptsTable();
+            resolve();
+        });
+    }
+    
+    // Function to update the directories UI without reloading all data
+    function updateDirectoriesUI() {
+        return new Promise((resolve) => {
+            const tableBody = document.getElementById('directories-table-body');
+            
+            // Clear the table
+            tableBody.innerHTML = '';
+            
+            // Repopulate with current data
+            directories.forEach(dir => {
+                const row = document.createElement('tr');
+                
+                // Name cell
+                const nameCell = document.createElement('td');
+                nameCell.textContent = dir.name;
+                
+                // Status cell with toggle
+                const statusCell = document.createElement('td');
+                const statusBadge = document.createElement('span');
+                statusBadge.className = `badge status-badge ${dir.enabled ? 'bg-success' : 'bg-danger'}`;
+                statusBadge.textContent = dir.enabled ? 'Enabled' : 'Disabled';
+                statusBadge.dataset.path = dir.path;
+                statusBadge.dataset.enabled = dir.enabled;
+                statusBadge.title = dir.enabled ? 'Click to disable' : 'Click to enable';
+                statusBadge.addEventListener('click', function() {
+                    handleToggleDirectoryStatus(dir.path, dir.enabled);
+                });
+                statusCell.appendChild(statusBadge);
+                
+                // Path cell
+                const pathCell = document.createElement('td');
+                pathCell.textContent = dir.path;
+                
+                // Description cell
+                const descCell = document.createElement('td');
+                descCell.textContent = dir.description || '';
+                
+                // Actions cell
+                const actionsCell = document.createElement('td');
+                
+                // Edit button
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-sm btn-outline-primary me-1';
+                editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+                editBtn.title = 'Edit';
+                editBtn.addEventListener('click', function() {
+                    showEditDirectoryModal(dir);
+                });
+                
+                // Refresh button
+                const refreshBtn = document.createElement('button');
+                refreshBtn.className = 'btn btn-sm btn-outline-secondary me-1';
+                refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+                refreshBtn.title = 'Refresh';
+                refreshBtn.addEventListener('click', function() {
+                    // Reload prompts from this directory
+                    refreshDirectory(dir.path);
+                });
+                
+                // Delete button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-sm btn-outline-danger';
+                deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                deleteBtn.title = 'Remove';
+                deleteBtn.dataset.directoryPath = dir.path;
+                deleteBtn.addEventListener('click', function() {
+                    showDeleteDirectoryConfirmation(dir.path);
+                });
+                
+                actionsCell.appendChild(editBtn);
+                actionsCell.appendChild(refreshBtn);
+                actionsCell.appendChild(deleteBtn);
+                
+                // Add cells to row
+                row.appendChild(nameCell);
+                row.appendChild(statusCell);
+                row.appendChild(pathCell);
+                row.appendChild(descCell);
+                row.appendChild(actionsCell);
+                
+                tableBody.appendChild(row);
+            });
+            
+            // Update directory select in the New Prompt modal
+            populateDirectorySelect('promptDirectory');
+            
+            resolve();
+        });
     }
     
     // Function to show the edit directory modal
@@ -1355,11 +1413,11 @@ Remember that you're part of a team - your specialized work contributes to solvi
     
     function createPrompt() {
         const id = document.getElementById('promptId').value.trim();
-        const promptType = document.getElementById('promptType').value;
         const directory = document.getElementById('promptDirectory').value;
         const description = document.getElementById('promptDescription').value.trim();
         const tags = document.getElementById('promptTags').value.trim();
-        const content = document.getElementById('promptContent').value;
+        // Content is now created with a default template in the editor page
+        const content = '';  // Empty content, will be filled with default in the backend
         
         // Validate
         if (!id) {
@@ -1414,7 +1472,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
             document.getElementById('promptId').value = '';
             document.getElementById('promptDescription').value = '';
             document.getElementById('promptTags').value = '';
-            document.getElementById('promptContent').value = '';
+            document.getElementById('promptRole').value = '';
             
             // Show toast
             showToast('Prompt created successfully');
@@ -1552,6 +1610,8 @@ Remember that you're part of a team - your specialized work contributes to solvi
             alert('Error removing directory: ' + error.message);
         });
     }
+    
+    // Blacklist directory function removed
     
     // Function to update the row selection
     function updateRowSelection(rows, selectedIndex) {

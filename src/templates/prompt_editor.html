@@ -24,7 +24,10 @@
     <button id="search-replace-btn" class="btn btn-outline-primary" title="Search and Replace (Alt+R)">
         <i class="bi bi-search"></i> Search/Replace
     </button>
-    <button id="save-btn" class="btn btn-outline-success" title="Save changes (Alt+S)">
+    <button id="rename-btn" class="btn btn-outline-primary" title="Rename this prompt">
+        <i class="bi bi-pencil-square"></i> Rename
+    </button>
+    <button id="save-btn" class="btn btn-outline-success min-width-100" title="Save changes (Alt+S)">
         <i class="bi bi-save"></i> Save
     </button>
     <button id="delete-btn" class="btn btn-outline-danger" title="Delete this prompt">
@@ -131,6 +134,33 @@
                         <p class="text-muted">Loading references...</p>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rename Prompt Modal -->
+<div class="modal fade" id="renamePromptModal" tabindex="-1" aria-labelledby="renamePromptModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="renamePromptModalLabel">Rename Prompt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="new-prompt-id" class="form-label">New Name</label>
+                    <input type="text" class="form-control" id="new-prompt-id" required>
+                    <div class="form-text">Enter a new name for this prompt (no spaces or special characters)</div>
+                </div>
+                <div class="alert alert-warning" id="rename-warning" style="display: none;">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <span id="rename-warning-text"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirm-rename-btn">Rename</button>
             </div>
         </div>
     </div>
@@ -251,6 +281,11 @@
             height: calc(100vh - 70px);
             overflow-y: auto;
         }
+    }
+    
+    /* Fixed width save button to prevent UI jumps */
+    #save-btn {
+        min-width: 100px;
     }
     
     /* Style for the autocomplete dropdown */
@@ -432,14 +467,46 @@
             }
         });
         document.getElementById('save-btn').addEventListener('click', function() {
-            const content = editor.getValue();
-            saveViaApi(content);
+            const saveBtn = this;
+            const originalContent = saveBtn.innerHTML;
             
+            // Change button text to indicate saving (with consistent length)
+            saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving';
+            saveBtn.disabled = true;
+            
+            const content = editor.getValue();
             const description = document.getElementById('prompt-description').value;
             const tagsStr = document.getElementById('prompt-tags').value;
             const tags = tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag);
-            saveMetadataViaApi(description, tags);
+            
+            // First save content
+            saveViaApi(content)
+                .then(() => {
+                    // Then save metadata
+                    return saveMetadataViaApi(description, tags);
+                })
+                .then(() => {
+                    // Show "Saved" indication on button
+                    saveBtn.innerHTML = '<i class="bi bi-check-circle"></i> Saved ';
+                    saveBtn.classList.remove('btn-outline-success');
+                    saveBtn.classList.add('btn-success');
+                    
+                    // Reset button after a delay
+                    setTimeout(() => {
+                        saveBtn.innerHTML = originalContent;
+                        saveBtn.classList.remove('btn-success');
+                        saveBtn.classList.add('btn-outline-success');
+                        saveBtn.disabled = false;
+                    }, 1500);
+                })
+                .catch(() => {
+                    // Reset button on error
+                    saveBtn.innerHTML = originalContent;
+                    saveBtn.disabled = false;
+                });
         });
+        document.getElementById('rename-btn').addEventListener('click', showRenamePromptModal);
+        document.getElementById('confirm-rename-btn').addEventListener('click', renamePrompt);
         document.getElementById('delete-btn').addEventListener('click', showDeleteConfirmation);
         document.getElementById('confirm-delete-btn').addEventListener('click', deletePrompt);
         
@@ -703,41 +770,46 @@
                 badge.classList.add('bg-secondary');
             }
             
-            // Try to send update via WebSocket
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                try {
-                    socket.send(JSON.stringify({
-                        action: 'update',
-                        content: content
-                    }));
+            // Always save via API for reliable saving
+            const saveBtn = document.getElementById('save-btn');
+            const originalContent = saveBtn.innerHTML;
+            
+            // Temporarily change button appearance to show "Saving..." in a subtle way
+            saveBtn.classList.remove('btn-outline-success');
+            saveBtn.classList.add('btn-success');
+            
+            saveViaApi(content)
+                .then(() => {
+                    // Show "Saved" indication on button
+                    saveBtn.innerHTML = '<i class="bi bi-check-circle"></i> Saved';
                     
-                    // If this is a composite prompt or if the content contains inclusion markers,
-                    // also request expansion for preview purposes
-                    if (isComposite) {
-                        socket.send(JSON.stringify({
-                            action: 'expand',
-                            content: content,
-                            prompt_id: promptId
-                        }));
-                    }
-                } catch (error) {
-                    console.error('Error sending WebSocket message for save:', error);
-                    // Fall back to API save
-                    saveViaApi(content);
-                }
-            } else {
-                // WebSocket not available, use API fallback
-                console.log('WebSocket not available for save, using API fallback');
-                saveViaApi(content);
+                    // Reset button after a delay
+                    setTimeout(() => {
+                        saveBtn.innerHTML = originalContent;
+                        saveBtn.classList.remove('btn-success');
+                        saveBtn.classList.add('btn-outline-success');
+                    }, 1500);
+                })
+                .catch(() => {
+                    // Reset button on error
+                    saveBtn.innerHTML = originalContent;
+                    saveBtn.classList.remove('btn-success');
+                    saveBtn.classList.add('btn-outline-success');
+                });
+            
+            // Also update expansion preview if this is a composite prompt
+            if (isComposite && document.getElementById('expanded-tab').classList.contains('active')) {
+                updateExpandedView();
             }
+            
         }, 1000); // 1 second debounce
     }
     
     // Function to save via API when WebSocket is not available
     function saveViaApi(content) {
-        showToast('Saving via API...', 'info');
+        // No longer show a toast for saving - we'll indicate this on the button
         
-        fetch(`/api/prompts/${promptId}`, {
+        return fetch(`/api/prompts/${promptId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -754,7 +826,6 @@
         })
         .then(data => {
             console.log('Save API response:', data);
-            showToast('Prompt saved', 'success');
             
             // Update last updated timestamp if available
             if (data.updated_at) {
@@ -771,10 +842,13 @@
                     useFallbackApi();
                 }
             }
+            
+            return data;
         })
         .catch(error => {
             console.error('Error saving via API:', error);
             showToast('Error saving prompt: ' + error.message, 'danger');
+            throw error; // Re-throw to allow promise chaining
         });
     }
     
@@ -813,9 +887,9 @@
     
     // Function to save metadata via API when WebSocket is not available
     function saveMetadataViaApi(description, tags) {
-        showToast('Saving metadata via API...', 'info');
+        // No longer show a toast for saving - we'll indicate this on the button
         
-        fetch(`/api/prompts/${promptId}`, {
+        return fetch(`/api/prompts/${promptId}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -833,7 +907,6 @@
         })
         .then(data => {
             console.log('Save metadata API response:', data);
-            showToast('Metadata saved', 'success');
             
             // Update last updated timestamp if available
             if (data.updated_at) {
@@ -842,10 +915,13 @@
                     lastUpdatedEl.textContent = formatDate(data.updated_at);
                 }
             }
+            
+            return data;
         })
         .catch(error => {
             console.error('Error saving metadata via API:', error);
             showToast('Error saving metadata: ' + error.message, 'danger');
+            throw error; // Re-throw to allow promise chaining
         });
     }
     
@@ -857,28 +933,11 @@
         console.log('Current editor content:', content);
         
         // Ensure the expanded content tab has white background extending fully
-        const expandedContent = document.getElementById('expanded-content');
-        expandedContent.style.backgroundColor = '#ffffff';
+        const expandedContentElement = document.getElementById('expanded-content');
+        expandedContentElement.style.backgroundColor = '#ffffff';
         
-        // Send expansion request via WebSocket
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            try {
-                console.log('Sending expansion request via WebSocket');
-                socket.send(JSON.stringify({
-                    action: 'expand',
-                    content: content,
-                    prompt_id: promptId
-                }));
-            } catch (error) {
-                console.error('Error sending WebSocket message:', error);
-                useFallbackApi(); // Use API fallback on WebSocket error
-            }
-        } else {
-            console.log('WebSocket not available, using API fallback');
-            // Fallback to API if WebSocket is not available
-            showToast('Using API fallback for expansion', 'info');
-            useFallbackApi();
-        }
+        // Always use API fallback which is more reliable
+        useFallbackApi();
     }
     
     function updateDependenciesList() {
@@ -952,11 +1011,41 @@
     }
     
     function copyPromptContent() {
-        // Determine which content to copy based on current view
-        const content = document.getElementById('expanded-content').classList.contains('active') 
-            ? expandedContent 
-            : editor.getValue();
+        // When Alt+C is pressed, we should copy the expanded content
+        // If we don't have expanded content yet, let's get it
+        if (!expandedContent && editor.getValue().includes('[[')) {
+            // We need to ensure we have the expanded content before copying
+            const rawContent = editor.getValue();
             
+            // Make a quick API call to get the expanded content
+            fetch('/api/prompts/expand', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    content: rawContent,
+                    prompt_id: promptId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                expandedContent = data.expanded;
+                copyToClipboard(expandedContent);
+            })
+            .catch(error => {
+                console.error('Error expanding content for copy:', error);
+                // Fall back to raw content if expansion fails
+                copyToClipboard(rawContent);
+            });
+        } else {
+            // Either we have expanded content already, or this is not a composite prompt
+            const contentToCopy = expandedContent || editor.getValue();
+            copyToClipboard(contentToCopy);
+        }
+    }
+    
+    function copyToClipboard(content) {
         // Copy to clipboard
         navigator.clipboard.writeText(content)
             .then(() => {
@@ -1004,6 +1093,128 @@
             rawTab.classList.add('active');
             document.getElementById('raw-content').classList.add('show', 'active');
         }
+    }
+    
+    function showRenamePromptModal() {
+        // Pre-fill with current prompt ID
+        document.getElementById('new-prompt-id').value = promptId;
+        
+        // Show the modal
+        const renameModal = new bootstrap.Modal(document.getElementById('renamePromptModal'));
+        renameModal.show();
+        
+        // Focus the input field
+        setTimeout(() => {
+            document.getElementById('new-prompt-id').focus();
+            document.getElementById('new-prompt-id').select();
+        }, 300);
+        
+        // Clear any previous warnings
+        document.getElementById('rename-warning').style.display = 'none';
+    }
+    
+    function renamePrompt() {
+        const newPromptId = document.getElementById('new-prompt-id').value.trim();
+        
+        // Validate
+        if (!newPromptId) {
+            document.getElementById('rename-warning-text').textContent = 'Prompt name cannot be empty';
+            document.getElementById('rename-warning').style.display = 'block';
+            return;
+        }
+        
+        if (newPromptId === promptId) {
+            // No change, just close the modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('renamePromptModal'));
+            modal.hide();
+            return;
+        }
+        
+        // Check if a prompt with this name already exists
+        fetch(`/api/prompts/check_exists/${newPromptId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.exists) {
+                    // Show warning
+                    document.getElementById('rename-warning-text').textContent = 
+                        `A prompt with the name "${newPromptId}" already exists. Please choose a different name.`;
+                    document.getElementById('rename-warning').style.display = 'block';
+                    return;
+                }
+                
+                // Proceed with rename
+                performRename(newPromptId);
+            })
+            .catch(error => {
+                console.error('Error checking prompt existence:', error);
+                // If we can't check, try anyway but tell the user there might be a risk
+                document.getElementById('rename-warning-text').textContent = 
+                    'Could not verify if this name is available. Proceeding might overwrite an existing prompt.';
+                document.getElementById('rename-warning').style.display = 'block';
+                
+                // Add a button to force rename
+                const warningEl = document.getElementById('rename-warning');
+                const forceButton = document.createElement('button');
+                forceButton.className = 'btn btn-sm btn-warning mt-2';
+                forceButton.textContent = 'Rename Anyway';
+                forceButton.addEventListener('click', () => performRename(newPromptId));
+                warningEl.appendChild(forceButton);
+            });
+    }
+    
+    function performRename(newPromptId) {
+        // Show saving indicator on the rename button
+        const renameBtn = document.getElementById('confirm-rename-btn');
+        const originalBtnText = renameBtn.textContent;
+        renameBtn.textContent = 'Renaming...';
+        renameBtn.disabled = true;
+        
+        // Prepare data for rename
+        const renameData = {
+            old_id: promptId,
+            new_id: newPromptId,
+            // Include the current content and metadata to ensure nothing is lost
+            content: editor.getValue(),
+            description: document.getElementById('prompt-description').value,
+            tags: document.getElementById('prompt-tags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
+        };
+        
+        // Send rename request
+        fetch('/api/prompts/rename', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(renameData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Failed to rename prompt: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('renamePromptModal'));
+            modal.hide();
+            
+            // Show success toast
+            showToast('Prompt renamed successfully', 'success');
+            
+            // Redirect to the new prompt URL
+            window.location.href = `/prompts/${newPromptId}`;
+        })
+        .catch(error => {
+            console.error('Error renaming prompt:', error);
+            // Reset button
+            renameBtn.textContent = originalBtnText;
+            renameBtn.disabled = false;
+            
+            // Show error
+            document.getElementById('rename-warning-text').textContent = 
+                `Error renaming prompt: ${error.message}`;
+            document.getElementById('rename-warning').style.display = 'block';
+        });
     }
     
     function showDeleteConfirmation() {

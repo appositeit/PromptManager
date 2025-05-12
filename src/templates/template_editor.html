@@ -213,6 +213,11 @@
     .dependency-tag:hover {
         background-color: #e0e0e0;
     }
+    
+    /* Fixed width save button to prevent UI jumps */
+    #save-template-btn {
+        min-width: 100px;
+    }
 </style>
 {% endblock %}
 
@@ -265,12 +270,91 @@
         // Initialize search and replace functionality
         searchReplace = new SearchReplace(editor);
         
-        // Track changes
+        // Track changes and autosave
+        let saveTimeout = null;
         editor.on('change', function() {
             unsavedChanges = true;
             document.getElementById('template-status').textContent = 'Unsaved Changes';
             document.getElementById('template-status').classList.remove('bg-primary', 'bg-success');
             document.getElementById('template-status').classList.add('bg-warning');
+            
+            // Clear previous timeout
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+            
+            // Set new timeout for autosave (debounce)
+            saveTimeout = setTimeout(() => {
+                // Auto-save if we have template data
+                if (templateData) {
+                    const saveBtn = document.getElementById('save-template-btn');
+                    const originalContent = saveBtn.innerHTML;
+                    
+                    // Subtly change button appearance to indicate saving
+                    saveBtn.classList.add('btn-success');
+                    saveBtn.classList.remove('btn-primary');
+                    
+                    // Update template data
+                    templateData.content = editor.getValue();
+                    templateData.name = document.getElementById('template-name').value;
+                    templateData.description = document.getElementById('template-description').value;
+                    templateData.type = document.getElementById('template-type-select').value;
+                    
+                    // Send update request
+                    fetch(`/api/prompts/templates/${templateId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            name: templateData.name,
+                            content: templateData.content,
+                            type: templateData.type,
+                            description: templateData.description
+                        })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to save template');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Update template data
+                        templateData = data;
+                        
+                        // Update UI
+                        document.getElementById('template-title').textContent = data.name;
+                        document.getElementById('template-last-updated').textContent = 'Updated ' + dayjs(data.updated_at).fromNow();
+                        document.getElementById('template-status').textContent = 'Saved';
+                        document.getElementById('template-status').classList.remove('bg-warning');
+                        document.getElementById('template-status').classList.add('bg-success');
+                        
+                        // Update dependencies list
+                        updateDependenciesList(Array.from(data.fragment_dependencies));
+                        
+                        // Reset unsaved changes flag
+                        unsavedChanges = false;
+                        
+                        // Show saved indicator on button (with consistent length)
+                        saveBtn.innerHTML = '<i class="bi bi-check-circle"></i> Saved ';
+                        
+                        // Reset button after a delay
+                        setTimeout(() => {
+                            saveBtn.innerHTML = originalContent;
+                            saveBtn.classList.remove('btn-success');
+                            saveBtn.classList.add('btn-primary');
+                        }, 1500);
+                    })
+                    .catch(error => {
+                        console.error('Error autosaving template:', error);
+                        // Reset button
+                        saveBtn.innerHTML = originalContent;
+                        saveBtn.classList.remove('btn-success');
+                        saveBtn.classList.add('btn-primary');
+                    });
+                }
+            }, 2000); // 2 second debounce for autosave
         });
         
         // Load the template
@@ -394,6 +478,14 @@
             return;
         }
         
+        // Get save button and store original content
+        const saveBtn = document.getElementById('save-template-btn');
+        const originalContent = saveBtn.innerHTML;
+        
+        // Change button appearance to indicate saving (with consistent length)
+        saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving';
+        saveBtn.disabled = true;
+        
         // Update template data
         templateData.content = editor.getValue();
         templateData.name = document.getElementById('template-name').value;
@@ -441,14 +533,29 @@
             // Reset unsaved changes flag
             unsavedChanges = false;
             
-            // Show toast notification
-            showToast('Template saved successfully');
+            // Update save button to show success
+            saveBtn.innerHTML = '<i class="bi bi-check-circle"></i> Saved';
+            saveBtn.classList.add('btn-success');
+            saveBtn.classList.remove('btn-primary');
+            
+            // Reset button after a delay
+            setTimeout(() => {
+                saveBtn.innerHTML = originalContent;
+                saveBtn.classList.remove('btn-success');
+                saveBtn.classList.add('btn-primary');
+                saveBtn.disabled = false;
+            }, 1500);
         })
         .catch(error => {
             console.error('Error saving template:', error);
             document.getElementById('template-status').textContent = 'Error Saving';
             document.getElementById('template-status').classList.remove('bg-info');
             document.getElementById('template-status').classList.add('bg-danger');
+            
+            // Reset button
+            saveBtn.innerHTML = originalContent;
+            saveBtn.disabled = false;
+            
             alert('Error saving template. Please try again.');
         });
     }
@@ -677,7 +784,14 @@
         window.location.href = "/manage/templates";
     }
     
-    function showToast(message) {
+    function showToast(message, type = 'info') {
+        // Only show toasts for errors or important messages
+        // For save operations, we'll use the button indication instead
+        if (message.includes('saved') && type !== 'danger') {
+            // Skip showing toast for successful save operations
+            return;
+        }
+        
         // Create toast container if it doesn't exist
         let toastContainer = document.querySelector('.toast-container');
         
@@ -690,11 +804,11 @@
         // Create toast element
         const toastId = 'toast-' + Date.now();
         const toastHtml = `
-            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header">
+            <div id="${toastId}" class="toast bg-${type} text-${type === 'light' ? 'dark' : 'white'}" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header bg-${type} text-${type === 'light' ? 'dark' : 'white'}">
                     <strong class="me-auto">Notification</strong>
                     <small>Just now</small>
-                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-${type === 'light' ? 'dark' : 'white'}" data-bs-dismiss="toast" aria-label="Close"></button>
                 </div>
                 <div class="toast-body">
                     ${message}
