@@ -256,9 +256,11 @@ class PromptService:
                 try:
                     prompt = self.load_prompt(file_path)
                     if prompt:
-                        self.prompts[prompt.id] = prompt
+                        # Store the prompt using its unique ID
+                        unique_id = prompt.unique_id or prompt.get_unique_id
+                        self.prompts[unique_id] = prompt
                         count += 1
-                        logger.debug(f"Loaded prompt: {prompt.id} from {file_path}")
+                        logger.debug(f"Loaded prompt: {prompt.id} (unique_id: {unique_id}) from {file_path}")
                     else:
                         logger.warning(f"Failed to load prompt from {file_path} (returned None)")
                 except Exception as e:
@@ -360,13 +362,10 @@ class PromptService:
             
             # No longer need to determine composite type - it's handled by is_composite property
             
-            # Create prompt
-            prompt_id = Path(filename).stem  # filename without extension
+            # Create basic prompt ID (filename without extension)
+            prompt_id = Path(filename).stem
             
-            # Check if this prompt ID already exists
-            if prompt_id in self.prompts:
-                logger.warning(f"Prompt ID already exists: {prompt_id} - will be overwritten")
-            
+            # Create the prompt object
             logger.debug(f"Creating prompt object: id={prompt_id}, directory={directory}")
             
             prompt = Prompt(
@@ -379,6 +378,16 @@ class PromptService:
                 created_at=created_at,
                 updated_at=updated_at
             )
+            
+            # Generate a unique ID that includes the directory
+            unique_id = prompt.get_unique_id
+            
+            # Check if this unique ID already exists
+            if unique_id in self.prompts:
+                logger.warning(f"Prompt with unique ID already exists: {unique_id} - will be overwritten")
+            
+            # Set the unique ID explicitly
+            prompt.unique_id = unique_id
             
             logger.debug(f"Successfully loaded prompt: {prompt_id} from {file_path}")
             return prompt
@@ -428,7 +437,8 @@ class PromptService:
             prompt.updated_at = now
             
             # Update in-memory copy
-            self.prompts[prompt.id] = prompt
+            unique_id = prompt.unique_id or prompt.get_unique_id
+            self.prompts[unique_id] = prompt
             
             logger.info(f"Saved prompt to {prompt.full_path}")
             return True
@@ -447,7 +457,19 @@ class PromptService:
         Returns:
             The prompt, or None if not found
         """
-        return self.prompts.get(prompt_id)
+        # First try direct lookup with the ID (for backward compatibility)
+        prompt = self.prompts.get(prompt_id)
+        if prompt:
+            return prompt
+            
+        # If not found, it might be a simple ID without the directory component
+        # Look through all prompts to find a matching ID
+        for p in self.prompts.values():
+            if p.id == prompt_id:
+                return p
+                
+        # If we still can't find it, return None
+        return None
         
     def get_prompts_by_tag(self, tag: str, directory: Optional[str] = None) -> List[Prompt]:
         """
@@ -550,6 +572,9 @@ class PromptService:
             updated_at=now
         )
         
+        # Generate and set the unique ID
+        prompt.unique_id = prompt.get_unique_id
+        
         # Save to disk
         if not self.save_prompt(prompt):
             raise Exception(f"Failed to save prompt to disk: {prompt.full_path}")
@@ -576,7 +601,12 @@ class PromptService:
             os.remove(prompt.full_path)
             
             # Remove from memory
-            del self.prompts[prompt_id]
+            unique_id = prompt.unique_id or prompt.get_unique_id
+            if unique_id in self.prompts:
+                del self.prompts[unique_id]
+            elif prompt_id in self.prompts:
+                # Fallback to original ID for backward compatibility
+                del self.prompts[prompt_id]
             
             logger.info(f"Deleted prompt {prompt_id}")
             return True

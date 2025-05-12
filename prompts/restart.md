@@ -1,6 +1,5 @@
 ---
 description: Prompt Manager restart prompt
-type: composite
 ---
 
 We are working on a project called prompt manager, which we extracted from another project we developed called coordinator. I do a lot of prompt management and this standalone tool will be very useful.

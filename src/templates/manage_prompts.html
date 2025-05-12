@@ -703,7 +703,9 @@ Remember that you're part of a team - your specialized work contributes to solvi
         const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
         if (confirmDeleteBtn) {
             confirmDeleteBtn.addEventListener('click', function() {
-                const promptId = document.getElementById('delete-prompt-id').textContent;
+                const promptIdElement = document.getElementById('delete-prompt-id');
+                // Use the stored ID attribute (which may be the unique ID) for deletion
+                const promptId = promptIdElement.dataset.id || promptIdElement.textContent;
                 deletePrompt(promptId);
             });
         }
@@ -968,8 +970,13 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 // ID cell
                 const idCell = document.createElement('td');
                 const idLink = document.createElement('a');
-                idLink.href = `/prompts/${prompt.id}`;
+                // Use unique_id for the href if available to avoid conflicts
+                const linkId = prompt.unique_id || prompt.id;
+                idLink.href = `/prompts/${encodeURIComponent(linkId)}`;
+                // Still display the normal ID to the user
                 idLink.textContent = prompt.id;
+                // Add a title with the directory for clarity
+                idLink.title = `${prompt.id} (in ${prompt.directory_name || prompt.directory})`;
                 idCell.appendChild(idLink);
                 
                 // Description cell
@@ -1013,9 +1020,12 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 deleteBtn.className = 'btn btn-sm btn-outline-danger';
                 deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
                 deleteBtn.title = 'Delete';
-                deleteBtn.dataset.promptId = prompt.id;
+                // Use unique_id if available for deletion
+                const deleteId = prompt.unique_id || prompt.id;
+                deleteBtn.dataset.promptId = deleteId;
+                deleteBtn.dataset.promptName = prompt.id; // For display purposes
                 deleteBtn.addEventListener('click', function() {
-                    showDeleteConfirmation(prompt.id);
+                    showDeleteConfirmation(deleteId, prompt.id);
                 });
                 
                 actionsCell.appendChild(editBtn);
@@ -1472,8 +1482,11 @@ Remember that you're part of a team - your specialized work contributes to solvi
         });
     }
     
-    function showDeleteConfirmation(promptId) {
-        document.getElementById('delete-prompt-id').textContent = promptId;
+    function showDeleteConfirmation(promptId, displayName) {
+        // Store the actual ID to delete (which might be the unique ID)
+        document.getElementById('delete-prompt-id').dataset.id = promptId;
+        // Show the human-readable name to the user
+        document.getElementById('delete-prompt-id').textContent = displayName || promptId;
         const deleteModal = new bootstrap.Modal(document.getElementById('deletePromptModal'));
         deleteModal.show();
     }
@@ -1486,7 +1499,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
     
     function deletePrompt(promptId) {
         // Send DELETE request
-        fetch(`/api/prompts/${promptId}`, {
+        fetch(`/api/prompts/${encodeURIComponent(promptId)}`, {
             method: 'DELETE'
         })
         .then(response => {

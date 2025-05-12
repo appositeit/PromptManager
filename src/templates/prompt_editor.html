@@ -91,7 +91,7 @@
                 <div class="card-body">
                     <div class="mb-2">
                         <div class="d-flex align-items-center">
-                            <span class="badge rounded-pill me-2" id="prompt-type-badge">Standard</span>
+                            <span class="badge rounded-pill me-2" id="is-composite-badge">Standard</span>
                             <span class="ms-auto small text-muted">Last updated: <span id="last-updated">-</span></span>
                         </div>
                     </div>
@@ -471,8 +471,8 @@
                 document.getElementById('last-updated').textContent = formatDate(data.updated_at);
                 document.getElementById('prompt-directory').textContent = data.directory || 'Not specified';
                 
-                // Set prompt type badge based on content (composite if it has inclusions)
-                const badge = document.getElementById('prompt-type-badge');
+                // Set "is composite" badge based on content (composite if it has inclusions)
+                const badge = document.getElementById('is-composite-badge');
                 
                 // Check if the content contains inclusions to determine if it's composite
                 isComposite = data.content.includes('[[') && data.content.includes(']]');
@@ -689,7 +689,7 @@
             
             // Update the composite status
             isComposite = content.includes('[[') && content.includes(']]');
-            const badge = document.getElementById('prompt-type-badge');
+            const badge = document.getElementById('is-composite-badge');
             
             // Clear existing classes
             badge.classList.remove('bg-success', 'bg-secondary');

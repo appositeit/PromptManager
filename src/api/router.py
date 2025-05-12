@@ -88,6 +88,9 @@ async def get_all_prompts():
     for prompt in prompts:
         prompt_dict = prompt.dict()
         prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"])
+        # Ensure the unique_id is included in the response
+        if not prompt_dict.get("unique_id"):
+            prompt_dict["unique_id"] = prompt.get_unique_id
         result.append(prompt_dict)
     
     import logging

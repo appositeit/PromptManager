@@ -32,6 +32,7 @@ class Prompt(BaseModel):
     tags: List[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
+    unique_id: Optional[str] = None
     
     @property
     def full_path(self) -> str:
@@ -44,3 +45,13 @@ class Prompt(BaseModel):
         # Since we removed the prompt_type field, we'll determine if it's composite
         # by checking if the content contains inclusion markers
         return "[[" in self.content and "]]" in self.content
+    
+    @property
+    def get_unique_id(self) -> str:
+        """Generate a unique ID that includes both directory and filename."""
+        if self.unique_id:
+            return self.unique_id
+        # Create a unique ID using directory path and filename
+        # Use a simplified path to avoid special characters
+        dir_part = Path(self.directory).name  # Just use the directory name
+        return f"{dir_part}_{self.id}"
