@@ -20,6 +20,12 @@ def get_prompt_service():
     from src.api.router import get_prompt_service as get_service
     return get_service()
 
+# Get fragment service singleton
+def get_fragment_service():
+    """Get the fragment service singleton."""
+    from src.api.fragments_router import get_fragment_service as get_service
+    return get_service()
+
 # Connection manager for WebSockets
 class ConnectionManager:
     """Manage WebSocket connections."""
@@ -62,7 +68,7 @@ class ConnectionManager:
 # Create connection manager
 manager = ConnectionManager()
 
-@router.websocket("/ws/{prompt_id}")
+@router.websocket("/api/prompts/ws/{prompt_id}")
 async def websocket_endpoint(websocket: WebSocket, prompt_id: str):
     """WebSocket endpoint for real-time prompt editing."""
     prompt_service = get_prompt_service()
@@ -185,3 +191,123 @@ async def websocket_endpoint(websocket: WebSocket, prompt_id: str):
     finally:
         # Disconnect client
         manager.disconnect(websocket, prompt_id)
+
+@router.websocket("/api/prompts/ws/fragments/{fragment_id}")
+async def fragment_websocket_endpoint(websocket: WebSocket, fragment_id: str):
+    """WebSocket endpoint for real-time fragment editing."""
+    fragment_service = get_fragment_service()
+    
+    # Get the fragment
+    fragment = fragment_service.get_fragment(fragment_id)
+    if not fragment:
+        await websocket.close(code=4004, reason=f"Fragment '{fragment_id}' not found")
+        return
+    
+    # Accept the connection
+    await manager.connect(websocket, fragment_id)
+    
+    # Send initial data
+    try:
+        await websocket.send_json({
+            "action": "initial",
+            "content": fragment.content,
+            "description": fragment.description,
+            "tags": fragment.tags,
+            "updated_at": fragment.updated_at.isoformat() if fragment.updated_at else None
+        })
+    except Exception as e:
+        logger.error(f"Error sending initial data: {str(e)}")
+        manager.disconnect(websocket, fragment_id)
+        return
+    
+    # Handle messages
+    try:
+        while True:
+            # Receive message
+            data = await websocket.receive_json()
+            action = data.get("action")
+            
+            # Handle update
+            if action == "update":
+                content = data.get("content")
+                if content is not None:
+                    # Update fragment content
+                    fragment.content = content
+                    now = datetime.now(timezone.utc)
+                    fragment.updated_at = now
+                    
+                    # Save to disk
+                    success = fragment_service.save_fragment(fragment)
+                    
+                    # Send status
+                    await websocket.send_json({
+                        "action": "update_status",
+                        "success": success,
+                        "timestamp": now.isoformat()
+                    })
+                    
+                    # Broadcast update to other clients
+                    await manager.broadcast({
+                        "action": "update",
+                        "content": content,
+                        "timestamp": now.isoformat()
+                    }, fragment_id, exclude=websocket)
+            
+            # Handle metadata update
+            elif action == "update_metadata":
+                description = data.get("description")
+                tags = data.get("tags")
+                
+                # Update fragment metadata
+                if description is not None:
+                    fragment.description = description
+                
+                if tags is not None:
+                    fragment.tags = tags
+                
+                now = datetime.now(timezone.utc)
+                fragment.updated_at = now
+                
+                # Save to disk
+                success = fragment_service.save_fragment(fragment)
+                
+                # Send status
+                await websocket.send_json({
+                    "action": "update_status",
+                    "success": success,
+                    "timestamp": now.isoformat()
+                })
+                
+                # Broadcast update to other clients
+                await manager.broadcast({
+                    "action": "update_metadata",
+                    "description": description,
+                    "tags": tags,
+                    "timestamp": now.isoformat()
+                }, fragment_id, exclude=websocket)
+            
+            # Handle expansion request
+            elif action == "expand":
+                content = data.get("content")
+                if content is not None:
+                    # Expand content - this works with fragments too
+                    # using the same expansion function
+                    prompt_service = get_prompt_service()
+                    expanded, dependencies, warnings = prompt_service.expand_inclusions(content, root_id=fragment_id)
+                    
+                    # Send expanded content
+                    await websocket.send_json({
+                        "action": "expanded",
+                        "content": content,
+                        "expanded": expanded,
+                        "dependencies": list(dependencies),
+                        "warnings": warnings
+                    })
+    
+    except WebSocketDisconnect:
+        logger.debug(f"WebSocket client disconnected from fragment {fragment_id}")
+    except Exception as e:
+        logger.opt(exception=True).error(f"Error in WebSocket connection: {str(e)}")
+    finally:
+        # Disconnect client
+        manager.disconnect(websocket, fragment_id)

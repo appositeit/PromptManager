@@ -5,9 +5,39 @@ Debug endpoints for WebSocket testing.
 from fastapi import APIRouter, WebSocket, Request
 from loguru import logger
 
-router = APIRouter(prefix="/api/debug", tags=["debug"])
+router = APIRouter(tags=["debug"])
 
-@router.websocket("/ws/test")
+@router.websocket("/api/ws/test")
+async def websocket_test(websocket: WebSocket):
+    """Test WebSocket endpoint for direct testing at '/api/ws/test'."""
+    try:
+        await websocket.accept()
+        logger.info(f"WebSocket test connection established from {websocket.client}")
+        await websocket.send_text("WebSocket test connection successful")
+        
+        counter = 0
+        while True:
+            # Wait for a message
+            message = await websocket.receive_text()
+            counter += 1
+            
+            # Echo back with timestamp
+            from datetime import datetime
+            timestamp = datetime.now().isoformat()
+            await websocket.send_json({
+                "received": message,
+                "counter": counter,
+                "timestamp": timestamp,
+                "message": "WebSocket echo test"
+            })
+            
+            logger.info(f"Echoed message {counter}: {message}")
+    except Exception as e:
+        logger.error(f"Error in WebSocket test: {str(e)}")
+    finally:
+        logger.info("WebSocket test connection closed")
+
+@router.websocket("/api/debug/ws/test")
 async def test_websocket(websocket: WebSocket):
     """Test WebSocket endpoint for connection diagnosis."""
     logger.info(f"WebSocket test connection from {websocket.client}")
@@ -23,7 +53,7 @@ async def test_websocket(websocket: WebSocket):
     finally:
         logger.info("WebSocket test connection closed")
 
-@router.get("/websocket-check")
+@router.get("/api/debug/websocket-check")
 async def check_websocket_support(request: Request):
     """Check if WebSocket support is properly configured."""
     cors_headers = request.headers.get("sec-fetch-mode", "")

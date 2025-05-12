@@ -35,13 +35,6 @@
                                     <i class="bi bi-funnel"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><h6 class="dropdown-header">Filter by Type</h6></li>
-                                    <li><a class="dropdown-item" href="#" data-type="all">All Prompts</a></li>
-                                    <li><a class="dropdown-item" href="#" data-type="standard">Standard</a></li>
-                                    <li><a class="dropdown-item" href="#" data-type="composite">Composite</a></li>
-                                    <li><a class="dropdown-item" href="#" data-type="system">System</a></li>
-                                    <li><a class="dropdown-item" href="#" data-type="user">User</a></li>
-                                    <li><hr class="dropdown-divider"></li>
                                     <li><h6 class="dropdown-header">Filter by Tag</h6></li>
                                     <li><a class="dropdown-item" href="#" data-tag="all">All Tags</a></li>
                                     <div id="tag-filters">
@@ -60,7 +53,6 @@
                                     <th data-sort="directory" class="sortable">Directory <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th data-sort="id" class="sortable">ID <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th data-sort="description" class="sortable">Description <i class="bi bi-sort-alpha-down sort-icon"></i></th>
-                                    <th data-sort="type" class="sortable">Type <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th data-sort="tags" class="sortable">Tags <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th data-sort="updated" class="sortable">Last Updated <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th>Actions</th>
@@ -69,7 +61,7 @@
                             <tbody id="prompts-table-body">
                                 <!-- Prompts will be loaded dynamically -->
                                 <tr>
-                                    <td colspan="7" class="text-center py-4">
+                                    <td colspan="6" class="text-center py-4">
                                         <div class="spinner-border text-primary" role="status">
                                             <span class="visually-hidden">Loading...</span>
                                         </div>
@@ -139,15 +131,7 @@
                         <input type="text" class="form-control" id="promptId" required>
                         <div class="form-text">Unique identifier for the prompt (no spaces or special characters)</div>
                     </div>
-                    <div class="mb-3">
-                        <label for="promptType" class="form-label">Type</label>
-                        <select class="form-select" id="promptType" required>
-                            <option value="standard">Standard</option>
-                            <option value="composite">Composite</option>
-                            <option value="system">System</option>
-                            <option value="user">User</option>
-                        </select>
-                    </div>
+                    <!-- Type field removed as it's no longer needed -->
                     <div class="mb-3">
                         <label for="promptDirectory" class="form-label">Directory</label>
                         <select class="form-select" id="promptDirectory" required>
@@ -219,6 +203,35 @@
     </div>
 </div>
 
+<!-- Edit Directory Modal -->
+<div class="modal fade" id="editDirectoryModal" tabindex="-1" aria-labelledby="editDirectoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editDirectoryModalLabel">Edit Directory</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editDirectoryForm">
+                    <input type="hidden" id="editDirectoryPath">
+                    <div class="mb-3">
+                        <label for="editDirectoryName" class="form-label">Display Name</label>
+                        <input type="text" class="form-control" id="editDirectoryName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDirectoryDescription" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="editDirectoryDescription">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="updateDirectoryBtn">Update</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Delete Prompt Confirmation Modal -->
 <div class="modal fade" id="deletePromptModal" tabindex="-1" aria-labelledby="deletePromptModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -260,7 +273,6 @@
     </div>
 </div>
 
-<!-- Create Default Prompts Modal Removed -->
 {% endblock %}
 
 {% block extra_js %}
@@ -336,6 +348,11 @@
         border-color: #86b7fe;
         box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
     }
+    
+    /* Status toggle cursor */
+    .status-badge {
+        cursor: pointer;
+    }
 </style>
 <script>
     // Global variables
@@ -397,7 +414,6 @@ You have access to various tools and Workers with specialized capabilities. When
 Always thank Workers for their contributions and acknowledge their work when presenting solutions to users. If a Worker fails to complete a task or provides incomplete results, work with them to refine the request or assign the task to a different Worker.
 
 Remember that you're the coordinator of the system - make decisions, provide guidance, and ensure that the final solution meets the user's needs.`,
-            prompt_type: 'system',
             description: 'System prompt for the Architect AI',
             tags: ['architect', 'system', 'role']
         },
@@ -422,7 +438,6 @@ When communicating with the Architect:
 You don't need to maintain the full context of the project - that's the Architect's responsibility. Instead, focus on executing your assigned tasks to the best of your abilities and providing high-quality results that the Architect can integrate into the final solution.
 
 Remember that you're part of a team - your specialized work contributes to solving the user's larger problem.`,
-            prompt_type: 'system',
             description: 'System prompt for Worker AIs',
             tags: ['worker', 'system', 'role']
         }
@@ -457,25 +472,67 @@ Remember that you're part of a team - your specialized work contributes to solvi
         // Use the imported function
         reloadAllPrompts()
             .then(data => {
-                // Reload prompts to reflect changes
-                loadPrompts();
-                showToast(`Successfully reloaded ${data.count} prompts from all directories`, 'success');
+                // Reload prompts to reflect changes with stronger error handling
+                loadPrompts()
+                    .then(() => {
+                        showToast(`Successfully reloaded ${data.count} prompts from all directories`, 'success');
+                    })
+                    .catch(promptError => {
+                        console.error('Error reloading prompts after directory refresh:', promptError);
+                        showToast(`Successfully refreshed directories but had trouble displaying prompts: ${promptError.message}`, 'warning');
+                    });
             })
             .catch(error => {
                 console.error('Error refreshing directories:', error);
                 showToast(`Error refreshing directories: ${error.message}`, 'danger');
                 
-                // Try regular reload as a fallback
-                loadPrompts();
+                // Try regular reload as a fallback with stronger error handling
+                loadPrompts()
+                    .then(() => {
+                        showToast('Successfully refreshed prompt list', 'success');
+                    })
+                    .catch(promptError => {
+                        console.error('Error with fallback prompt reload:', promptError);
+                        showToast(`Failed to load prompts: ${promptError.message}`, 'danger');
+                    });
             });
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Load prompts
-        loadPrompts();
+    // Make sure prompts are loaded immediately when the page loads
+    // Force a direct API request immediately on page load
+    window.addEventListener('load', function() {
+        console.log('Window loaded - directly fetching prompts');
         
-        // Load directories
-        loadDirectories();
+        // Force an immediate prompts fetch on page load
+        fetch('/api/prompts/all')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Directly fetched prompts on window load:', data.length);
+                prompts = data;
+                updatePromptsTable();
+                updateTagFilters();
+            })
+            .catch(err => console.error('Direct prompt fetch error:', err));
+    });
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded - initializing UI and loading data');
+        
+        // Initialize by loading prompts and directories
+        Promise.all([
+            loadPrompts(),
+            loadDirectories()
+        ]).then(() => {
+            console.log('Successfully loaded prompts and directories on page initialization');
+        }).catch(error => {
+            console.error('Error during page initialization:', error);
+            showToast('Error loading data. Trying alternative loading method...', 'warning');
+            
+            // Force a reload if the initial load fails
+            setTimeout(() => {
+                refreshAllDirectories();
+            }, 500);
+        });
         
         // Set up refresh all button
         document.getElementById('refresh-all-btn').addEventListener('click', refreshAllDirectories);
@@ -602,12 +659,6 @@ Remember that you're part of a team - your specialized work contributes to solvi
             createPromptBtn.addEventListener('click', createPrompt);
         }
         
-        // Create default prompts button handler
-        const createDefaultPromptsBtn = document.getElementById('createDefaultPromptsBtn');
-        if (createDefaultPromptsBtn) {
-            createDefaultPromptsBtn.addEventListener('click', createDefaultPrompts);
-        }
-        
         // Add role selection handler
         const promptRoleSelect = document.getElementById('promptRole');
         if (promptRoleSelect) {
@@ -642,6 +693,12 @@ Remember that you're part of a team - your specialized work contributes to solvi
             addDirectoryBtn.addEventListener('click', addDirectory);
         }
         
+        // Edit directory form handler
+        const updateDirectoryBtn = document.getElementById('updateDirectoryBtn');
+        if (updateDirectoryBtn) {
+            updateDirectoryBtn.addEventListener('click', updateDirectory);
+        }
+        
         // Delete prompt confirmation
         const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
         if (confirmDeleteBtn) {
@@ -668,8 +725,6 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 filterPrompts();
             });
         });
-        
-        // No longer adding the Create Default Prompts button
     });
     
     // Function to update the sort header icons and classes
@@ -694,6 +749,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
         }
     }
     
+    // Updated with more aggressive loading approach
     function loadPrompts() {
         const tableBody = document.getElementById('prompts-table-body');
         
@@ -709,6 +765,30 @@ Remember that you're part of a team - your specialized work contributes to solvi
             </tr>
         `;
         
+        return new Promise((resolve, reject) => {
+            // First try to reload all prompts from the server to ensure we have fresh data
+            fetch('/api/prompts/reload', {
+                method: 'POST'
+            })
+            .then(response => {
+                console.log('Server prompt reload initiated');
+                // Now try to fetch the prompts with retry logic
+                fetchPromptsWithRetry(resolve, reject);
+            })
+            .catch(error => {
+                console.warn('Server reload failed, trying direct fetch:', error);
+                // If server reload fails, still try to fetch prompts directly
+                fetchPromptsWithRetry(resolve, reject);
+            });
+        });
+    }
+    
+    // Helper function to fetch prompts with retry logic
+    function fetchPromptsWithRetry(resolve, reject, retries = 5) {
+        const tableBody = document.getElementById('prompts-table-body');
+        
+        console.log(`Fetching prompts (${retries} retries left)`);
+        
         fetch('/api/prompts/all')
             .then(response => {
                 if (!response.ok) {
@@ -721,21 +801,48 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 if (!Array.isArray(data)) {
                     throw new Error('Expected an array of prompts from API');
                 }
+                
+                if (data.length === 0 && retries > 0) {
+                    // No prompts found but we have retries left - try again
+                    console.log('No prompts found but retries remaining - trying again');
+                    setTimeout(() => fetchPromptsWithRetry(resolve, reject, retries - 1), 800);
+                    return;
+                }
+                
                 prompts = data;
                 updatePromptsTable();
                 updateTagFilters();
+                resolve(data); // Resolve the promise with the loaded data
             })
             .catch(error => {
                 console.error('Error loading prompts:', error);
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="text-center py-4 text-danger">
-                            <i class="bi bi-exclamation-circle fs-4"></i>
-                            <p class="mb-0 mt-2">Error loading prompts: ${error.message}</p>
-                            <p class="small">Try adding prompt directories in the section below.</p>
-                        </td>
-                    </tr>
-                `;
+                
+                if (retries > 0) {
+                    console.log(`Retrying prompt load (${retries} attempts left)...`);
+                    setTimeout(() => fetchPromptsWithRetry(resolve, reject, retries - 1), 800);
+                } else {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-danger">
+                                <i class="bi bi-exclamation-circle fs-4"></i>
+                                <p class="mb-0 mt-2">Error loading prompts: ${error.message}</p>
+                                <p class="small">Try clicking the Refresh All button above.</p>
+                            </td>
+                        </tr>
+                    `;
+                    // Add a refresh button directly in the error message
+                    const refreshBtn = document.createElement('button');
+                    refreshBtn.className = 'btn btn-primary mt-2';
+                    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Refresh Now';
+                    refreshBtn.addEventListener('click', function() {
+                        refreshAllDirectories();
+                    });
+                    
+                    const msgRow = tableBody.querySelector('tr');
+                    msgRow.querySelector('td').appendChild(refreshBtn);
+                    
+                    reject(error); // Reject the promise with the error
+                }
             });
     }
     
@@ -751,9 +858,17 @@ Remember that you're part of a team - your specialized work contributes to solvi
             let filteredPrompts = prompts;
             
             if (currentFilter.type !== 'all') {
-                filteredPrompts = filteredPrompts.filter(prompt => 
-                    prompt.prompt_type === currentFilter.type
-                );
+                // Filter based on composite status instead of prompt_type
+                if (currentFilter.type === 'composite') {
+                    filteredPrompts = filteredPrompts.filter(prompt => 
+                        prompt.content && prompt.content.includes('[[') && prompt.content.includes(']]')
+                    );
+                } else if (currentFilter.type === 'standard') {
+                    filteredPrompts = filteredPrompts.filter(prompt => 
+                        !(prompt.content && prompt.content.includes('[[') && prompt.content.includes(']]'))
+                    );
+                }
+                // Skip other type filters since we no longer have system/user types
             }
             
             if (currentFilter.tag !== 'all') {
@@ -770,6 +885,15 @@ Remember that you're part of a team - your specialized work contributes to solvi
                     (prompt.directory && prompt.directory.toLowerCase().includes(searchLower))
                 );
             }
+            
+            // Filter out prompts from disabled directories
+            const enabledDirectories = directories
+                .filter(dir => dir.enabled)
+                .map(dir => dir.path);
+            
+            filteredPrompts = filteredPrompts.filter(prompt =>
+                enabledDirectories.includes(prompt.directory)
+            );
             
             // Sort based on current sort settings using stableSort for a stable sort algorithm
             filteredPrompts = stableSort(filteredPrompts, (a, b) => {
@@ -789,10 +913,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
                         aValue = a.description || '';
                         bValue = b.description || '';
                         break;
-                    case 'type':
-                        aValue = a.prompt_type || '';
-                        bValue = b.prompt_type || '';
-                        break;
+
                     case 'tags':
                         aValue = (a.tags && a.tags.length > 0) ? a.tags.join(',') : '';
                         bValue = (b.tags && b.tags.length > 0) ? b.tags.join(',') : '';
@@ -827,7 +948,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
             if (filteredPrompts.length === 0) {
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="text-center py-4">
+                        <td colspan="6" class="text-center py-4">
                             <p class="mb-0">No prompts found.</p>
                         </td>
                     </tr>
@@ -854,17 +975,6 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 // Description cell
                 const descCell = document.createElement('td');
                 descCell.textContent = prompt.description || '';
-                
-                // Type cell
-                const typeCell = document.createElement('td');
-                const typeSpan = document.createElement('span');
-                typeSpan.className = `badge bg-${
-                    prompt.prompt_type === 'composite' ? 'success' : 
-                    prompt.prompt_type === 'system' ? 'primary' :
-                    prompt.prompt_type === 'user' ? 'info' : 'secondary'
-                } rounded-pill`;
-                typeSpan.textContent = prompt.prompt_type.charAt(0).toUpperCase() + prompt.prompt_type.slice(1);
-                typeCell.appendChild(typeSpan);
                 
                 // Tags cell
                 const tagsCell = document.createElement('td');
@@ -915,7 +1025,6 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 row.appendChild(dirCell);
                 row.appendChild(idCell);
                 row.appendChild(descCell);
-                row.appendChild(typeCell);
                 row.appendChild(tagsCell);
                 row.appendChild(updatedCell);
                 row.appendChild(actionsCell);
@@ -935,6 +1044,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
         }
     }
     
+    // Updated to return a Promise for better initialization handling
     function loadDirectories() {
         const tableBody = document.getElementById('directories-table-body');
         
@@ -950,99 +1060,133 @@ Remember that you're part of a team - your specialized work contributes to solvi
             </tr>
         `;
         
-        fetch('/api/prompts/directories/all')
-            .then(response => response.json())
-            .then(data => {
-                directories = data;
-                
-                // Clear table
-                tableBody.innerHTML = '';
-                
-                // Check if no directories
-                if (directories.length === 0) {
+        return new Promise((resolve, reject) => {
+            fetch('/api/prompts/directories/all')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to load directories: ${response.status} ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    directories = data;
+                    
+                    // Clear table
+                    tableBody.innerHTML = '';
+                    
+                    // Check if no directories
+                    if (directories.length === 0) {
+                        tableBody.innerHTML = `
+                            <tr>
+                                <td colspan="5" class="text-center py-4">
+                                    <p class="mb-0">No directories configured.</p>
+                                </td>
+                            </tr>
+                        `;
+                    } else {
+                        // Add directories to table
+                        directories.forEach(dir => {
+                            const row = document.createElement('tr');
+                            
+                            // Name cell
+                            const nameCell = document.createElement('td');
+                            nameCell.textContent = dir.name;
+                            
+                            // Path cell
+                            const pathCell = document.createElement('td');
+                            pathCell.textContent = dir.path;
+                            
+                            // Description cell
+                            const descCell = document.createElement('td');
+                            descCell.textContent = dir.description || '';
+                            
+                            // Status cell with toggle
+                            const statusCell = document.createElement('td');
+                            const statusBadge = document.createElement('span');
+                            statusBadge.className = `badge status-badge ${dir.enabled ? 'bg-success' : 'bg-danger'}`;
+                            statusBadge.textContent = dir.enabled ? 'Enabled' : 'Disabled';
+                            statusBadge.dataset.path = dir.path;
+                            statusBadge.dataset.enabled = dir.enabled;
+                            statusBadge.title = dir.enabled ? 'Click to disable' : 'Click to enable';
+                            statusBadge.addEventListener('click', function() {
+                                toggleDirectoryStatus(dir.path, dir.enabled);
+                            });
+                            statusCell.appendChild(statusBadge);
+                            
+                            // Actions cell
+                            const actionsCell = document.createElement('td');
+                            
+                            // Edit button
+                            const editBtn = document.createElement('button');
+                            editBtn.className = 'btn btn-sm btn-outline-primary me-1';
+                            editBtn.innerHTML = '<i class="bi bi-pencil"></i>';
+                            editBtn.title = 'Edit';
+                            editBtn.addEventListener('click', function() {
+                                showEditDirectoryModal(dir);
+                            });
+                            
+                            // Refresh button
+                            const refreshBtn = document.createElement('button');
+                            refreshBtn.className = 'btn btn-sm btn-outline-secondary me-1';
+                            refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+                            refreshBtn.title = 'Refresh';
+                            refreshBtn.addEventListener('click', function() {
+                                // Reload prompts from this directory
+                                refreshDirectory(dir.path);
+                            });
+                            
+                            // Delete button
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.className = 'btn btn-sm btn-outline-danger';
+                            deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
+                            deleteBtn.title = 'Remove';
+                            deleteBtn.dataset.directoryPath = dir.path;
+                            deleteBtn.addEventListener('click', function() {
+                                showDeleteDirectoryConfirmation(dir.path);
+                            });
+                            
+                            actionsCell.appendChild(editBtn);
+                            actionsCell.appendChild(refreshBtn);
+                            actionsCell.appendChild(deleteBtn);
+                            
+                            // Add cells to row
+                            row.appendChild(nameCell);
+                            row.appendChild(pathCell);
+                            row.appendChild(descCell);
+                            row.appendChild(statusCell);
+                            row.appendChild(actionsCell);
+                            
+                            tableBody.appendChild(row);
+                        });
+                    }
+                    
+                    // Populate directory select in the New Prompt modal
+                    populateDirectorySelect('promptDirectory');
+                    
+                    // After successfully loading directories, trigger a prompts reload
+                    // to ensure prompts table is populated
+                    if (directories.length > 0 && prompts.length === 0) {
+                        console.log("Found directories but no prompts - initiating automatic prompts reload");
+                        loadPrompts()
+                            .then(() => console.log("Successfully reloaded prompts after directory load"))
+                            .catch(err => console.warn("Failed to reload prompts after directory load:", err));
+                    }
+                    
+                    resolve(directories);
+                })
+                .catch(error => {
+                    console.error('Error loading directories:', error);
                     tableBody.innerHTML = `
                         <tr>
-                            <td colspan="5" class="text-center py-4">
-                                <p class="mb-0">No directories configured.</p>
+                            <td colspan="5" class="text-center py-4 text-danger">
+                                <i class="bi bi-exclamation-circle fs-4"></i>
+                                <p class="mb-0 mt-2">Error loading directories. Please try again.</p>
                             </td>
                         </tr>
                     `;
-                    return;
-                }
-                
-                // Add directories to table
-                directories.forEach(dir => {
-                    const row = document.createElement('tr');
-                    
-                    // Name cell
-                    const nameCell = document.createElement('td');
-                    nameCell.textContent = dir.name;
-                    
-                    // Path cell
-                    const pathCell = document.createElement('td');
-                    pathCell.textContent = dir.path;
-                    
-                    // Description cell
-                    const descCell = document.createElement('td');
-                    descCell.textContent = dir.description || '';
-                    
-                    // Status cell
-                    const statusCell = document.createElement('td');
-                    const statusBadge = document.createElement('span');
-                    statusBadge.className = dir.enabled ? 'badge bg-success' : 'badge bg-danger';
-                    statusBadge.textContent = dir.enabled ? 'Enabled' : 'Disabled';
-                    statusCell.appendChild(statusBadge);
-                    
-                    // Actions cell
-                    const actionsCell = document.createElement('td');
-                    
-                    // Refresh button
-                    const refreshBtn = document.createElement('button');
-                    refreshBtn.className = 'btn btn-sm btn-outline-primary me-1';
-                    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
-                    refreshBtn.title = 'Refresh';
-                    refreshBtn.addEventListener('click', function() {
-                        // Reload prompts from this directory
-                        refreshDirectory(dir.path);
-                    });
-                    
-                    // Delete button
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.className = 'btn btn-sm btn-outline-danger';
-                    deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
-                    deleteBtn.title = 'Remove';
-                    deleteBtn.dataset.directoryPath = dir.path;
-                    deleteBtn.addEventListener('click', function() {
-                        showDeleteDirectoryConfirmation(dir.path);
-                    });
-                    
-                    actionsCell.appendChild(refreshBtn);
-                    actionsCell.appendChild(deleteBtn);
-                    
-                    // Add cells to row
-                    row.appendChild(nameCell);
-                    row.appendChild(pathCell);
-                    row.appendChild(descCell);
-                    row.appendChild(statusCell);
-                    row.appendChild(actionsCell);
-                    
-                    tableBody.appendChild(row);
+                    reject(error);
                 });
-                
-                // Populate directory select in the New Prompt modal
-                populateDirectorySelect('promptDirectory');
-            })
-            .catch(error => {
-                console.error('Error loading directories:', error);
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="text-center py-4 text-danger">
-                            <i class="bi bi-exclamation-circle fs-4"></i>
-                            <p class="mb-0 mt-2">Error loading directories. Please try again.</p>
-                        </td>
-                    </tr>
-                `;
-            });
+        });
     }
     
     function populateDirectorySelect(selectId) {
@@ -1115,6 +1259,89 @@ Remember that you're part of a team - your specialized work contributes to solvi
             }
         }
     }
+
+    // Function to handle toggling directory status
+    function toggleDirectoryStatus(directoryPath, currentStatus) {
+        // Show loading toast
+        showToast('Updating directory status...', 'info');
+        
+        // Use the imported function from directory_manager.js
+        toggleDirectoryStatus(directoryPath, currentStatus)
+            .then(data => {
+                // Update directory status in local state
+                const dirIndex = directories.findIndex(dir => dir.path === directoryPath);
+                if (dirIndex !== -1) {
+                    directories[dirIndex].enabled = data.enabled;
+                }
+                
+                // Refresh the directory list and prompts
+                loadDirectories();
+                loadPrompts();
+                
+                showToast(`Directory ${data.enabled ? 'enabled' : 'disabled'} successfully`, 'success');
+            })
+            .catch(error => {
+                console.error('Error toggling directory status:', error);
+                showToast(`Error toggling directory status: ${error.message}`, 'danger');
+            });
+    }
+    
+    // Function to show the edit directory modal
+    function showEditDirectoryModal(directory) {
+        document.getElementById('editDirectoryPath').value = directory.path;
+        document.getElementById('editDirectoryName').value = directory.name;
+        document.getElementById('editDirectoryDescription').value = directory.description || '';
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('editDirectoryModal'));
+        modal.show();
+    }
+    
+    // Function to update directory
+    function updateDirectory() {
+        const path = document.getElementById('editDirectoryPath').value;
+        const name = document.getElementById('editDirectoryName').value.trim();
+        const description = document.getElementById('editDirectoryDescription').value.trim();
+        
+        // Validate
+        if (!name) {
+            alert('Directory name is required');
+            return;
+        }
+        
+        // Create directory data
+        const directoryData = {
+            name: name,
+            description: description
+        };
+        
+        // Show loading toast
+        showToast('Updating directory...', 'info');
+        
+        // Use the imported function from directory_manager.js
+        updateDirectory(path, directoryData)
+            .then(data => {
+                // Update directory in local state
+                const dirIndex = directories.findIndex(dir => dir.path === path);
+                if (dirIndex !== -1) {
+                    directories[dirIndex].name = data.name;
+                    directories[dirIndex].description = data.description;
+                }
+                
+                // Refresh the directory list
+                loadDirectories();
+                
+                // Close modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editDirectoryModal'));
+                modal.hide();
+                
+                showToast('Directory updated successfully', 'success');
+            })
+            .catch(error => {
+                console.error('Error updating directory:', error);
+                showToast(`Error updating directory: ${error.message}`, 'danger');
+            });
+    }
     
     function createPrompt() {
         const id = document.getElementById('promptId').value.trim();
@@ -1143,10 +1370,11 @@ Remember that you're part of a team - your specialized work contributes to solvi
             id: id,
             content: content || `# ${id}\n\nEnter content here...`,
             directory: directory,
-            prompt_type: promptType,
             description: description,
             tags: tagArray
         };
+        
+        console.log('Sending prompt data:', promptData);
         
         // Send POST request
         fetch('/api/prompts/', {
@@ -1158,7 +1386,9 @@ Remember that you're part of a team - your specialized work contributes to solvi
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error('Failed to create prompt');
+                return response.text().then(text => {
+                    throw new Error(`Failed to create prompt: ${text}`);
+                });
             }
             return response.json();
         })
@@ -1186,74 +1416,6 @@ Remember that you're part of a team - your specialized work contributes to solvi
             console.error('Error creating prompt:', error);
             alert('Error creating prompt: ' + error.message);
         });
-    }
-    
-    function createDefaultPrompts() {
-        const directory = document.getElementById('defaultPromptsDirectory').value;
-        
-        if (!directory) {
-            alert('Please select a directory');
-            return;
-        }
-        
-        // Create promises for each prompt creation
-        const createPromises = [];
-        
-        // Create Architect role prompt
-        const architectPrompt = {
-            ...defaultPrompts.architect,
-            directory: directory
-        };
-        
-        createPromises.push(
-            fetch('/api/prompts/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(architectPrompt)
-            })
-        );
-        
-        // Create Worker role prompt
-        const workerPrompt = {
-            ...defaultPrompts.worker,
-            directory: directory
-        };
-        
-        createPromises.push(
-            fetch('/api/prompts/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(workerPrompt)
-            })
-        );
-        
-        // Wait for all prompts to be created
-        Promise.all(createPromises)
-            .then(responses => {
-                // Check if all responses are OK
-                const allOk = responses.every(response => response.ok);
-                if (!allOk) {
-                    throw new Error('One or more prompts failed to create');
-                }
-                
-                // Close modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('defaultPromptsModal'));
-                modal.hide();
-                
-                // Reload prompts
-                loadPrompts();
-                
-                // Show toast
-                showToast('Default prompts created successfully');
-            })
-            .catch(error => {
-                console.error('Error creating default prompts:', error);
-                alert('Error creating default prompts: ' + error.message);
-            });
     }
     
     function addDirectory() {

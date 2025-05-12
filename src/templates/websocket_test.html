@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+
+{% block title %}WebSocket Connection Test{% endblock %}
+
+{% block header_title %}WebSocket Connection Test{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">WebSocket Connection Test</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="websocket-url" class="form-label">WebSocket URL</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="websocket-url" value="ws://{{ request.headers.get('host') }}/api/debug/api/ws/test">
+                            <button class="btn btn-primary" id="connect-btn">Connect</button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="message-input" class="form-label">Message</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="message-input" placeholder="Enter message to send" disabled>
+                            <button class="btn btn-success" id="send-btn" disabled>Send</button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="connection-status" class="form-label">Connection Status</label>
+                        <div class="alert alert-secondary" id="connection-status" role="alert">
+                            Not connected
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Messages</h5>
+                        <button class="btn btn-sm btn-outline-secondary" id="clear-btn">Clear</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="messages-container" style="height: 300px; overflow-y: auto; border: 1px solid #dee2e6; padding: 10px; border-radius: 4px; background-color: #f8f9fa;">
+                        <div class="text-muted">No messages yet</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">WebSocket Test Points</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <button class="list-group-item list-group-item-action" id="test-general">
+                            <h5 class="mb-1">Test WebSocket General Connection</h5>
+                            <p class="mb-1">Tests connectivity to a general test WebSocket endpoint</p>
+                            <small>Endpoint: <code>ws://{{ request.headers.get('host') }}/api/debug/api/ws/test</code></small>
+                        </button>
+                        
+                        <button class="list-group-item list-group-item-action" id="test-fragments">
+                            <h5 class="mb-1">Test Fragments WebSocket</h5>
+                            <p class="mb-1">Tests connectivity to the fragments WebSocket endpoint (requires fragment ID)</p>
+                            <small>Endpoint: <code>ws://{{ request.headers.get('host') }}/api/prompts/ws/fragments/{fragment_id}</code></small>
+                        </button>
+                        
+                        <button class="list-group-item list-group-item-action" id="test-prompts">
+                            <h5 class="mb-1">Test Prompts WebSocket</h5>
+                            <p class="mb-1">Tests connectivity to the prompts WebSocket endpoint (requires prompt ID)</p>
+                            <small>Endpoint: <code>ws://{{ request.headers.get('host') }}/api/prompts/ws/{prompt_id}</code></small>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Server Information</h5>
+                </div>
+                <div class="card-body">
+                    <div id="server-info">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span class="ms-2">Loading server information...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Input Fragment ID Modal -->
+<div class="modal fade" id="fragmentIdModal" tabindex="-1" aria-labelledby="fragmentIdModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="fragmentIdModalLabel">Enter Fragment ID</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="fragment-id-input" class="form-label">Fragment ID</label>
+                    <input type="text" class="form-control" id="fragment-id-input" placeholder="Enter fragment ID">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="test-fragment-btn">Test Connection</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Input Prompt ID Modal -->
+<div class="modal fade" id="promptIdModal" tabindex="-1" aria-labelledby="promptIdModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="promptIdModalLabel">Enter Prompt ID</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="prompt-id-input" class="form-label">Prompt ID</label>
+                    <input type="text" class="form-control" id="prompt-id-input" placeholder="Enter prompt ID">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="test-prompt-btn">Test Connection</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Global variables
+    let socket = null;
+    let connectionActive = false;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load server information
+        loadServerInfo();
+        
+        // Connect button
+        document.getElementById('connect-btn').addEventListener('click', function() {
+            if (connectionActive) {
+                disconnectWebSocket();
+            } else {
+                connectWebSocket();
+            }
+        });
+        
+        // Send button
+        document.getElementById('send-btn').addEventListener('click', function() {
+            sendMessage();
+        });
+        
+        // Message input enter key
+        document.getElementById('message-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Clear button
+        document.getElementById('clear-btn').addEventListener('click', function() {
+            clearMessages();
+        });
+        
+        // Test buttons
+        document.getElementById('test-general').addEventListener('click', function() {
+            document.getElementById('websocket-url').value = `ws://${window.location.host}/api/debug/api/ws/test`;
+            connectWebSocket();
+        });
+        
+        document.getElementById('test-fragments').addEventListener('click', function() {
+            const fragmentModal = new bootstrap.Modal(document.getElementById('fragmentIdModal'));
+            fragmentModal.show();
+        });
+        
+        document.getElementById('test-prompts').addEventListener('click', function() {
+            const promptModal = new bootstrap.Modal(document.getElementById('promptIdModal'));
+            promptModal.show();
+        });
+        
+        // Modal buttons
+        document.getElementById('test-fragment-btn').addEventListener('click', function() {
+            const fragmentId = document.getElementById('fragment-id-input').value.trim();
+            
+            if (!fragmentId) {
+                alert('Please enter a fragment ID');
+                return;
+            }
+            
+            document.getElementById('websocket-url').value = `ws://${window.location.host}/api/prompts/ws/fragments/${fragmentId}`;
+            
+            // Close the modal
+            const fragmentModal = bootstrap.Modal.getInstance(document.getElementById('fragmentIdModal'));
+            fragmentModal.hide();
+            
+            // Connect to the WebSocket
+            connectWebSocket();
+        });
+        
+        document.getElementById('test-prompt-btn').addEventListener('click', function() {
+            const promptId = document.getElementById('prompt-id-input').value.trim();
+            
+            if (!promptId) {
+                alert('Please enter a prompt ID');
+                return;
+            }
+            
+            document.getElementById('websocket-url').value = `ws://${window.location.host}/api/prompts/ws/${promptId}`;
+            
+            // Close the modal
+            const promptModal = bootstrap.Modal.getInstance(document.getElementById('promptIdModal'));
+            promptModal.hide();
+            
+            // Connect to the WebSocket
+            connectWebSocket();
+        });
+    });
+    
+    function connectWebSocket() {
+        // Disconnect existing connection if any
+        if (socket && socket.readyState !== WebSocket.CLOSED) {
+            socket.close();
+        }
+        
+        // Get the WebSocket URL
+        const url = document.getElementById('websocket-url').value.trim();
+        
+        if (!url) {
+            alert('Please enter a WebSocket URL');
+            return;
+        }
+        
+        // Create new WebSocket connection
+        try {
+            socket = new WebSocket(url);
+            
+            // Update status
+            updateConnectionStatus('Connecting...', 'alert-warning');
+            
+            // Connection opened
+            socket.addEventListener('open', function(event) {
+                console.log('WebSocket connection established');
+                
+                // Update UI
+                connectionActive = true;
+                document.getElementById('connect-btn').textContent = 'Disconnect';
+                document.getElementById('connect-btn').classList.replace('btn-primary', 'btn-danger');
+                document.getElementById('message-input').disabled = false;
+                document.getElementById('send-btn').disabled = false;
+                
+                // Update status
+                updateConnectionStatus('Connected', 'alert-success');
+                
+                // Add message to log
+                addMessage('system', 'Connection established');
+                
+                // For fragment and prompt connections, try to send an expand message
+                if (url.includes('/api/prompts/ws/fragments/') || url.includes('/api/prompts/ws/')) {
+                    socket.send(JSON.stringify({
+                        action: 'expand',
+                        content: 'Test content for expansion'
+                    }));
+                    
+                    addMessage('sent', JSON.stringify({
+                        action: 'expand',
+                        content: 'Test content for expansion'
+                    }));
+                }
+            });
+            
+            // Listen for messages
+            socket.addEventListener('message', function(event) {
+                console.log('Message received:', event.data);
+                
+                try {
+                    // Try to parse as JSON
+                    const data = JSON.parse(event.data);
+                    addMessage('received', JSON.stringify(data, null, 2));
+                } catch (error) {
+                    // Plain text
+                    addMessage('received', event.data);
+                }
+            });
+            
+            // Connection closed
+            socket.addEventListener('close', function(event) {
+                console.log('WebSocket connection closed:', event);
+                
+                // Update UI
+                connectionActive = false;
+                document.getElementById('connect-btn').textContent = 'Connect';
+                document.getElementById('connect-btn').classList.replace('btn-danger', 'btn-primary');
+                document.getElementById('message-input').disabled = true;
+                document.getElementById('send-btn').disabled = true;
+                
+                // Update status with reason if available
+                let closeReason = 'Connection closed';
+                if (event.reason) {
+                    closeReason += ` (${event.reason})`;
+                }
+                
+                updateConnectionStatus(closeReason, 'alert-secondary');
+                
+                // Add message to log
+                addMessage('system', closeReason);
+            });
+            
+            // Connection error
+            socket.addEventListener('error', function(event) {
+                console.error('WebSocket error:', event);
+                
+                // Update status
+                updateConnectionStatus('Connection error', 'alert-danger');
+                
+                // Add message to log
+                addMessage('error', 'Connection error: Check console for details');
+            });
+        } catch (error) {
+            console.error('Error creating WebSocket:', error);
+            updateConnectionStatus(`Error: ${error.message}`, 'alert-danger');
+        }
+    }
+    
+    function disconnectWebSocket() {
+        if (socket) {
+            socket.close();
+        }
+    }
+    
+    function sendMessage() {
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+            alert('WebSocket is not connected');
+            return;
+        }
+        
+        const messageInput = document.getElementById('message-input');
+        const message = messageInput.value.trim();
+        
+        if (!message) {
+            return;
+        }
+        
+        try {
+            // Try to parse as JSON if it starts with { or [
+            if ((message.startsWith('{') && message.endsWith('}')) || 
+                (message.startsWith('[') && message.endsWith(']'))) {
+                const jsonData = JSON.parse(message);
+                socket.send(JSON.stringify(jsonData));
+                addMessage('sent', JSON.stringify(jsonData, null, 2));
+            } else {
+                // Send as plain text
+                socket.send(message);
+                addMessage('sent', message);
+            }
+            
+            // Clear input
+            messageInput.value = '';
+        } catch (error) {
+            console.error('Error sending message:', error);
+            addMessage('error', `Error sending message: ${error.message}`);
+        }
+    }
+    
+    function updateConnectionStatus(message, alertClass) {
+        const statusEl = document.getElementById('connection-status');
+        
+        // Remove all alert classes
+        statusEl.classList.remove('alert-primary', 'alert-secondary', 'alert-success', 'alert-danger', 'alert-warning', 'alert-info');
+        
+        // Add new alert class
+        statusEl.classList.add(alertClass);
+        
+        // Update text
+        statusEl.textContent = message;
+    }
+    
+    function addMessage(type, content) {
+        const messagesContainer = document.getElementById('messages-container');
+        
+        // Clear "No messages yet" if it's the first message
+        if (messagesContainer.querySelector('.text-muted')) {
+            messagesContainer.innerHTML = '';
+        }
+        
+        // Create message element
+        const messageEl = document.createElement('div');
+        messageEl.className = 'message mb-2';
+        
+        // Add timestamp
+        const now = new Date();
+        const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+        
+        // Style based on type
+        let icon = '';
+        let colorClass = '';
+        
+        switch (type) {
+            case 'sent':
+                icon = '&#8594;'; // Right arrow
+                colorClass = 'text-primary';
+                break;
+            case 'received':
+                icon = '&#8592;'; // Left arrow
+                colorClass = 'text-success';
+                break;
+            case 'system':
+                icon = '&#8505;'; // Info icon
+                colorClass = 'text-secondary';
+                break;
+            case 'error':
+                icon = '&#9888;'; // Warning icon
+                colorClass = 'text-danger';
+                break;
+            default:
+                icon = '&#8226;'; // Bullet
+                colorClass = '';
+        }
+        
+        // Create content
+        if (type === 'received' || type === 'sent') {
+            // Format JSON or code
+            messageEl.innerHTML = `
+                <div class="d-flex">
+                    <span class="me-2 ${colorClass}">${icon}</span>
+                    <span class="text-muted me-2">${timestamp}</span>
+                    <span class="badge ${colorClass === 'text-primary' ? 'bg-primary' : 'bg-success'}">${type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                </div>
+                <pre class="mt-1 p-2 border rounded" style="background-color: #f8f9fa; overflow-x: auto;">${content}</pre>
+            `;
+        } else {
+            // Plain text
+            messageEl.innerHTML = `
+                <div>
+                    <span class="me-2 ${colorClass}">${icon}</span>
+                    <span class="text-muted me-2">${timestamp}</span>
+                    <span class="${colorClass}">${content}</span>
+                </div>
+            `;
+        }
+        
+        // Add to container
+        messagesContainer.appendChild(messageEl);
+        
+        // Scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    function clearMessages() {
+        const messagesContainer = document.getElementById('messages-container');
+        messagesContainer.innerHTML = '<div class="text-muted">No messages yet</div>';
+    }
+    
+    function loadServerInfo() {
+        fetch('/api/debug/websocket-check')
+            .then(response => response.json())
+            .then(data => {
+                const serverInfoEl = document.getElementById('server-info');
+                
+                // Format information as a table
+                let html = '<table class="table table-striped">';
+                
+                // Add server info
+                html += `
+                    <tr>
+                        <td>Server Supports WebSocket</td>
+                        <td>${data.server_supports_websocket ? 
+                            '<span class="badge bg-success">Yes</span>' : 
+                            '<span class="badge bg-danger">No</span>'}</td>
+                    </tr>
+                    <tr>
+                        <td>Server Version</td>
+                        <td>${data.server_version}</td>
+                    </tr>
+                    <tr>
+                        <td>Client Appears To Support WebSocket</td>
+                        <td>${data.client_appears_to_support_websocket ? 
+                            '<span class="badge bg-success">Yes</span>' : 
+                            '<span class="badge bg-danger">No</span>'}</td>
+                    </tr>
+                    <tr>
+                        <td>CORS Mode</td>
+                        <td>${data.cors_mode || 'Not set'}</td>
+                    </tr>
+                    <tr>
+                        <td>Remote Address</td>
+                        <td>${data.remote_addr}</td>
+                    </tr>
+                    <tr>
+                        <td>Base URL</td>
+                        <td>${data.base_url}</td>
+                    </tr>
+                `;
+                
+                html += '</table>';
+                
+                // Update element
+                serverInfoEl.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading server info:', error);
+                document.getElementById('server-info').innerHTML = `
+                    <div class="alert alert-danger">
+                        Error loading server information: ${error.message}
+                    </div>
+                `;
+            });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Search and Replace Test{% endblock %}
+
+{% block header_title %}Search and Replace Test{% endblock %}
+
+{% block header_actions %}
+<div class="btn-group">
+    <button class="btn btn-outline-secondary" id="search-replace-btn" title="Search and Replace (Alt+R)">
+        <i class="bi bi-search"></i> Search/Replace
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Editor with Search and Replace</h5>
+                </div>
+                <div class="card-body">
+                    <div id="editor-container">
+                        <textarea id="test-editor"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    #editor-container {
+        height: 500px;
+    }
+    
+    .CodeMirror {
+        height: 100%;
+        font-family: 'Fira Code', monospace;
+        font-size: 14px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/search-replace.js"></script>
+<script>
+    let editor;
+    let searchReplace;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize the editor
+        editor = CodeMirror.fromTextArea(document.getElementById('test-editor'), {
+            mode: 'markdown',
+            theme: 'default',
+            lineNumbers: true,
+            lineWrapping: true,
+            tabSize: 2,
+            autofocus: true,
+            extraKeys: {
+                'Tab': function(cm) {
+                    const spaces = Array(cm.getOption('indentUnit') + 1).join(' ');
+                    cm.replaceSelection(spaces);
+                },
+                'Alt-R': function(cm) {
+                    if (searchReplace) searchReplace.showDialog();
+                }
+            }
+        });
+        
+        // Set some sample content
+        editor.setValue(`# Search and Replace Test Document
+
+This is a sample document to test the search and replace functionality.
+
+## Features to Test
+
+1. Simple text search
+2. Case-sensitive search
+3. Regular expression search
+4. Replace single occurrence
+5. Replace all occurrences
+
+## Sample Text for Testing
+
+- The quick brown fox jumps over the lazy dog.
+- The Quick Brown Fox jumps over the Lazy Dog.
+- Multiple instances of "test" in a test document for testing.
+- Some regex-testable content: 123-456-7890, test@example.com, https://example.com
+
+## Code Example
+
+\`\`\`javascript
+function searchAndReplace(text, search, replace) {
+  return text.replace(new RegExp(search, 'g'), replace);
+}
+
+// Call the function
+const result = searchAndReplace("test text", "test", "example");
+console.log(result); // Outputs: "example text"
+\`\`\`
+
+Feel free to experiment with different search patterns and replacements in this document.`);
+        
+        // Initialize search and replace functionality
+        searchReplace = new SearchReplace(editor);
+        
+        // Add button event handler
+        document.getElementById('search-replace-btn').addEventListener('click', function() {
+            if (searchReplace) searchReplace.showDialog();
+        });
+    });
+</script>
+{% endblock %}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Prompt Management System{% endblock %}</title>
+    <title>{% block title %}Prompt Manager{% endblock %}</title>
     <!-- CSS Dependencies -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.css">
-    <link rel="stylesheet" href="{{ url_for('static', path='css/main.css') }}">
+    <link rel="stylesheet" href="/static/css/main.css">
     {% block extra_css %}{% endblock %}
     
     <!-- JavaScript Dependencies -->
@@ -25,357 +25,28 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.0.2/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.10.7/dayjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.10.7/plugin/relativeTime.min.js"></script>
-    <script src="{{ url_for('static', path='js/utils.js') }}"></script>
-    <script src="{{ url_for('static', path='js/session.js') }}"></script>
+    <script src="/static/js/utils.js"></script>
     {% block extra_js_head %}{% endblock %}
 </head>
 <body>
-    <div class="layout-container">
-        <!-- Sidebar / Navigation -->
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-brand">
-                <img src="{{ url_for('static', path='img/logo.svg') }}" alt="Logo" class="sidebar-logo">
-                <span class="sidebar-title">Coordinator</span>
+    <!-- Main Content -->
+    <div class="container-fluid p-0">
+        <header class="bg-primary text-white py-3 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <h3 class="m-0">Prompt Manager: {% block header_title %}Prompt Management{% endblock %}</h3>
             </div>
-            
-            <div class="sidebar-content" data-simplebar>
-                <ul class="sidebar-nav">
-                    <li class="sidebar-item{% if request.url.path == '/' %} active{% endif %}">
-                        <a href="/" class="sidebar-link">
-                            <i class="bi bi-house"></i>
-                            <span>Dashboard</span>
-                        </a>
-                    </li>
-                    
-                    <li class="sidebar-header">Prompts</li>
-                    
-                    <li class="sidebar-item{% if request.url.path.startswith('/manage/prompts') %} active{% endif %}">
-                        <a href="/manage/prompts" class="sidebar-link">
-                            <i class="bi bi-file-earmark-text"></i>
-                            <span>Prompts</span>
-                        </a>
-                    </li>
-                    
-                    <li class="sidebar-header">Sessions</li>
-                    
-                    <li class="sidebar-item">
-                        <a href="#" class="sidebar-link" id="new-session-link">
-                            <i class="bi bi-plus-circle"></i>
-                            <span>New Session</span>
-                        </a>
-                    </li>
-                    
-                    <div id="active-sessions">
-                        <!-- Active sessions will be loaded dynamically -->
-                    </div>
-                    
-                    <li class="sidebar-header">System</li>
-                    
-                    <li class="sidebar-item{% if request.url.path == '/mcp' %} active{% endif %}">
-                        <a href="/mcp" class="sidebar-link">
-                            <i class="bi bi-server"></i>
-                            <span>MCP Servers</span>
-                        </a>
-                    </li>
-                </ul>
+            <div>
+                {% block header_actions %}{% endblock %}
             </div>
-            
-            <div class="sidebar-footer">
-                <a href="/settings" class="sidebar-link{% if request.url.path == '/settings' %} active{% endif %}">
-                    <i class="bi bi-gear"></i>
-                    <span>Settings</span>
-                </a>
-            </div>
-        </div>
+        </header>
         
-        <!-- Main Content -->
-        <div class="main-content">
-            <header class="content-header">
-                <div class="header-left">
-                    <button class="btn sidebar-toggle" id="sidebar-toggle">
-                        <i class="bi bi-list"></i>
-                    </button>
-                    <h1 class="header-title">{% block header_title %}Prompt Management{% endblock %}</h1>
-                </div>
-                <div class="header-right">
-                    {% block header_actions %}{% endblock %}
-                </div>
-            </header>
-            
-            <div class="content-body">
-                {% block content %}{% endblock %}
-            </div>
+        <div class="container-fluid py-4">
+            {% block content %}{% endblock %}
         </div>
     </div>
     
     <!-- Modals -->
     {% block modals %}
-    <!-- New Fragment Modal -->
-    <div class="modal fade" id="newFragmentModal" tabindex="-1" aria-labelledby="newFragmentModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="newFragmentModalLabel">Create New Fragment</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="newFragmentForm">
-                        <div class="mb-3">
-                            <label for="fragmentId" class="form-label">Fragment ID</label>
-                            <input type="text" class="form-control" id="fragmentId" required>
-                            <div class="form-text">Unique identifier for the fragment (no spaces or special characters)</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="fragmentDirectory" class="form-label">Directory</label>
-                            <select class="form-select" id="fragmentDirectory" required>
-                                <!-- Directories will be loaded dynamically -->
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="fragmentDescription" class="form-label">Description</label>
-                            <input type="text" class="form-control" id="fragmentDescription">
-                        </div>
-                        <div class="mb-3">
-                            <label for="fragmentTags" class="form-label">Tags</label>
-                            <input type="text" class="form-control" id="fragmentTags">
-                            <div class="form-text">Comma-separated list of tags</div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="createFragmentBtn">Create</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- New Template Modal -->
-    <div class="modal fade" id="newTemplateModal" tabindex="-1" aria-labelledby="newTemplateModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="newTemplateModalLabel">Create New Template</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="newTemplateForm">
-                        <div class="mb-3">
-                            <label for="templateName" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="templateName" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="templateType" class="form-label">Type</label>
-                            <select class="form-select" id="templateType" required>
-                                <option value="custom">Custom</option>
-                                <option value="project_start">Project Start</option>
-                                <option value="resume">Resume</option>
-                                <option value="worker_dispatch">Worker Dispatch</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="templateDescription" class="form-label">Description</label>
-                            <input type="text" class="form-control" id="templateDescription">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="createTemplateBtn">Create</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- New Session Modal -->
-    <div class="modal fade" id="newSessionModal" tabindex="-1" aria-labelledby="newSessionModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="newSessionModalLabel">Create New Session</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="newSessionForm">
-                        <div class="mb-3">
-                            <label for="sessionName" class="form-label">Session Name</label>
-                            <input type="text" class="form-control" id="sessionName" required placeholder="Give your session a descriptive name">
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="sessionDescription" class="form-label">Description (Optional)</label>
-                            <textarea class="form-control" id="sessionDescription" rows="2" placeholder="Enter a description for this session"></textarea>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="sessionDirectory" class="form-label">Session Directory</label>
-                            <div class="input-group">
-                                <span class="input-group-text">/data/sessions/</span>
-                                <input type="text" class="form-control" id="sessionDirectory" placeholder="custom-directory-name">
-                            </div>
-                            <div class="form-text">Optional: Specify a custom directory for session data. Default will be used if not specified.</div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="sessionPrompt" class="form-label">Initial Prompt</label>
-                            <select class="form-select" id="sessionPrompt">
-                                <option value="">-- Select a prompt --</option>
-                                <!-- Prompts will be loaded dynamically -->
-                            </select>
-                            <div class="form-text">Optional: Select a prompt to start the session with</div>
-                        </div>
-                        
-                        <ul class="nav nav-tabs mt-4 mb-3" id="sessionTabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="architect-tab" data-bs-toggle="tab" data-bs-target="#architect-config" type="button" role="tab" aria-controls="architect-config" aria-selected="true">Architect</button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="workers-tab" data-bs-toggle="tab" data-bs-target="#workers-config" type="button" role="tab" aria-controls="workers-config" aria-selected="false">Workers</button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="mcp-tab" data-bs-toggle="tab" data-bs-target="#mcp-config" type="button" role="tab" aria-controls="mcp-config" aria-selected="false">MCP Servers</button>
-                            </li>
-                        </ul>
-                        
-                        <div class="tab-content" id="sessionTabsContent">
-                            <!-- Architect Configuration Tab -->
-                            <div class="tab-pane fade show active" id="architect-config" role="tabpanel" aria-labelledby="architect-tab">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <div class="mb-3">
-                                            <label for="architectModel" class="form-label">AI Model</label>
-                                            <select class="form-select" id="architectModel" required>
-                                                <option value="claude-3-opus-20240229">Claude 3 Opus</option>
-                                                <option value="claude-3-sonnet-20240229" selected>Claude 3 Sonnet</option>
-                                                <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
-                                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                                            </select>
-                                        </div>
-                                        
-                                        <div class="mb-3">
-                                            <label for="architectPrompt" class="form-label">Architect System Prompt</label>
-                                            <select class="form-select mb-2" id="architectPromptTemplate">
-                                                <option value="">-- Select a prompt template --</option>
-                                                <option value="architect_role">Architect Role (Default)</option>
-                                                <!-- Other prompts will be loaded dynamically -->
-                                            </select>
-                                            <textarea class="form-control" id="architectPrompt" rows="5" placeholder="Default system prompt will be used if empty"></textarea>
-                                        </div>
-                                        
-                                        <div class="mb-0">
-                                            <label for="architectApiKey" class="form-label">API Key</label>
-                                            <select class="form-select" id="architectApiKey">
-                                                <option value="">Default Key</option>
-                                                <!-- API keys will be loaded dynamically -->
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Workers Configuration Tab -->
-                            <div class="tab-pane fade" id="workers-config" role="tabpanel" aria-labelledby="workers-tab">
-                                <div class="d-flex justify-content-between mb-3">
-                                    <h6 class="mb-0">Worker Agents</h6>
-                                    <button type="button" class="btn btn-sm btn-outline-primary" id="add-worker-btn">
-                                        <i class="bi bi-plus-circle"></i> Add Worker
-                                    </button>
-                                </div>
-                                
-                                <div id="workerConfigContainer">
-                                    <!-- Worker configs will be added dynamically -->
-                                    <div class="worker-config mb-3 p-3 border rounded" data-worker-index="0">
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <h6 class="mb-0">Worker 1</h6>
-                                            <button type="button" class="btn btn-sm btn-outline-danger remove-worker-btn">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
-                                        
-                                        <div class="mb-2">
-                                            <label for="workerName0" class="form-label">Name</label>
-                                            <input type="text" class="form-control worker-name" id="workerName0" value="Worker 1">
-                                        </div>
-                                        
-                                        <div class="mb-2">
-                                            <label for="workerModel0" class="form-label">AI Model</label>
-                                            <select class="form-select worker-model" id="workerModel0">
-                                                <option value="claude-3-haiku-20240307" selected>Claude 3 Haiku</option>
-                                                <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
-                                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                                            </select>
-                                        </div>
-                                        
-                                        <div class="mb-2">
-                                            <label for="workerPromptTemplate0" class="form-label">System Prompt</label>
-                                            <select class="form-select mb-2 worker-prompt-template" id="workerPromptTemplate0">
-                                                <option value="">-- Select a prompt template --</option>
-                                                <option value="worker_role">Worker Role (Default)</option>
-                                                <option value="code_worker_role">Code Worker Role</option>
-                                                <option value="research_worker_role">Research Worker Role</option>
-                                                <option value="creative_worker_role">Creative Worker Role</option>
-                                            </select>
-                                            <textarea class="form-control worker-prompt" id="workerPrompt0" rows="3" placeholder="Default worker prompt will be used if empty"></textarea>
-                                        </div>
-                                        
-                                        <div class="mb-2">
-                                            <label for="workerCapabilities0" class="form-label">Capabilities</label>
-                                            <select class="form-select worker-capabilities" id="workerCapabilities0" multiple>
-                                                <option value="code-execution">Code Execution</option>
-                                                <option value="data-analysis">Data Analysis</option>
-                                                <option value="web-search">Web Search</option>
-                                                <option value="file-access">File Access</option>
-                                                <option value="image-generation">Image Generation</option>
-                                            </select>
-                                            <div class="form-text">Hold Ctrl/Cmd to select multiple capabilities</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div id="no-workers" class="text-center p-3 border rounded" style="display: none;">
-                                    <p class="text-muted mb-2">No worker agents added.</p>
-                                    <button type="button" class="btn btn-sm btn-outline-primary" id="add-first-worker-btn">
-                                        <i class="bi bi-plus-circle"></i> Add Worker
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- MCP Servers Configuration Tab -->
-                            <div class="tab-pane fade" id="mcp-config" role="tabpanel" aria-labelledby="mcp-tab">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <p class="mb-3">Select MCP servers to enable for this session:</p>
-                                        
-                                        <div id="mcp-servers-list">
-                                            <!-- MCP servers will be loaded dynamically -->
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" name="mcp-server" id="mcp-server-default" value="default" checked>
-                                                <label class="form-check-label" for="mcp-server-default">
-                                                    Default MCP Server
-                                                </label>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="alert alert-info mt-3 mb-0">
-                                            <i class="bi bi-info-circle me-2"></i>
-                                            You can configure access to specific MCP servers for Architect and Workers in the MCP Server Management section after creating the session.
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="createSessionBtn">Create Session</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
     <!-- Add Directory Modal -->
     <div class="modal fade" id="addDirectoryModal" tabindex="-1" aria-labelledby="addDirectoryModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -410,294 +81,54 @@
     </div>
     {% endblock %}
     
-    <!-- JavaScript -->
     <script>
-        // Initialize the sidebar toggle
-        document.addEventListener('DOMContentLoaded', function() {
-            const sidebarToggle = document.getElementById('sidebar-toggle');
+        // Initialize dayjs relativeTime plugin
+        dayjs.extend(dayjs_plugin_relativeTime);
+        
+        // Utility function to show a toast message
+        function showToast(message, type = 'success') {
+            // Check if there's already a toast container
+            let toastContainer = document.querySelector('.toast-container');
             
-            // Initialize sidebar state from localStorage
-            initSidebarState();
+            // Create container if it doesn't exist
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+                document.body.appendChild(toastContainer);
+            }
             
-            sidebarToggle.addEventListener('click', function() {
-                toggleSidebar();
+            // Create toast
+            const toastElement = document.createElement('div');
+            toastElement.className = `toast align-items-center text-white bg-${type} border-0`;
+            toastElement.setAttribute('role', 'alert');
+            toastElement.setAttribute('aria-live', 'assertive');
+            toastElement.setAttribute('aria-atomic', 'true');
+            
+            // Create inner toast content
+            toastElement.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+            
+            // Add to container
+            toastContainer.appendChild(toastElement);
+            
+            // Create and show toast
+            const toast = new bootstrap.Toast(toastElement, {
+                autohide: true,
+                delay: 3000
             });
+            toast.show();
             
-            // Prompt sidebar toggle (only on pages that have it)
-            const promptSidebarToggle = document.getElementById('prompt-sidebar-toggle');
-            const promptSidebar = document.getElementById('prompt-sidebar');
-            
-            if (promptSidebarToggle && promptSidebar) {
-                promptSidebarToggle.addEventListener('click', function() {
-                    promptSidebar.classList.toggle('visible');
-                    this.querySelector('i').classList.toggle('bi-chevron-right');
-                    this.querySelector('i').classList.toggle('bi-chevron-left');
-                });
-            }
-            
-            // New session modal
-            const newSessionLink = document.getElementById('new-session-link');
-            
-            if (newSessionLink) {
-                newSessionLink.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const newSessionModal = new bootstrap.Modal(document.getElementById('newSessionModal'));
-                    newSessionModal.show();
-                });
-            }
-            
-            // Worker configuration
-            const addWorkerBtn = document.getElementById('add-worker-btn');
-            const addFirstWorkerBtn = document.getElementById('add-first-worker-btn');
-            const workerConfigContainer = document.getElementById('workerConfigContainer');
-            const noWorkersDiv = document.getElementById('no-workers');
-            
-            if (addWorkerBtn && workerConfigContainer) {
-                addWorkerBtn.addEventListener('click', function() {
-                    addNewWorker();
-                });
-                
-                // Handle remove worker buttons (using event delegation)
-                workerConfigContainer.addEventListener('click', function(e) {
-                    const removeBtn = e.target.closest('.remove-worker-btn');
-                    if (removeBtn) {
-                        const workerConfig = removeBtn.closest('.worker-config');
-                        if (workerConfig) {
-                            workerConfig.remove();
-                            updateWorkerIndices();
-                            
-                            // Show no-workers message if all workers removed
-                            if (workerConfigContainer.querySelectorAll('.worker-config').length === 0 && noWorkersDiv) {
-                                noWorkersDiv.style.display = 'block';
-                            }
-                        }
-                    }
-                });
-                
-                // Handle worker prompt template selection
-                workerConfigContainer.addEventListener('change', function(e) {
-                    const templateSelect = e.target.closest('.worker-prompt-template');
-                    if (templateSelect) {
-                        const workerConfig = templateSelect.closest('.worker-config');
-                        if (workerConfig) {
-                            const promptArea = workerConfig.querySelector('.worker-prompt');
-                            if (promptArea && templateSelect.value) {
-                                // Get worker name for customization
-                                const workerName = workerConfig.querySelector('.worker-name').value || 
-                                                  `Worker ${parseInt(workerConfig.dataset.workerIndex) + 1}`;
-                                
-                                // Load prompt template (would normally come from API)
-                                fetch(`/api/prompts/${templateSelect.value}`)
-                                    .then(response => {
-                                        if (!response.ok) {
-                                            throw new Error('Failed to load prompt template');
-                                        }
-                                        return response.json();
-                                    })
-                                    .then(data => {
-                                        // If we got valid content, use it
-                                        if (data && data.content) {
-                                            promptArea.value = data.content;
-                                        } else {
-                                            // Fallback to mock template based on selection
-                                            const mockTemplates = {
-                                                'worker_role': `# Worker Role\n\nYou are a Worker AI named "${workerName}" in the Coordinator system. Your role is to complete specific tasks assigned by the Architect AI...`,
-                                                'code_worker_role': `# Code Worker Role\n\nYou are a specialized Code Worker AI named "${workerName}" in the Coordinator system. Your expertise is in writing, analyzing, and debugging code...`,
-                                                'research_worker_role': `# Research Worker Role\n\nYou are a specialized Research Worker AI named "${workerName}" in the Coordinator system. Your expertise is in gathering, analyzing, and synthesizing information...`,
-                                                'creative_worker_role': `# Creative Worker Role\n\nYou are a specialized Creative Worker AI named "${workerName}" in the Coordinator system. Your expertise is in generating creative content, designs, and innovative solutions...`
-                                            };
-                                            
-                                            promptArea.value = mockTemplates[templateSelect.value] || '';
-                                        }
-                                    })
-                                    .catch(error => {
-                                        console.error('Error loading prompt template:', error);
-                                        showToast('Error loading prompt template. Using default template.', 'warning');
-                                    });
-                            }
-                        }
-                    }
-                });
-            }
-            
-            // Add first worker button
-            if (addFirstWorkerBtn) {
-                addFirstWorkerBtn.addEventListener('click', addNewWorker);
-            }
-            
-            // Architect prompt template selection
-            const architectPromptTemplate = document.getElementById('architectPromptTemplate');
-            const architectPrompt = document.getElementById('architectPrompt');
-            
-            if (architectPromptTemplate && architectPrompt) {
-                architectPromptTemplate.addEventListener('change', function() {
-                    if (this.value) {
-                        // Load prompt template from API (would normally come from API)
-                        fetch(`/api/prompts/${this.value}`)
-                            .then(response => {
-                                if (!response.ok) {
-                                    throw new Error('Failed to load prompt template');
-                                }
-                                return response.json();
-                            })
-                            .then(data => {
-                                // If we got valid content, use it
-                                if (data && data.content) {
-                                    architectPrompt.value = data.content;
-                                } else {
-                                    // Fallback to mock template
-                                    architectPrompt.value = `# Architect Role\n\nYou are the Architect AI in the Coordinator multi-agent system. Your role is to analyze problems, design solutions, and coordinate the work of specialized Worker AIs...`;
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error loading prompt template:', error);
-                                showToast('Error loading prompt template. Using default template.', 'warning');
-                                architectPrompt.value = `# Architect Role\n\nYou are the Architect AI in the Coordinator multi-agent system. Your role is to analyze problems, design solutions, and coordinate the work of specialized Worker AIs...`;
-                            });
-                    }
-                });
-            }
-            
-            // Function to add a new worker
-            function addNewWorker() {
-                if (noWorkersDiv) {
-                    noWorkersDiv.style.display = 'none';
-                }
-                
-                // Get current number of workers
-                const workerCount = workerConfigContainer.querySelectorAll('.worker-config').length;
-                const newIndex = workerCount;
-                
-                // Clone the first worker if exists, otherwise create new
-                let workerConfig;
-                if (workerCount > 0) {
-                    workerConfig = workerConfigContainer.querySelector('.worker-config').cloneNode(true);
-                    
-                    // Clear any filled values
-                    const textareas = workerConfig.querySelectorAll('textarea');
-                    textareas.forEach(textarea => {
-                        textarea.value = '';
-                    });
-                    
-                    // Reset dropdowns
-                    const selects = workerConfig.querySelectorAll('select');
-                    selects.forEach(select => {
-                        if (select.classList.contains('worker-prompt-template')) {
-                            select.selectedIndex = 0;
-                        }
-                        if (select.classList.contains('worker-capabilities')) {
-                            Array.from(select.selectedOptions).forEach(option => {
-                                option.selected = false;
-                            });
-                        }
-                    });
-                } else {
-                    // Create new worker config (would never happen with current UI, but keeping for robustness)
-                    workerConfig = document.createElement('div');
-                    workerConfig.className = 'worker-config mb-3 p-3 border rounded';
-                    workerConfig.innerHTML = `
-                        <div class="d-flex justify-content-between mb-2">
-                            <h6 class="mb-0">Worker ${newIndex + 1}</h6>
-                            <button type="button" class="btn btn-sm btn-outline-danger remove-worker-btn">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label for="workerName${newIndex}" class="form-label">Name</label>
-                            <input type="text" class="form-control worker-name" id="workerName${newIndex}" value="Worker ${newIndex + 1}">
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label for="workerModel${newIndex}" class="form-label">AI Model</label>
-                            <select class="form-select worker-model" id="workerModel${newIndex}">
-                                <option value="claude-3-haiku-20240307" selected>Claude 3 Haiku</option>
-                                <option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option>
-                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                            </select>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label for="workerPromptTemplate${newIndex}" class="form-label">System Prompt</label>
-                            <select class="form-select mb-2 worker-prompt-template" id="workerPromptTemplate${newIndex}">
-                                <option value="">-- Select a prompt template --</option>
-                                <option value="worker_role">Worker Role (Default)</option>
-                                <option value="code_worker_role">Code Worker Role</option>
-                                <option value="research_worker_role">Research Worker Role</option>
-                                <option value="creative_worker_role">Creative Worker Role</option>
-                            </select>
-                            <textarea class="form-control worker-prompt" id="workerPrompt${newIndex}" rows="3" placeholder="Default worker prompt will be used if empty"></textarea>
-                        </div>
-                        
-                        <div class="mb-2">
-                            <label for="workerCapabilities${newIndex}" class="form-label">Capabilities</label>
-                            <select class="form-select worker-capabilities" id="workerCapabilities${newIndex}" multiple>
-                                <option value="code-execution">Code Execution</option>
-                                <option value="data-analysis">Data Analysis</option>
-                                <option value="web-search">Web Search</option>
-                                <option value="file-access">File Access</option>
-                                <option value="image-generation">Image Generation</option>
-                            </select>
-                            <div class="form-text">Hold Ctrl/Cmd to select multiple capabilities</div>
-                        </div>
-                    `;
-                }
-                
-                // Update worker index and name
-                workerConfig.dataset.workerIndex = newIndex;
-                const nameHeader = workerConfig.querySelector('h6');
-                if (nameHeader) {
-                    nameHeader.textContent = `Worker ${newIndex + 1}`;
-                }
-                
-                // Update IDs of inputs
-                const inputs = workerConfig.querySelectorAll('input, select, textarea');
-                inputs.forEach(input => {
-                    if (input.id) {
-                        input.id = input.id.replace(/\d+$/, newIndex);
-                    }
-                });
-                
-                // Update worker name input value
-                const nameInput = workerConfig.querySelector('.worker-name');
-                if (nameInput) {
-                    nameInput.value = `Worker ${newIndex + 1}`;
-                }
-                
-                // Add to container
-                workerConfigContainer.appendChild(workerConfig);
-            }
-            
-            // Function to update worker indices after removal
-            function updateWorkerIndices() {
-                const workerConfigs = workerConfigContainer.querySelectorAll('.worker-config');
-                workerConfigs.forEach((config, index) => {
-                    // Update worker index
-                    config.dataset.workerIndex = index;
-                    
-                    // Update worker name header
-                    const nameHeader = config.querySelector('h6');
-                    if (nameHeader) {
-                        nameHeader.textContent = `Worker ${index + 1}`;
-                    }
-                    
-                    // Update worker name input if it matches the default pattern
-                    const nameInput = config.querySelector('.worker-name');
-                    if (nameInput && nameInput.value.match(/^Worker \d+$/)) {
-                        nameInput.value = `Worker ${index + 1}`;
-                    }
-                    
-                    // Update IDs of inputs
-                    const inputs = config.querySelectorAll('input, select, textarea');
-                    inputs.forEach(input => {
-                        if (input.id && input.id.match(/\d+$/)) {
-                            input.id = input.id.replace(/\d+$/, index);
-                        }
-                    });
-                });
-            }
-        });
+            // Clean up after hiding
+            toastElement.addEventListener('hidden.bs.toast', function() {
+                toastElement.remove();
+            });
+        }
     </script>
     
     {% block extra_js %}{% endblock %}

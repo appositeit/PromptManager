@@ -169,11 +169,12 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 templates = Jinja2Templates(directory=templates_dir)
 
 
-# Main route for the web interface
+# Main route for the web interface - redirect to the prompt management page
 @app.get("/")
 async def index(request: Request):
-    """Render the main index page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+    """Redirect to the prompt management page."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/manage/prompts")
 
 
 # Route for prompt editor

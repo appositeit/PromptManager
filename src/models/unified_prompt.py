@@ -29,7 +29,6 @@ class Prompt(BaseModel):
     directory: str
     content: str
     description: Optional[str] = None
-    prompt_type: PromptType = PromptType.STANDARD
     tags: List[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
@@ -42,4 +41,6 @@ class Prompt(BaseModel):
     @property
     def is_composite(self) -> bool:
         """Check if this prompt is a composite prompt."""
-        return self.prompt_type == PromptType.COMPOSITE
+        # Since we removed the prompt_type field, we'll determine if it's composite
+        # by checking if the content contains inclusion markers
+        return "[[" in self.content and "]]" in self.content

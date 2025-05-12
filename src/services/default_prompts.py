@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 from pathlib import Path
 import json
 
-from coordinator.prompts.services.prompt_dirs import get_directory_by_path
+from src.services.prompt_dirs import get_directory_by_path
 
 # Default prompt templates
 DEFAULT_PROMPTS = {

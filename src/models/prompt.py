@@ -12,12 +12,6 @@ from pathlib import Path
 from enum import Enum
 
 
-class PromptType(str, Enum):
-    """Types of prompts in the system."""
-    PROJECT_START = "project_start"
-    RESUME = "resume"
-    WORKER_DISPATCH = "worker_dispatch"
-    CUSTOM = "custom"
 
 
 class PromptFragment(BaseModel):
@@ -44,7 +38,6 @@ class PromptTemplate(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
-    type: PromptType = PromptType.CUSTOM
     content: str  # Raw content with inclusion markers
     created_at: datetime
     updated_at: datetime

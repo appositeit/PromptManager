@@ -37,19 +37,20 @@
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Type</th>
-                                    <th>Description</th>
-                                    <th>Dependencies</th>
-                                    <th>Last Updated</th>
+                                <tr class="sortable-headers">
+                                    <th data-sort="directory" class="sortable">Directory <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="name" class="sortable">Name <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="type" class="sortable">Type <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="description" class="sortable">Description <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="dependencies" class="sortable">Dependencies <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="updated" class="sortable">Last Updated <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="templates-table-body">
                                 <!-- Templates will be loaded dynamically -->
                                 <tr>
-                                    <td colspan="6" class="text-center py-4">
+                                    <td colspan="7" class="text-center py-4">
                                         <div class="spinner-border text-primary" role="status">
                                             <span class="visually-hidden">Loading...</span>
                                         </div>
@@ -60,6 +61,49 @@
                         </table>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Template Modal -->
+<div class="modal fade" id="newTemplateModal" tabindex="-1" aria-labelledby="newTemplateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newTemplateModalLabel">Create New Template</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newTemplateForm">
+                    <div class="mb-3">
+                        <label for="templateName" class="form-label">Template Name</label>
+                        <input type="text" class="form-control" id="templateName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="templateDirectory" class="form-label">Directory</label>
+                        <select class="form-select" id="templateDirectory" required>
+                            <!-- Directories will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="templateType" class="form-label">Type</label>
+                        <select class="form-select" id="templateType">
+                            <option value="custom">Custom</option>
+                            <option value="project_start">Project Start</option>
+                            <option value="resume">Resume</option>
+                            <option value="worker_dispatch">Worker Dispatch</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="templateDescription" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="templateDescription">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createTemplateBtn">Create</button>
             </div>
         </div>
     </div>
@@ -87,14 +131,93 @@
 {% endblock %}
 
 {% block extra_js %}
+<style>
+    /* Styles for sortable headers */
+    .sortable {
+        cursor: pointer;
+        position: relative;
+        padding-right: 20px; /* Space for the sort icon */
+    }
+    
+    .sortable:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+    
+    .sort-icon {
+        font-size: 0.8rem;
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0.3;
+    }
+    
+    .sort-active .sort-icon {
+        opacity: 1;
+    }
+    
+    .sort-asc .sort-icon {
+        transform: translateY(-50%) rotate(0deg);
+    }
+    
+    .sort-desc .sort-icon {
+        transform: translateY(-50%) rotate(180deg);
+    }
+    
+    /* Column width styling */
+    table th:nth-child(1), /* Directory */
+    table td:nth-child(1) {
+        max-width: 150px;
+        width: 15%;
+        word-break: break-word;
+    }
+    
+    table th:nth-child(4), /* Description */
+    table td:nth-child(4) {
+        max-width: 200px;
+        width: 15%;
+    }
+</style>
 <script>
     // Global variables
     let templates = [];
+    let directories = [];
     let currentFilter = 'all';
+    
+    // Sort settings
+    let currentSort = {
+        column: 'directory',
+        direction: 'asc'
+    };
+    
+    /**
+     * Perform a stable sort on an array based on a given comparison function.
+     * This ensures that equal elements maintain their relative order.
+     * 
+     * @param {Array} array - The array to sort
+     * @param {Function} compareFunction - Function that defines the sort order
+     * @returns {Array} The sorted array
+     */
+    function stableSort(array, compareFunction) {
+        // Add indices to track original order
+        const indexed = array.map((item, index) => [item, index]);
+        
+        // Sort with original index as tiebreaker
+        indexed.sort((a, b) => {
+            const compareResult = compareFunction(a[0], b[0]);
+            return compareResult === 0 ? a[1] - b[1] : compareResult;
+        });
+        
+        // Extract the sorted items
+        return indexed.map(pair => pair[0]);
+    }
     
     document.addEventListener('DOMContentLoaded', function() {
         // Load templates
         loadTemplates();
+        
+        // Load directories for the new template form
+        loadDirectories();
         
         // Set up event handlers for filter buttons
         document.getElementById('show-all-btn').addEventListener('click', function() {
@@ -138,15 +261,66 @@
             button.classList.add('active', 'btn-primary');
         }
         
+        // Set up sorting functionality
+        const sortableHeaders = document.querySelectorAll('.sortable');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.dataset.sort;
+                
+                // Toggle direction if clicking on the same column
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'asc';
+                }
+                
+                // Update visuals and re-sort
+                updateSortHeaders();
+                filterTemplates();
+            });
+        });
+        
+        // Initialize sort headers
+        updateSortHeaders();
+        
         // Create template form handler
-        document.getElementById('createTemplateBtn').addEventListener('click', createTemplate);
+        const createTemplateBtn = document.getElementById('createTemplateBtn');
+        if (createTemplateBtn) {
+            createTemplateBtn.addEventListener('click', createTemplate);
+        }
         
         // Delete template confirmation
-        document.getElementById('confirm-delete-btn').addEventListener('click', function() {
-            const templateId = this.dataset.templateId;
-            deleteTemplate(templateId);
-        });
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', function() {
+                const templateId = this.dataset.templateId;
+                deleteTemplate(templateId);
+            });
+        }
     });
+    
+    // Function to update the sort header icons and classes
+    function updateSortHeaders() {
+        // Remove all sort classes
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.classList.remove('sort-active', 'sort-asc', 'sort-desc');
+        });
+        
+        // Find the active header and update its classes
+        const activeHeader = document.querySelector(`.sortable[data-sort="${currentSort.column}"]`);
+        if (activeHeader) {
+            activeHeader.classList.add('sort-active');
+            activeHeader.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            
+            // Update the icon class
+            const icon = activeHeader.querySelector('.sort-icon');
+            if (icon) {
+                icon.classList.remove('bi-sort-alpha-down', 'bi-sort-alpha-up');
+                icon.classList.add(currentSort.direction === 'asc' ? 'bi-sort-alpha-down' : 'bi-sort-alpha-up');
+            }
+        }
+    }
     
     function loadTemplates() {
         const tableBody = document.getElementById('templates-table-body');
@@ -154,7 +328,7 @@
         // Show loading indicator
         tableBody.innerHTML = `
             <tr>
-                <td colspan="6" class="text-center py-4">
+                <td colspan="7" class="text-center py-4">
                     <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
@@ -173,12 +347,37 @@
                 console.error('Error loading templates:', error);
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="text-center py-4 text-danger">
+                        <td colspan="7" class="text-center py-4 text-danger">
                             <i class="bi bi-exclamation-circle fs-4"></i>
                             <p class="mb-0 mt-2">Error loading templates. Please try again.</p>
                         </td>
                     </tr>
                 `;
+            });
+    }
+    
+    function loadDirectories() {
+        fetch('/api/prompts/directories')
+            .then(response => response.json())
+            .then(data => {
+                directories = data;
+                
+                // Populate the directory select in the new template modal
+                const templateDirectorySelect = document.getElementById('templateDirectory');
+                if (templateDirectorySelect) {
+                    templateDirectorySelect.innerHTML = '';
+                    directories.forEach(dir => {
+                        if (dir.enabled) {
+                            const option = document.createElement('option');
+                            option.value = dir.path;
+                            option.textContent = dir.name;
+                            templateDirectorySelect.appendChild(option);
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error loading directories:', error);
             });
     }
     
@@ -194,8 +393,57 @@
             );
         }
         
-        // Sort by name
-        filteredTemplates.sort((a, b) => a.name.localeCompare(b.name));
+        // Sort based on current sort settings using stableSort for a stable sort algorithm
+        filteredTemplates = stableSort(filteredTemplates, (a, b) => {
+            let aValue, bValue;
+            
+            // Get the values to compare based on the sort column
+            switch (currentSort.column) {
+                case 'directory':
+                    aValue = a.directory || '';
+                    bValue = b.directory || '';
+                    break;
+                case 'name':
+                    aValue = a.name || '';
+                    bValue = b.name || '';
+                    break;
+                case 'type':
+                    aValue = a.type || '';
+                    bValue = b.type || '';
+                    break;
+                case 'description':
+                    aValue = a.description || '';
+                    bValue = b.description || '';
+                    break;
+                case 'dependencies':
+                    aValue = (a.fragment_dependencies && a.fragment_dependencies.length) || 0;
+                    bValue = (b.fragment_dependencies && b.fragment_dependencies.length) || 0;
+                    break;
+                case 'updated':
+                    aValue = a.updated_at || '';
+                    bValue = b.updated_at || '';
+                    break;
+                default:
+                    aValue = a.name || '';
+                    bValue = b.name || '';
+            }
+            
+            // Perform comparison based on the sort direction
+            let result;
+            if (currentSort.column === 'dependencies') {
+                // For numeric values
+                result = aValue - bValue;
+            } else if (currentSort.column === 'updated') {
+                // For dates, we need to use timestamp comparison
+                result = new Date(aValue) - new Date(bValue);
+            } else {
+                // For strings, use localeCompare
+                result = String(aValue).localeCompare(String(bValue));
+            }
+            
+            // Reverse the result if descending
+            return currentSort.direction === 'desc' ? -result : result;
+        });
         
         // Clear table
         tableBody.innerHTML = '';
@@ -204,7 +452,7 @@
         if (filteredTemplates.length === 0) {
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="6" class="text-center py-4">
+                    <td colspan="7" class="text-center py-4">
                         <p class="mb-0">No templates found.</p>
                     </td>
                 </tr>
@@ -215,6 +463,11 @@
         // Add templates to table
         filteredTemplates.forEach(template => {
             const row = document.createElement('tr');
+            
+            // Directory cell
+            const dirCell = document.createElement('td');
+            dirCell.textContent = template.directory || '';
+            dirCell.title = template.directory || '';
             
             // Name cell
             const nameCell = document.createElement('td');
@@ -249,7 +502,12 @@
             
             // Updated cell
             const updatedCell = document.createElement('td');
-            updatedCell.textContent = dayjs(template.updated_at).fromNow();
+            try {
+                updatedCell.textContent = dayjs(template.updated_at).fromNow();
+            } catch (error) {
+                console.warn('Error formatting date:', error);
+                updatedCell.textContent = template.updated_at || 'Unknown';
+            }
             
             // Actions cell
             const actionsCell = document.createElement('td');
@@ -282,6 +540,7 @@
             actionsCell.appendChild(deleteBtn);
             
             // Add cells to row
+            row.appendChild(dirCell);
             row.appendChild(nameCell);
             row.appendChild(typeCell);
             row.appendChild(descCell);
@@ -323,6 +582,7 @@
     
     function createTemplate() {
         const name = document.getElementById('templateName').value.trim();
+        const directory = document.getElementById('templateDirectory').value;
         const type = document.getElementById('templateType').value;
         const description = document.getElementById('templateDescription').value.trim();
         
@@ -332,9 +592,15 @@
             return;
         }
         
+        if (!directory) {
+            alert('Directory is required');
+            return;
+        }
+        
         // Create template data
         const templateData = {
             name: name,
+            directory: directory,
             type: type,
             description: description,
             content: `# ${name}\n\nEnter template content here...\n\n## Include fragments with this syntax:\n\n[[fragment_id]]`
@@ -414,7 +680,7 @@
         });
     }
     
-    function showToast(message) {
+    function showToast(message, type = 'success') {
         // Create toast container if it doesn't exist
         let toastContainer = document.querySelector('.toast-container');
         
@@ -427,11 +693,11 @@
         // Create toast element
         const toastId = 'toast-' + Date.now();
         const toastHtml = `
-            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header">
+            <div id="${toastId}" class="toast bg-${type} text-${type === 'light' ? 'dark' : 'white'}" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header bg-${type} text-${type === 'light' ? 'dark' : 'white'}">
                     <strong class="me-auto">Notification</strong>
                     <small>Just now</small>
-                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-${type === 'light' ? 'dark' : 'white'}" data-bs-dismiss="toast" aria-label="Close"></button>
                 </div>
                 <div class="toast-body">
                     ${message}

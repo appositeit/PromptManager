@@ -23,6 +23,19 @@ sys.path.insert(0, src_path)
 from server import main
 
 if __name__ == "__main__":
+    # Parse arguments and pass to main
+    parser = argparse.ArgumentParser(description="Prompt Management System")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind to")
+    parser.add_argument("--port", type=int, default=8081, help="Port to bind to")
+    parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
+    parser.add_argument("--log-level", type=str, 
+                        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], 
+                        default="DEBUG", help="Log level")
+    parser.add_argument("--log-file", type=str, default=None, 
+                        help="Log file path (default: logs/prompt_manager.log)")
+    
+    args = parser.parse_args()
+    
     # Create default directories if needed
     config_dir = os.path.expanduser("~/.prompt_manager")
     os.makedirs(os.path.join(config_dir, "prompts"), exist_ok=True)
@@ -34,5 +47,5 @@ if __name__ == "__main__":
     # Ensure logs directory exists
     os.makedirs(os.path.join(project_root, "logs"), exist_ok=True)
     
-    # Run the server
-    main()
+    # Run the server with args
+    main(args)

@@ -49,12 +49,12 @@
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Description</th>
-                                    <th>Directory</th>
-                                    <th>Tags</th>
-                                    <th>Last Updated</th>
+                                <tr class="sortable-headers">
+                                    <th data-sort="directory" class="sortable">Directory <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="id" class="sortable">ID <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="description" class="sortable">Description <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="tags" class="sortable">Tags <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="updated" class="sortable">Last Updated <i class="bi bi-sort-alpha-down sort-icon"></i></th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -113,6 +113,79 @@
     </div>
 </div>
 
+<!-- New Fragment Modal -->
+<div class="modal fade" id="newFragmentModal" tabindex="-1" aria-labelledby="newFragmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newFragmentModalLabel">Create New Fragment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newFragmentForm">
+                    <div class="mb-3">
+                        <label for="fragmentId" class="form-label">Fragment ID</label>
+                        <input type="text" class="form-control" id="fragmentId" required>
+                        <div class="form-text">Unique identifier for the fragment (no spaces or special characters)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fragmentDirectory" class="form-label">Directory</label>
+                        <select class="form-select" id="fragmentDirectory" required>
+                            <!-- Directories will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fragmentDescription" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="fragmentDescription">
+                    </div>
+                    <div class="mb-3">
+                        <label for="fragmentTags" class="form-label">Tags</label>
+                        <input type="text" class="form-control" id="fragmentTags">
+                        <div class="form-text">Comma-separated list of tags</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createFragmentBtn">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Directory Modal -->
+<div class="modal fade" id="addDirectoryModal" tabindex="-1" aria-labelledby="addDirectoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addDirectoryModalLabel">Add Fragment Directory</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDirectoryForm">
+                    <div class="mb-3">
+                        <label for="directoryPath" class="form-label">Directory Path</label>
+                        <input type="text" class="form-control" id="directoryPath" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="directoryName" class="form-label">Display Name</label>
+                        <input type="text" class="form-control" id="directoryName">
+                        <div class="form-text">If not provided, the directory name will be used</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="directoryDescription" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="directoryDescription">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="addDirectoryBtn">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Delete Fragment Confirmation Modal -->
 <div class="modal fade" id="deleteFragmentModal" tabindex="-1" aria-labelledby="deleteFragmentModalLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -135,12 +208,93 @@
 {% endblock %}
 
 {% block extra_js %}
+<style>
+    /* Styles for sortable headers */
+    .sortable {
+        cursor: pointer;
+        position: relative;
+        padding-right: 20px; /* Space for the sort icon */
+    }
+    
+    .sortable:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+    
+    .sort-icon {
+        font-size: 0.8rem;
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0.3;
+    }
+    
+    .sort-active .sort-icon {
+        opacity: 1;
+    }
+    
+    .sort-asc .sort-icon {
+        transform: translateY(-50%) rotate(0deg);
+    }
+    
+    .sort-desc .sort-icon {
+        transform: translateY(-50%) rotate(180deg);
+    }
+    
+    /* Column width styling */
+    table th:nth-child(1), /* Directory */
+    table td:nth-child(1) {
+        max-width: 150px;
+        width: 15%;
+        word-break: break-word;
+    }
+    
+    table th:nth-child(3), /* Description */
+    table td:nth-child(3) {
+        max-width: 200px;
+        width: 15%;
+    }
+    
+    table th:nth-child(4), /* Tags */
+    table td:nth-child(4) {
+        max-width: 150px;
+        width: 15%;
+    }
+</style>
 <script>
     // Global variables
     let fragments = [];
     let directories = [];
     let currentFilter = 'all';
     let currentSearch = '';
+    
+    // Sort settings
+    let currentSort = {
+        column: 'directory',
+        direction: 'asc'
+    };
+    
+    /**
+     * Perform a stable sort on an array based on a given comparison function.
+     * This ensures that equal elements maintain their relative order.
+     * 
+     * @param {Array} array - The array to sort
+     * @param {Function} compareFunction - Function that defines the sort order
+     * @returns {Array} The sorted array
+     */
+    function stableSort(array, compareFunction) {
+        // Add indices to track original order
+        const indexed = array.map((item, index) => [item, index]);
+        
+        // Sort with original index as tiebreaker
+        indexed.sort((a, b) => {
+            const compareResult = compareFunction(a[0], b[0]);
+            return compareResult === 0 ? a[1] - b[1] : compareResult;
+        });
+        
+        // Extract the sorted items
+        return indexed.map(pair => pair[0]);
+    }
     
     document.addEventListener('DOMContentLoaded', function() {
         // Load fragments
@@ -160,6 +314,29 @@
             filterFragments();
         });
         
+        // Set up sorting functionality
+        const sortableHeaders = document.querySelectorAll('.sortable');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                const column = this.dataset.sort;
+                
+                // Toggle direction if clicking on the same column
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = column;
+                    currentSort.direction = 'asc';
+                }
+                
+                // Update visuals and re-sort
+                updateSortHeaders();
+                updateFragmentsTable();
+            });
+        });
+        
+        // Initialize sort headers
+        updateSortHeaders();
+        
         // Create fragment form handler
         document.getElementById('createFragmentBtn').addEventListener('click', createFragment);
         
@@ -172,6 +349,28 @@
             deleteFragment(fragmentId);
         });
     });
+    
+    // Function to update the sort header icons and classes
+    function updateSortHeaders() {
+        // Remove all sort classes
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.classList.remove('sort-active', 'sort-asc', 'sort-desc');
+        });
+        
+        // Find the active header and update its classes
+        const activeHeader = document.querySelector(`.sortable[data-sort="${currentSort.column}"]`);
+        if (activeHeader) {
+            activeHeader.classList.add('sort-active');
+            activeHeader.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            
+            // Update the icon class
+            const icon = activeHeader.querySelector('.sort-icon');
+            if (icon) {
+                icon.classList.remove('bi-sort-alpha-down', 'bi-sort-alpha-up');
+                icon.classList.add(currentSort.direction === 'asc' ? 'bi-sort-alpha-down' : 'bi-sort-alpha-up');
+            }
+        }
+    }
     
     function loadFragments() {
         const tableBody = document.getElementById('fragments-table-body');
@@ -216,7 +415,7 @@
         
         if (currentFilter !== 'all') {
             filteredFragments = filteredFragments.filter(fragment => 
-                fragment.tags.includes(currentFilter)
+                fragment.tags && fragment.tags.includes(currentFilter)
             );
         }
         
@@ -228,8 +427,50 @@
             );
         }
         
-        // Sort by ID
-        filteredFragments.sort((a, b) => a.id.localeCompare(b.id));
+        // Sort based on current sort settings using stableSort for a stable sort algorithm
+        filteredFragments = stableSort(filteredFragments, (a, b) => {
+            let aValue, bValue;
+            
+            // Get the values to compare based on the sort column
+            switch (currentSort.column) {
+                case 'directory':
+                    aValue = a.directory || '';
+                    bValue = b.directory || '';
+                    break;
+                case 'id':
+                    aValue = a.id;
+                    bValue = b.id;
+                    break;
+                case 'description':
+                    aValue = a.description || '';
+                    bValue = b.description || '';
+                    break;
+                case 'tags':
+                    aValue = (a.tags && a.tags.length > 0) ? a.tags.join(',') : '';
+                    bValue = (b.tags && b.tags.length > 0) ? b.tags.join(',') : '';
+                    break;
+                case 'updated':
+                    aValue = a.updated_at || '';
+                    bValue = b.updated_at || '';
+                    break;
+                default:
+                    aValue = a.id;
+                    bValue = b.id;
+            }
+            
+            // Perform comparison based on the sort direction
+            let result;
+            if (currentSort.column === 'updated') {
+                // For dates, we need to use timestamp comparison
+                result = new Date(aValue) - new Date(bValue);
+            } else {
+                // For strings, use localeCompare
+                result = String(aValue).localeCompare(String(bValue));
+            }
+            
+            // Reverse the result if descending
+            return currentSort.direction === 'desc' ? -result : result;
+        });
         
         // Clear table
         tableBody.innerHTML = '';
@@ -250,6 +491,11 @@
         filteredFragments.forEach(fragment => {
             const row = document.createElement('tr');
             
+            // Directory cell
+            const dirCell = document.createElement('td');
+            dirCell.textContent = fragment.directory || '';
+            dirCell.title = fragment.directory || '';
+            
             // ID cell
             const idCell = document.createElement('td');
             const idLink = document.createElement('a');
@@ -260,11 +506,6 @@
             // Description cell
             const descCell = document.createElement('td');
             descCell.textContent = fragment.description || '';
-            
-            // Directory cell
-            const dirCell = document.createElement('td');
-            dirCell.textContent = fragment.directory.split('/').pop();
-            dirCell.title = fragment.directory;
             
             // Tags cell
             const tagsCell = document.createElement('td');
@@ -281,7 +522,12 @@
             
             // Updated cell
             const updatedCell = document.createElement('td');
-            updatedCell.textContent = dayjs(fragment.updated_at).fromNow();
+            try {
+                updatedCell.textContent = dayjs(fragment.updated_at).fromNow();
+            } catch (error) {
+                console.warn('Error formatting date:', error);
+                updatedCell.textContent = fragment.updated_at || 'Unknown';
+            }
             
             // Actions cell
             const actionsCell = document.createElement('td');
@@ -307,9 +553,9 @@
             actionsCell.appendChild(deleteBtn);
             
             // Add cells to row
+            row.appendChild(dirCell);
             row.appendChild(idCell);
             row.appendChild(descCell);
-            row.appendChild(dirCell);
             row.appendChild(tagsCell);
             row.appendChild(updatedCell);
             row.appendChild(actionsCell);
@@ -386,10 +632,31 @@
                     refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
                     refreshBtn.title = 'Refresh';
                     refreshBtn.addEventListener('click', function() {
-                        // This would reload fragments from this directory
-                        // Not implemented in detail
-                        showToast('Refreshing directory...');
-                        loadFragments();
+                        // Reload fragments from this directory using the API
+                        const directoryPath = dir.path;
+                        
+                        // Show loading toast
+                        showToast('Refreshing directory...', 'info');
+                        
+                        // Call the reload directory API endpoint
+                        fetch(`/api/prompts/fragments/directories/${encodeURIComponent(directoryPath)}/reload`)
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(`Failed to refresh directory: ${response.status} ${response.statusText}`);
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                // Success - reload fragments
+                                loadFragments();
+                                
+                                // Show success toast
+                                showToast(`Directory refreshed successfully. Loaded ${data.count} fragments.`, 'success');
+                            })
+                            .catch(error => {
+                                console.error('Error refreshing directory:', error);
+                                showToast(`Error refreshing directory: ${error.message}`, 'danger');
+                            });
                     });
                     
                     actionsCell.appendChild(refreshBtn);
@@ -464,11 +731,14 @@
         });
         
         // Add event listener to "All Fragments" option
-        document.querySelector('[data-tag="all"]').addEventListener('click', function(e) {
-            e.preventDefault();
-            currentFilter = 'all';
-            filterFragments();
-        });
+        const allTagsOption = document.querySelector('[data-tag="all"]');
+        if (allTagsOption) {
+            allTagsOption.addEventListener('click', function(e) {
+                e.preventDefault();
+                currentFilter = 'all';
+                filterFragments();
+            });
+        }
     }
     
     function filterFragments() {
@@ -631,7 +901,7 @@
         });
     }
     
-    function showToast(message) {
+    function showToast(message, type = 'success') {
         // Create toast container if it doesn't exist
         let toastContainer = document.querySelector('.toast-container');
         
@@ -644,11 +914,11 @@
         // Create toast element
         const toastId = 'toast-' + Date.now();
         const toastHtml = `
-            <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header">
+            <div id="${toastId}" class="toast bg-${type} text-${type === 'light' ? 'dark' : 'white'}" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header bg-${type} text-${type === 'light' ? 'dark' : 'white'}">
                     <strong class="me-auto">Notification</strong>
                     <small>Just now</small>
-                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-${type === 'light' ? 'dark' : 'white'}" data-bs-dismiss="toast" aria-label="Close"></button>
                 </div>
                 <div class="toast-body">
                     ${message}

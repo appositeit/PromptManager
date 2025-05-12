@@ -27,9 +27,8 @@ def get_prompt_service():
 # Models
 class PromptCreate(BaseModel):
     id: str
-    content: str
+    content: Optional[str] = ""
     directory: str
-    prompt_type: str
     description: Optional[str] = None
     tags: Optional[List[str]] = None
 
@@ -37,12 +36,19 @@ class PromptUpdate(BaseModel):
     content: Optional[str] = None
     description: Optional[str] = None
     tags: Optional[List[str]] = None
-    prompt_type: Optional[str] = None
 
 class DirectoryCreate(BaseModel):
     path: str
     name: Optional[str] = None
     description: Optional[str] = None
+
+class DirectoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    enabled: Optional[bool] = None
+
+class DirectoryStatusToggle(BaseModel):
+    enabled: Optional[bool] = None
 
 class DefaultPromptsCreate(BaseModel):
     directory: str
@@ -67,6 +73,15 @@ def get_directory_name(directory_path: str) -> str:
 async def get_all_prompts():
     """Get all prompts."""
     prompt_service = get_prompt_service()
+    
+    # If prompts are empty, force a reload
+    if not prompt_service.prompts:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info("No prompts found in service - forcing reload")
+        count = prompt_service.load_all_prompts()
+        logger.info(f"Reloaded {count} prompts")
+    
     prompts = list(prompt_service.prompts.values())
     result = []
     
@@ -74,6 +89,10 @@ async def get_all_prompts():
         prompt_dict = prompt.dict()
         prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"])
         result.append(prompt_dict)
+    
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Returning {len(result)} prompts")
     
     return result
 
@@ -96,19 +115,37 @@ async def get_prompt_by_id(prompt_id: str):
 @router.post("/", response_model=Dict)
 async def create_new_prompt(prompt: PromptCreate):
     """Create a new prompt."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Creating prompt with data: {prompt}")
+    
     prompt_service = get_prompt_service()
     
     # Check if the prompt ID already exists
     if prompt_service.get_prompt(prompt.id):
+        logger.warning(f"Prompt ID already exists: {prompt.id}")
         raise HTTPException(status_code=400, detail=f"Prompt with ID '{prompt.id}' already exists")
+    
+    # Print the incoming data for debugging
+    import json
+    logger.info(f"Prompt data: {json.dumps(prompt.dict(), indent=2)}")
+    
+    # Validate directory
+    if not prompt.directory:
+        logger.error("Directory is missing")
+        raise HTTPException(status_code=400, detail="Directory is required")
+    
+    # No longer need to validate prompt_type
     
     # Create new prompt
     try:
+        logger.info(f"Creating prompt with: id={prompt.id}, directory={prompt.directory}")
+        
         new_prompt = prompt_service.create_prompt(
             id=prompt.id,
-            content=prompt.content,
+            content=prompt.content or "",
             directory=prompt.directory,
-            prompt_type=prompt.prompt_type,
+
             description=prompt.description,
             tags=prompt.tags or []
         )
@@ -116,8 +153,10 @@ async def create_new_prompt(prompt: PromptCreate):
         prompt_dict = new_prompt.dict()
         prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"])
         
+        logger.info(f"Successfully created prompt: {prompt.id}")
         return prompt_dict
     except Exception as e:
+        logger.error(f"Error creating prompt: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error creating prompt: {str(e)}")
 
 
@@ -140,8 +179,7 @@ async def update_existing_prompt(prompt_id: str, update_data: PromptUpdate):
     if update_data.tags is not None:
         prompt.tags = update_data.tags
     
-    if update_data.prompt_type is not None:
-        prompt.prompt_type = update_data.prompt_type
+    # Removed prompt_type update
     
     # Save the updated prompt
     try:
@@ -213,6 +251,97 @@ async def add_directory(directory: DirectoryCreate):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error adding directory: {str(e)}")
+
+
+@router.put("/directories/{directory_path:path}", response_model=Dict)
+async def update_directory(directory_path: str, data: DirectoryUpdate):
+    """Update a directory's properties."""
+    prompt_service = get_prompt_service()
+    
+    # Find the directory
+    directory_idx = None
+    for i, dir_info in enumerate(prompt_service.directories):
+        if dir_info.path == directory_path:
+            directory_idx = i
+            break
+    
+    if directory_idx is None:
+        raise HTTPException(status_code=404, detail=f"Directory '{directory_path}' not found")
+    
+    # Update the directory properties
+    try:
+        # Update allowed fields
+        if data.name is not None:
+            prompt_service.directories[directory_idx].name = data.name
+        
+        if data.description is not None:
+            prompt_service.directories[directory_idx].description = data.description
+        
+        if data.enabled is not None:
+            prompt_service.directories[directory_idx].enabled = data.enabled
+        
+        # Save the configuration
+        prompt_service._save_directory_config()
+        
+        return prompt_service.directories[directory_idx].dict()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating directory: {str(e)}")
+
+
+@router.post("/directories/{directory_path:path}/toggle", response_model=Dict)
+async def toggle_directory_status(directory_path: str, data: DirectoryStatusToggle):
+    """Toggle a directory's enabled status."""
+    prompt_service = get_prompt_service()
+    
+    # Find the directory
+    directory_idx = None
+    for i, dir_info in enumerate(prompt_service.directories):
+        if dir_info.path == directory_path:
+            directory_idx = i
+            break
+    
+    if directory_idx is None:
+        raise HTTPException(status_code=404, detail=f"Directory '{directory_path}' not found")
+    
+    # Update the directory status
+    try:
+        # Get the enabled value, default to toggle the current value if not provided
+        enabled = data.enabled
+        if enabled is None:
+            enabled = not prompt_service.directories[directory_idx].enabled
+        
+        # Update the directory status
+        prompt_service.directories[directory_idx].enabled = enabled
+        
+        # Save the configuration
+        prompt_service._save_directory_config()
+        
+        # Reload prompts if the directory was enabled
+        if enabled:
+            # Remove prompts from this directory first
+            prompts_to_remove = [p_id for p_id, p in prompt_service.prompts.items() 
+                                  if p.directory == directory_path]
+            for prompt_id in prompts_to_remove:
+                del prompt_service.prompts[prompt_id]
+            
+            # Load prompts from the directory
+            count = prompt_service.load_prompts_from_directory(directory_path)
+        else:
+            # If disabled, remove prompts from this directory
+            prompts_to_remove = [p_id for p_id, p in prompt_service.prompts.items() 
+                                  if p.directory == directory_path]
+            for prompt_id in prompts_to_remove:
+                del prompt_service.prompts[prompt_id]
+            count = len(prompts_to_remove)
+        
+        return {
+            "success": True,
+            "path": directory_path,
+            "enabled": enabled,
+            "affected_prompts": count
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error toggling directory status: {str(e)}")
 
 
 @router.delete("/directories/{directory_path:path}", response_model=Dict)

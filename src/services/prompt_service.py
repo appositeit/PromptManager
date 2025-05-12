@@ -16,14 +16,14 @@ from pathlib import Path
 from loguru import logger
 import uuid
 
-from coordinator.prompts.models.unified_prompt import Prompt, PromptType
-from coordinator.prompts.models.prompt import PromptDirectory
+from src.models.unified_prompt import Prompt
+from src.models.prompt import PromptDirectory
 
 
 class PromptService:
     """Service for managing prompts."""
     
-    CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".coordinator", "prompt_directories.json")
+    CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".prompt_manager", "prompt_directories.json")
     
     def __init__(self, 
                 base_directories: Optional[List[str]] = None, 
@@ -307,7 +307,6 @@ class PromptService:
             # Extract front matter if present
             description = None
             tags = []
-            prompt_type = PromptType.STANDARD
             
             if content.startswith('---'):
                 # Parse YAML front matter
@@ -317,28 +316,49 @@ class PromptService:
                     logger.debug(f"Found front matter in {file_path}: {front_matter}")
                     
                     try:
-                        meta = yaml.safe_load(front_matter)
+                        # First try to use safe_load with special handling
+                        # to prevent yaml constructor errors
+                        # Replace any coordinator references with prompt_manager
+                        front_matter = front_matter.replace(
+                            '!!python/object/apply:coordinator.',
+                            '!python_object '
+                        )
+                        
+                        # Create a custom YAML loader
+                        class CustomLoader(yaml.SafeLoader):
+                            pass
+                            
+                        # Add a constructor for handling the old coordinator types
+                        def python_object_constructor(loader, node):
+                            # Just return the value as a string, we'll parse it later
+                            return str(node.value)
+                            
+                        # Register the constructor
+                        CustomLoader.add_constructor('!python_object', python_object_constructor)
+                        
+                        # Try to load with our custom loader
+                        try:
+                            meta = yaml.load(front_matter, Loader=CustomLoader)
+                        except Exception as yaml_err:
+                            # If that fails, try safe_load as fallback
+                            logger.warning(f"Custom YAML parsing failed: {str(yaml_err)}, trying safe_load")
+                            meta = yaml.safe_load(front_matter)
                         if isinstance(meta, dict):
                             description = meta.get('description')
                             if 'tags' in meta and isinstance(meta['tags'], list):
                                 tags = meta['tags']
-                            if 'type' in meta:
-                                try:
-                                    prompt_type = PromptType(meta['type'])
-                                except ValueError:
-                                    logger.warning(f"Invalid prompt type in {file_path}: {meta['type']}")
+
                         
                         # Remove front matter from content
                         content = content[end_idx+3:].strip()
-                        logger.debug(f"Parsed front matter: description={description}, tags={tags}, type={prompt_type}")
+                        logger.debug(f"Parsed front matter: description={description}, tags={tags}")
                     except Exception as e:
                         logger.opt(exception=True).warning(f"Error parsing front matter in {file_path}: {str(e)}")
+                        # Continue with empty metadata but still process the file
+                        meta = {}
+                        # We've removed the prompt type handling
             
-            # Determine if composite by checking for inclusion markers
-            if "[[" in content and "]]" in content:
-                # Contains potential inclusion markers, mark as composite
-                prompt_type = PromptType.COMPOSITE
-                logger.debug(f"Detected inclusion markers in {file_path}, setting type to COMPOSITE")
+            # No longer need to determine composite type - it's handled by is_composite property
             
             # Create prompt
             prompt_id = Path(filename).stem  # filename without extension
@@ -347,7 +367,7 @@ class PromptService:
             if prompt_id in self.prompts:
                 logger.warning(f"Prompt ID already exists: {prompt_id} - will be overwritten")
             
-            logger.debug(f"Creating prompt object: id={prompt_id}, type={prompt_type}, directory={directory}")
+            logger.debug(f"Creating prompt object: id={prompt_id}, directory={directory}")
             
             prompt = Prompt(
                 id=prompt_id,
@@ -355,7 +375,6 @@ class PromptService:
                 directory=directory,
                 content=content,
                 description=description,
-                prompt_type=prompt_type,
                 tags=tags,
                 created_at=created_at,
                 updated_at=updated_at
@@ -394,8 +413,7 @@ class PromptService:
             if prompt.tags:
                 front_matter['tags'] = prompt.tags
             
-            if prompt.prompt_type != PromptType.STANDARD:
-                front_matter['type'] = prompt.prompt_type
+            # We no longer need to store prompt_type
             
             if front_matter:
                 yaml_str = yaml.dump(front_matter, default_flow_style=False)
@@ -448,12 +466,11 @@ class PromptService:
         else:
             return [p for p in self.prompts.values() if tag in p.tags]
         
-    def get_prompts_by_type(self, prompt_type: PromptType, directory: Optional[str] = None) -> List[Prompt]:
+    def get_composite_prompts(self, directory: Optional[str] = None) -> List[Prompt]:
         """
-        Get all prompts of a specific type.
+        Get all composite prompts (containing inclusions).
         
         Args:
-            prompt_type: The type to filter by
             directory: Optional directory to filter by
             
         Returns:
@@ -461,9 +478,9 @@ class PromptService:
         """
         if directory:
             return [p for p in self.prompts.values() 
-                   if p.prompt_type == prompt_type and p.directory == directory]
+                   if p.is_composite and p.directory == directory]
         else:
-            return [p for p in self.prompts.values() if p.prompt_type == prompt_type]
+            return [p for p in self.prompts.values() if p.is_composite]
         
     def find_prompts(self, search: str) -> List[Prompt]:
         """
@@ -488,9 +505,8 @@ class PromptService:
         
     def create_prompt(self, 
                     id: str, 
-                    content: str,
-                    directory: str,
-                    prompt_type: PromptType = PromptType.STANDARD,
+                    content: str = "",
+                    directory: str = "",
                     description: Optional[str] = None,
                     tags: List[str] = None) -> Prompt:
         """
@@ -500,13 +516,23 @@ class PromptService:
             id: ID for the prompt
             content: Content of the prompt
             directory: Directory to save the prompt in
-            prompt_type: Type of prompt
             description: Optional description
             tags: Optional list of tags
             
         Returns:
             The created prompt
         """
+        # Validate required fields
+        if not id:
+            raise ValueError("Prompt ID cannot be empty")
+            
+        if not directory:
+            raise ValueError("Directory is required")
+            
+        # Set default content if empty
+        if not content:
+            content = f"# {id}\n\nEnter content here..."
+            
         # Create filename
         filename = f"{id}.md"
         
@@ -519,14 +545,14 @@ class PromptService:
             directory=directory,
             content=content,
             description=description,
-            prompt_type=prompt_type,
             tags=tags or [],
             created_at=now,
             updated_at=now
         )
         
         # Save to disk
-        self.save_prompt(prompt)
+        if not self.save_prompt(prompt):
+            raise Exception(f"Failed to save prompt to disk: {prompt.full_path}")
         
         return prompt
     

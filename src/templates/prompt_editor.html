@@ -252,6 +252,35 @@
             overflow-y: auto;
         }
     }
+    
+    /* Style for the autocomplete dropdown */
+    .CodeMirror-hints {
+        position: absolute;
+        z-index: 10;
+        overflow: hidden;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 20em;
+        overflow-y: auto;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    
+    .CodeMirror-hint {
+        margin: 0;
+        padding: 4px 8px;
+        white-space: pre;
+        cursor: pointer;
+        font-size: 0.9em;
+    }
+    
+    .CodeMirror-hint-active {
+        background-color: #007bff;
+        color: white;
+    }
 </style>
 {% endblock %}
 
@@ -442,19 +471,17 @@
                 document.getElementById('last-updated').textContent = formatDate(data.updated_at);
                 document.getElementById('prompt-directory').textContent = data.directory || 'Not specified';
                 
-                // Set prompt type badge
+                // Set prompt type badge based on content (composite if it has inclusions)
                 const badge = document.getElementById('prompt-type-badge');
-                badge.textContent = data.prompt_type.charAt(0).toUpperCase() + data.prompt_type.slice(1);
                 
-                // Set badge color based on type
-                if (data.prompt_type === 'composite') {
+                // Check if the content contains inclusions to determine if it's composite
+                isComposite = data.content.includes('[[') && data.content.includes(']]');
+                
+                if (isComposite) {
+                    badge.textContent = 'Composite';
                     badge.classList.add('bg-success');
-                    isComposite = true;
-                } else if (data.prompt_type === 'system') {
-                    badge.classList.add('bg-primary');
-                } else if (data.prompt_type === 'user') {
-                    badge.classList.add('bg-info');
                 } else {
+                    badge.textContent = 'Standard';
                     badge.classList.add('bg-secondary');
                 }
                 
@@ -660,6 +687,22 @@
         saveTimeout = setTimeout(() => {
             const content = editor.getValue();
             
+            // Update the composite status
+            isComposite = content.includes('[[') && content.includes(']]');
+            const badge = document.getElementById('prompt-type-badge');
+            
+            // Clear existing classes
+            badge.classList.remove('bg-success', 'bg-secondary');
+            
+            // Set new badge
+            if (isComposite) {
+                badge.textContent = 'Composite';
+                badge.classList.add('bg-success');
+            } else {
+                badge.textContent = 'Standard';
+                badge.classList.add('bg-secondary');
+            }
+            
             // Try to send update via WebSocket
             if (socket && socket.readyState === WebSocket.OPEN) {
                 try {
@@ -670,7 +713,7 @@
                     
                     // If this is a composite prompt or if the content contains inclusion markers,
                     // also request expansion for preview purposes
-                    if (isComposite || content.includes('[[')) {
+                    if (isComposite) {
                         socket.send(JSON.stringify({
                             action: 'expand',
                             content: content,
@@ -722,7 +765,7 @@
             }
             
             // If this is a composite prompt, update the expanded view
-            if (isComposite || content.includes('[[')) {
+            if (isComposite) {
                 if (document.getElementById('expanded-tab').classList.contains('active') || 
                     document.getElementById('expanded-content').classList.contains('show', 'active')) {
                     useFallbackApi();
@@ -868,7 +911,6 @@
             .then(prompts => {
                 // Filter prompts that might reference this one
                 const references = prompts.filter(p => 
-                    p.prompt_type === 'composite' && 
                     p.content.includes(`[[${promptId}]]`) ||
                     p.content.includes(`[[${promptId}.md]]`)
                 );
@@ -883,14 +925,17 @@
                 let html = '<ul class="list-group list-group-flush">';
                 
                 references.forEach(ref => {
+                    // Check if the prompt is composite
+                    const isComposite = ref.content.includes('[[') && ref.content.includes(']]');
+                    
                     html += `
                         <li class="list-group-item py-1 px-2">
                             <div>
                                 <a href="/prompts/${ref.id}">${ref.id}</a>
                                 ${ref.description ? `<small class="text-muted d-block">${ref.description}</small>` : ''}
                             </div>
-                            <span class="badge bg-${ref.prompt_type === 'composite' ? 'success' : 'secondary'} rounded-pill">
-                                ${ref.prompt_type}
+                            <span class="badge ${isComposite ? 'bg-success' : 'bg-secondary'} rounded-pill">
+                                ${isComposite ? 'Composite' : 'Standard'}
                             </span>
                         </li>
                     `;
@@ -1036,6 +1081,60 @@
     
     // Set up the prompt completion functionality
     function setupPromptCompletion() {
+        // Add custom helper for CodeMirror hints
+        if (!CodeMirror.helpers) {
+            CodeMirror.helpers = {};
+        }
+        
+        // Override the default hint keymap to fix arrow key selection issues
+        const customKeys = {
+            // Preserve the selection when moving up/down
+            Up: function(cm, handle) {
+                handle.moveFocus(-1);
+                return true; // Handled
+            },
+            Down: function(cm, handle) {
+                handle.moveFocus(1);
+                return true; // Handled
+            },
+            PageUp: function(cm, handle) {
+                handle.moveFocus(-handle.menuSize() + 1, true);
+                return true;
+            },
+            PageDown: function(cm, handle) {
+                handle.moveFocus(handle.menuSize() - 1, true);
+                return true;
+            },
+            Home: function(cm, handle) {
+                handle.setFocus(0);
+                return true;
+            },
+            End: function(cm, handle) {
+                handle.setFocus(handle.length - 1);
+                return true;
+            },
+            Enter: function(cm, handle) {
+                if (handle.selectedHint >= 0) {
+                    handle.pick();
+                } else {
+                    cm.replaceSelection("\n");
+                }
+                return true;
+            },
+            Tab: function(cm, handle) {
+                if (handle.selectedHint >= 0) {
+                    handle.pick();
+                } else {
+                    cm.replaceSelection("\t");
+                }
+                return true;
+            },
+            Esc: function(cm, handle) {
+                handle.close();
+                return true;
+            }
+        };
+        
         // Define our custom hint function
         window.promptHint = function(editor, options) {
             const cursor = editor.getCursor();
@@ -1055,13 +1154,15 @@
             
             if (filteredPrompts.length === 0) return null;
             
+            // Return the hint object with options that fix arrow key behavior
             return {
                 list: filteredPrompts.map(prompt => ({ 
                     text: prompt + "]]", 
                     displayText: prompt 
                 })),
                 from: { line: cursor.line, ch: cursor.ch - prefix.length },
-                to: cursor
+                to: cursor,
+                selectedHint: 0 // Start with the first suggestion selected
             };
         };
         
@@ -1073,7 +1174,12 @@
             
             // Check if we just typed [[ or are within a [[ ]] pair
             if (lineBeforeCursor.endsWith('[[') || lineBeforeCursor.match(/\[\[([^\]]*?)$/)) {
-                cm.showHint({ hint: promptHint, completeSingle: false });
+                cm.showHint({ 
+                    hint: promptHint,
+                    completeSingle: false,
+                    closeOnUnfocus: false,
+                    customKeys: customKeys
+                });
             }
         });
     }

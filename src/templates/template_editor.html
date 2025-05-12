@@ -15,6 +15,9 @@
     <button class="btn btn-outline-secondary" id="render-btn" title="Render the template">
         <i class="bi bi-gear"></i> Render
     </button>
+    <button class="btn btn-outline-secondary" id="search-replace-btn" title="Search and Replace (Alt+R)">
+        <i class="bi bi-search"></i> Search/Replace
+    </button>
 </div>
 {% endblock %}
 
@@ -214,6 +217,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="/static/js/search-replace.js"></script>
 <script>
     // Initialize date/time formatting
     dayjs.extend(dayjs_plugin_relativeTime);
@@ -223,6 +227,7 @@
     let templateId = "{{ template_id }}";
     let templateData = null;
     let unsavedChanges = false;
+    let searchReplace = null;
     
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize the editor
@@ -241,6 +246,9 @@
                 'Ctrl-S': function(cm) {
                     saveTemplate();
                 },
+                'Alt-R': function(cm) {
+                    if (searchReplace) searchReplace.showDialog();
+                },
                 'Ctrl-Space': function(cm) {
                     // Show completion for fragment inclusions
                     const cursor = cm.getCursor();
@@ -253,6 +261,9 @@
                 }
             }
         });
+        
+        // Initialize search and replace functionality
+        searchReplace = new SearchReplace(editor);
         
         // Track changes
         editor.on('change', function() {
@@ -271,6 +282,9 @@
         // Set up event handlers
         document.getElementById('save-template-btn').addEventListener('click', saveTemplate);
         document.getElementById('render-btn').addEventListener('click', renderTemplate);
+        document.getElementById('search-replace-btn').addEventListener('click', function() {
+            if (searchReplace) searchReplace.showDialog();
+        });
         
         document.getElementById('toggle-view-btn').addEventListener('click', function() {
             const previewTab = document.getElementById('preview-tab');

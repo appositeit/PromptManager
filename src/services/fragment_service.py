@@ -13,7 +13,7 @@ from pathlib import Path
 import yaml
 from loguru import logger
 
-from coordinator.prompts.models.prompt import PromptFragment, PromptDirectory
+from src.models.prompt import PromptFragment, PromptDirectory
 
 
 class FragmentService:

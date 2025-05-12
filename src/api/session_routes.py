@@ -16,13 +16,13 @@ from pydantic import BaseModel
 import json
 
 # Initialize templates
-templates = Jinja2Templates(directory="src/coordinator/prompts/templates")
+templates = Jinja2Templates(directory="src/templates")
 
 # Create router
 router = APIRouter()
 
 # Constants
-API_BASE_URL = "http://localhost:8000/api"  # Coordinator API URL
+API_BASE_URL = "http://127.0.0.1:8081/api"  # Updated to use the local API
 
 
 # Helper functions
@@ -74,20 +74,20 @@ async def get_active_sessions() -> Dict[str, Any]:
             return []
 
 
-# API Proxy routes - These proxy requests to the main Coordinator API
+# API Proxy routes - These proxy requests to the main API
 @router.post("/api/sessions", status_code=201)
 async def create_session(request: Request):
     """
     Proxy API endpoint to create a session.
     
-    This forwards the request to the main Coordinator API.
+    This forwards the request to the main API.
     """
     try:
         # Get request body
         body = await request.json()
         
         # Use the session service to create a session
-        from coordinator.prompts.services.session_service import get_session_service
+        from services.session import get_session_service
         session_service = get_session_service()
         
         # Create the session
@@ -103,19 +103,22 @@ async def start_session(session_id: str):
     """
     Proxy API endpoint to start a session.
     
-    This forwards the request to the main Coordinator API.
+    This forwards the request to the main API.
     """
     try:
-        # Forward to the API
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{API_BASE_URL}/sessions/{session_id}/start",
-                timeout=10.0
-            )
+        # Use the session service to update session status
+        from services.session import get_session_service
+        session_service = get_session_service()
+        
+        # Update session status
+        session = session_service.update_session(session_id, {"status": "running"})
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
             
-            # Return the response from the API
-            return response.json()
+        return session
             
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error starting session: {str(e)}")
 
@@ -125,19 +128,22 @@ async def stop_session(session_id: str):
     """
     Proxy API endpoint to stop a session.
     
-    This forwards the request to the main Coordinator API.
+    This forwards the request to the main API.
     """
     try:
-        # Forward to the API
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{API_BASE_URL}/sessions/{session_id}/stop",
-                timeout=10.0
-            )
+        # Use the session service to update session status
+        from services.session import get_session_service
+        session_service = get_session_service()
+        
+        # Update session status
+        session = session_service.update_session(session_id, {"status": "completed"})
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
             
-            # Return the response from the API
-            return response.json()
+        return session
             
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error stopping session: {str(e)}")
 
@@ -147,14 +153,14 @@ async def send_message(session_id: str, request: Request):
     """
     Proxy API endpoint to send a message in a session.
     
-    This forwards the request to the main Coordinator API.
+    This forwards the request to the main API.
     """
     try:
         # Get request body
         body = await request.json()
         
         # Use the session service to add the message
-        from coordinator.prompts.services.session_service import get_session_service
+        from services.session import get_session_service
         session_service = get_session_service()
         
         # Add the message
@@ -232,7 +238,7 @@ async def list_sessions():
     """List all sessions."""
     try:
         # Use the session service to list sessions
-        from coordinator.prompts.services.session_service import get_session_service
+        from services.session import get_session_service
         session_service = get_session_service()
         
         # List all sessions
@@ -248,7 +254,7 @@ async def list_active_sessions():
     """List active sessions (running or initialized)."""
     try:
         # Use the session service to list active sessions
-        from coordinator.prompts.services.session_service import get_session_service
+        from services.session import get_session_service
         session_service = get_session_service()
         
         # List active sessions
@@ -264,7 +270,7 @@ async def get_session_messages(session_id: str):
     """Get messages for a session."""
     try:
         # Use the session service to get session messages
-        from coordinator.prompts.services.session_service import get_session_service
+        from services.session import get_session_service
         session_service = get_session_service()
         
         # Get session messages
@@ -280,7 +286,7 @@ async def get_session(session_id: str):
     """Get a session by ID."""
     try:
         # Use the session service to get the session
-        from coordinator.prompts.services.session_service import get_session_service
+        from services.session import get_session_service
         session_service = get_session_service()
         
         # Get the session
@@ -347,18 +353,6 @@ async def get_session_page_ui(request: Request, session_id: str):
 
 @router.get("/", response_class=HTMLResponse)
 async def get_home_page(request: Request):
-    """Render the home page."""
-    try:
-        # Get active sessions
-        active_sessions = await get_active_sessions()
-        
-        # Render template
-        return templates.TemplateResponse(
-            "index.html",
-            {
-                "request": request,
-                "active_sessions": active_sessions
-            }
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error rendering home page: {str(e)}")
+    """Redirect to the prompt management page."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/manage/prompts")
