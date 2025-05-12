@@ -1,52 +1,43 @@
-# Progress Update - 2025-05-12: Fixing Duplicate Prompt Names
+# Progress Update - 2025-05-12
 
-## Issue Fixed: Duplicate Prompt Names from Different Directories
+## Fixed Prompt ID Collision Issue
 
-We've fixed a critical issue where prompts with the same name (filename) from different directories would conflict with each other, causing only one to be displayed in the UI. The root cause was that the system was using just the filename (without extension) as the unique key in the prompts dictionary, without considering the directory path.
+We've identified and fixed a problem with prompts with the same ID from different directories. The issue was in how unique IDs are generated and used throughout the system.
 
-## Solution Implemented
+### Problem
 
-1. Added a `unique_id` field to the `Prompt` model to store a unique identifier that combines both directory and filename
-2. Added a `get_unique_id` property method that generates a unique ID based on the directory name and the prompt ID
-3. Modified the prompt loading, saving, and deletion logic to use this unique ID
-4. Updated the UI to properly handle prompts with the same name from different directories
-5. Ensured backward compatibility by keeping fallback methods that work with the original IDs
+Multiple prompt files with the same name (e.g., restart.md) from different directories would cause collisions when loaded into the system. The last one loaded would overwrite the earlier ones because:
 
-## Key Changes
+1. The `get_unique_id` method in the Prompt model was only using the directory *name* rather than the full path
+2. The `get_prompt` method in the PromptService class didn't handle cases where multiple prompts had the same ID
 
-### Models
+### Solution
 
-- Added `unique_id` field to the `Prompt` model
-- Added `get_unique_id` property to generate unique identifiers
+1. Updated the `get_unique_id` method to use more directory path information:
+   - Now uses the last two parts of the directory path instead of just the last one
+   - This ensures unique IDs like "prompt_manager_prompts_restart" and "sms_challenge_prompts_restart" 
+   - Cleaned up any special characters that might cause issues
 
-### Services
+2. Updated the `get_prompt` method to handle multiple prompts with the same ID:
+   - Added an optional directory parameter to narrow down the search
+   - First tries to find by unique_id, then by simple ID
+   - Logs a warning when multiple matching prompts are found
 
-- Updated `load_prompt` to generate and use unique IDs
-- Modified `save_prompt` and `delete_prompt` to work with unique IDs
-- Enhanced `get_prompt` to search by both unique ID and regular ID
+3. Added directory parameter to the API router:
+   - Made the API more flexible by allowing directory specification
+   - This allows disambiguating which prompt is requested
 
-### UI Changes
+### Testing
 
-- Updated the prompt list to display prompts with duplicate names properly
-- Modified link generation to ensure each prompt has the correct link even with duplicate names
-- Updated the deletion flow to use the correct unique ID for deletion
+We've tested the fix with Puppeteer and confirmed that:
 
-## Testing
+1. Both prompt files show up in the prompts list page
+2. Both prompt files can be accessed individually by their unique IDs
+3. The metadata displays correctly for each prompt
+4. The content loads properly for both prompts
 
-The changes have been tested to ensure that:
-1. All prompts from all directories are now properly displayed in the UI
-2. Prompts with the same name from different directories no longer conflict
-3. Editing and deletion work correctly using the unique IDs
+### Future Enhancements
 
-## Benefits
+Consider further UI improvements to make it clearer when multiple prompts with the same ID exist and to help users navigate between them.
 
-- The prompt manager can now handle prompt files with the same name from different directories
-- The UI now displays all prompts rather than just the last one loaded
-- The system maintains backward compatibility with older code and APIs
-- The changes provide a foundation for better organization of prompts across multiple directories
-
-## Next Steps
-
-- Monitor the system to ensure the changes are working as expected
-- Consider enhancing the UI to better indicate when prompts have the same name but are from different directories
-- Test with a variety of prompt names and directory structures to ensure robustness
+This fix ensures that all prompts in the system are properly loaded and accessible, regardless of whether they share the same ID with prompts in other directories.

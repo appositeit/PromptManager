@@ -447,28 +447,50 @@ class PromptService:
             logger.error(f"Error saving prompt {prompt.id}: {e}")
             return False
             
-    def get_prompt(self, prompt_id: str) -> Optional[Prompt]:
+    def get_prompt(self, prompt_id: str, directory: Optional[str] = None) -> Optional[Prompt]:
         """
         Get a prompt by ID.
         
         Args:
             prompt_id: The ID of the prompt to get
+            directory: Optional directory path to narrow search when multiple prompts have the same ID
             
         Returns:
             The prompt, or None if not found
         """
-        # First try direct lookup with the ID (for backward compatibility)
+        # First check if we can find it by unique_id (which includes directory information)
+        # If prompt_id already contains directory info like "dir_name_prompt_id"
         prompt = self.prompts.get(prompt_id)
         if prompt:
-            return prompt
-            
-        # If not found, it might be a simple ID without the directory component
-        # Look through all prompts to find a matching ID
+            # If directory is specified, make sure this prompt is from that directory
+            if directory and prompt.directory != directory:
+                # If it doesn't match, keep looking
+                pass
+            else:
+                return prompt
+        
+        # If not found by unique_id, try finding by simple ID
+        matching_prompts = []
         for p in self.prompts.values():
             if p.id == prompt_id:
-                return p
-                
-        # If we still can't find it, return None
+                # If directory specified, check if this prompt is from that directory
+                if directory and p.directory != directory:
+                    continue
+                matching_prompts.append(p)
+        
+        # If we found exactly one matching prompt, return it
+        if len(matching_prompts) == 1:
+            return matching_prompts[0]
+        # If we found multiple matching prompts, log warning and return the first one
+        elif len(matching_prompts) > 1:
+            import logging
+            logger = logging.getLogger(__name__)
+            directories = [p.directory for p in matching_prompts]
+            logger.warning(f"Multiple prompts found with ID '{prompt_id}' in directories: {directories}")
+            # Return the first one for backward compatibility
+            return matching_prompts[0]
+        
+        # If we couldn't find any matching prompts, return None
         return None
         
     def get_prompts_by_tag(self, tag: str, directory: Optional[str] = None) -> List[Prompt]:

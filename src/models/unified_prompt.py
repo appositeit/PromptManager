@@ -51,7 +51,16 @@ class Prompt(BaseModel):
         """Generate a unique ID that includes both directory and filename."""
         if self.unique_id:
             return self.unique_id
-        # Create a unique ID using directory path and filename
-        # Use a simplified path to avoid special characters
-        dir_part = Path(self.directory).name  # Just use the directory name
+        # Create a unique ID using full directory path and filename
+        # Include more of the path to ensure uniqueness
+        dir_path = Path(self.directory)
+        # Use the last two parts of the path if available to avoid collisions
+        if len(dir_path.parts) >= 2:
+            dir_part = f"{dir_path.parts[-2]}_{dir_path.parts[-1]}"
+        else:
+            dir_part = dir_path.name
+        
+        # Clean up any special characters that might cause issues
+        dir_part = dir_part.replace("/", "_").replace("\\", "_").replace(" ", "_")
+        
         return f"{dir_part}_{self.id}"

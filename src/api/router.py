@@ -101,10 +101,14 @@ async def get_all_prompts():
 
 
 @router.get("/{prompt_id}", response_model=Dict)
-async def get_prompt_by_id(prompt_id: str):
-    """Get a specific prompt by ID."""
+async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None):
+    """
+    Get a specific prompt by ID.
+    
+    If multiple prompts have the same ID, you can specify a directory to disambiguate.
+    """
     prompt_service = get_prompt_service()
-    prompt = prompt_service.get_prompt(prompt_id)
+    prompt = prompt_service.get_prompt(prompt_id, directory)
     
     if not prompt:
         raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
