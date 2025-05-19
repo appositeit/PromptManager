@@ -4,7 +4,7 @@ Models for MCP server management.
 
 from datetime import datetime
 from typing import List, Dict, Optional, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 
 
 class MCPServerConfig(BaseModel):
@@ -34,35 +34,8 @@ class MCPToolConfig(BaseModel):
 
 
 class RoleMCPConfig(BaseModel):
-    """Configuration for MCP access for a specific role in a session."""
-    
-    session_id: str = Field(..., description="Session ID")
-    role_id: str = Field(..., description="Role ID (e.g., 'architect', 'worker1')")
-    servers: List[str] = Field(default_factory=list, description="List of MCP server IDs")
-    tool_overrides: Dict[str, Dict[str, bool]] = Field(
-        default_factory=dict, 
-        description="Overrides for specific tools by server ID and tool ID"
-    )
-    api_key_overrides: Dict[str, str] = Field(
-        default_factory=dict,
-        description="API key overrides by server ID"
-    )
-    
-    class Config:
-        schema_extra = {
-            "example": {
-                "session_id": "session123",
-                "role_id": "architect",
-                "servers": ["default", "mcp2"],
-                "tool_overrides": {
-                    "default": {
-                        "filesystem_tools": True,
-                        "code_execution": True,
-                        "network_tools": False
-                    }
-                },
-                "api_key_overrides": {
-                    "default": "custom_api_key_for_architect"
-                }
-            }
-        }
+    session_id: str
+    role_id: str
+    config: dict = Field(default_factory=dict)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

@@ -5,11 +5,27 @@ Service for managing MCP servers and configurations.
 import os
 import json
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from pathlib import Path
+from pydantic import BaseModel
+from src.models.mcp import RoleMCPConfig
 
-from coordinator.prompts.models.mcp import MCPServerConfig, MCPToolConfig, RoleMCPConfig
+# Define MCP models directly
+class MCPServerConfig(BaseModel):
+    id: str
+    name: str
+    url: str
+    api_key: Optional[str] = None
+    is_default: bool = False # Added from service logic
+    status: Optional[str] = "unknown" # Added from service logic
+    capabilities: Optional[List[str]] = [] # Added from service logic
+    last_connected: Optional[datetime] = None # Added from service logic
 
+class MCPToolConfig(BaseModel):
+    tool_id: str
+    name: str
+    enabled: bool = True
+    settings: Dict[str, Any] = {}
 
 class MCPServerService:
     """Service for managing MCP servers and configurations."""
