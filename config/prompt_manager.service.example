@@ -1,0 +1,33 @@
+# Example systemd service file for Prompt Manager
+#
+# Instructions:
+# 1. Copy this file to /etc/systemd/system/prompt_manager.service
+# 2. Edit the User, Group, WorkingDirectory, and ExecStart fields as needed for your environment.
+# 3. Reload systemd and enable/start the service:
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable prompt_manager
+#    sudo systemctl start prompt_manager
+#
+# Field explanations:
+# - User/Group: The system user/group to run the service as (create a dedicated user for security)
+# - WorkingDirectory: The directory where your app is installed (e.g., /opt/prompt_manager)
+# - ExecStart: The command to start your app (use the full path to your Python venv and start script)
+# - Environment: Set any required environment variables here
+#
+# For more details, see: https://www.freedesktop.org/software/systemd/man/systemd.service.html
+
+[Unit]
+Description=Prompt Manager Service
+After=network.target
+
+[Service]
+Type=simple
+User=promptmgr           # <-- Change to the user that should run Prompt Manager
+Group=promptmgr          # <-- Change to the group that should run Prompt Manager
+WorkingDirectory=/opt/prompt_manager   # <-- Change to your install location
+ExecStart=/opt/prompt_manager/venv/bin/python /opt/prompt_manager/bin/start_prompt_manager.sh  # <-- Adjust as needed
+Restart=on-failure
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target 
