@@ -22,22 +22,42 @@ function showToast(message, type = 'success', duration = 3000) {
     // Create toast element
     const toastId = 'toast-' + Date.now();
     const toast = document.createElement('div');
-    toast.className = `toast bg-${type} text-white`;
-    toast.id = toastId;
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'assertive');
-    toast.setAttribute('aria-atomic', 'true');
     
-    // Toast content
-    toast.innerHTML = `
-        <div class="toast-header bg-${type} text-white">
-            <strong class="me-auto">Notification</strong>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-        <div class="toast-body">
-            ${message}
-        </div>
-    `;
+    // MODIFICATION START: Apply custom class for success, default for others
+    if (type === 'success') {
+        toast.className = 'toast toast-success-subtle';
+        toast.id = toastId;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        toast.innerHTML = `
+            <div class="toast-header"> <!-- Styled by .toast-success-subtle .toast-header -->
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close btn-close-dark" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+            </div>
+        `;
+    } else {
+        toast.className = `toast bg-${type} text-white`;
+        toast.id = toastId;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        toast.innerHTML = `
+            <div class="toast-header bg-${type} text-white">
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+            </div>
+        `;
+    }
+    // MODIFICATION END
     
     // Add to container
     toastContainer.appendChild(toast);

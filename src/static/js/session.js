@@ -69,8 +69,10 @@ function loadAvailablePrompts() {
             };
             
             prompts.forEach(prompt => {
-                if (promptsByType.hasOwnProperty(prompt.prompt_type)) {
-                    promptsByType[prompt.prompt_type].push(prompt);
+                if (prompt.is_composite) {
+                    promptsByType.composite.push(prompt);
+                } else {
+                    promptsByType.standard.push(prompt);
                 } else {
                     promptsByType.standard.push(prompt);
                 }

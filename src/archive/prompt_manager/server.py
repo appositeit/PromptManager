@@ -9,20 +9,22 @@ import os
 import sys
 import asyncio
 import traceback
-from typing import Optional
 from pathlib import Path
 import argparse
 import uvicorn
-from datetime import datetime, timezone
-from fastapi import FastAPI, Depends, HTTPException, Request
+from datetime import datetime
+from typing import Optional
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 import logging
 
+from prompt_manager.api.router import router as api_router
+
 # Set up logging
-def setup_logging(log_file: str = None):
+def setup_logging(log_file: Optional[str] = None):
     """Set up logging configuration."""
     # Remove default logger
     logger.remove()
@@ -114,9 +116,6 @@ async def log_requests(request: Request, call_next):
         logger.opt(exception=True).error(f"Error processing request: {request.method} {request.url.path} - {str(e)}")
         raise
 
-# Import the API routers
-from prompt_manager.api.router import router as api_router
-
 # Include API routers
 app.include_router(api_router)
 
@@ -128,7 +127,6 @@ async def shutdown_server(request: Request):
     """
     from fastapi.responses import JSONResponse
     from fastapi.background import BackgroundTasks
-    import asyncio
     import signal
     import os
     
@@ -234,7 +232,7 @@ async def settings(request: Request):
 def create_default_prompts():
     """Create default prompts if none exist."""
     try:
-        from prompt_manager.models.unified_prompt import Prompt, PromptType
+        from prompt_manager.models.unified_prompt import PromptType
         from prompt_manager.services.prompt_service import PromptService
         
         # Get prompt service

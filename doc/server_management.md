@@ -2,6 +2,12 @@
 
 This document describes how to manage the Prompt Manager server and its various administration features.
 
+The recommended ways to stop, start, and restart the server are using:
+
+bin/stop_prompt_manager.sh
+bin/start_prompt_manager.sh
+bin/restart_prompt_manager.sh
+
 ## Starting the Server
 
 The recommended way to start the server is using the provided script:
@@ -26,6 +32,8 @@ python -m src.server
 python -m src.server --host 0.0.0.0 --port 8888 --log-level DEBUG
 ```
 
+...but you MUST activate the venv in /venv first.
+
 ## Command Line Arguments
 
 The server accepts the following command line arguments:
@@ -37,6 +45,10 @@ The server accepts the following command line arguments:
 - `--log-file`: Specify a custom log file path
 
 ## Stopping the Server
+
+The recommend way to stop the server is:
+
+bin/stop_prompt_manager.sh
 
 The server provides two endpoints for stopping it:
 
@@ -91,6 +103,9 @@ The log files contain detailed information about:
 - Prompt loading and management
 - API requests and responses
 - Errors and warnings
+
+Make sure you tail -n 20 to get the end of the log and work backwards if
+necessary.
 
 ## Health Checks
 

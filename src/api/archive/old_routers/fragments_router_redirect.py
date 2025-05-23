@@ -8,10 +8,9 @@ to the prompt API.
 import os
 from typing import List, Dict, Optional
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from src.api.router import get_prompt_service, PromptCreate, PromptUpdate
+from src.api.router import get_prompt_service, PromptCreate
 
 # Create router with the same prefix as the original fragments router
 router = APIRouter(prefix="/api/prompts/fragments", tags=["fragments"])

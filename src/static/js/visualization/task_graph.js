@@ -256,7 +256,6 @@ class TaskGraphVisualizer {
             data.agents.forEach(agent => {
                 nodes.push({
                     id: agent.id,
-                    type: agent.role || "worker",
                     name: agent.name || agent.id,
                     isAgent: true
                 });
@@ -268,7 +267,6 @@ class TaskGraphVisualizer {
             data.tasks.forEach(task => {
                 nodes.push({
                     id: task.id,
-                    type: "task",
                     name: task.title || task.id,
                     status: task.status || "pending",
                     description: task.description,
@@ -375,7 +373,7 @@ class TaskGraphVisualizer {
                 // Agents are circles
                 element.append("circle")
                     .attr("r", 15)
-                    .attr("fill", d => d.type === "architect" ? 
+                    .attr("fill", d => d.name === "architect" ? 
                         this.options.colors.architect : 
                         this.options.colors.worker
                     )
@@ -413,7 +411,7 @@ class TaskGraphVisualizer {
         nodeEnter.append("title")
             .text(d => {
                 if (d.isAgent) {
-                    return `${d.name} (${d.type})`;
+                    return `${d.name} (${d.name})`;
                 } else if (d.isTask) {
                     return `${d.name}\nStatus: ${d.status}\n${d.description || ""}`;
                 }
@@ -425,7 +423,7 @@ class TaskGraphVisualizer {
             .transition().duration(this.options.animationDuration)
             .attr("fill", d => {
                 if (d.isAgent) {
-                    return d.type === "architect" ? 
+                    return d.name === "architect" ? 
                         this.options.colors.architect : 
                         this.options.colors.worker;
                 }
@@ -446,7 +444,7 @@ class TaskGraphVisualizer {
         node.select("title")
             .text(d => {
                 if (d.isAgent) {
-                    return `${d.name} (${d.type})`;
+                    return `${d.name} (${d.name})`;
                 } else if (d.isTask) {
                     return `${d.name}\nStatus: ${d.status}\n${d.description || ""}`;
                 }

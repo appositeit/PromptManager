@@ -8,8 +8,7 @@ import os
 import glob
 import re
 import logging
-from typing import List, Dict, Optional, Any
-import json
+from typing import List, Optional
 
 from prompt_manager.models.unified_prompt import Prompt, PromptType
 
@@ -114,9 +113,9 @@ class PromptService:
         self,
         id: str,
         content: str,
-        description: str = None,
+        description: Optional[str] = None,
         prompt_type: PromptType = None,
-        tags: List[str] = None
+        tags: Optional[List[str]] = None
     ) -> Prompt:
         """
         Update a prompt by ID.

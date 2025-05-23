@@ -190,7 +190,6 @@ class RealTimeVisualizationManager {
                 const agents = [{
                     id: 'architect',
                     name: 'Architect',
-                    role: 'architect',
                     status: 'active'
                 }];
                 
@@ -200,7 +199,6 @@ class RealTimeVisualizationManager {
                         agents.push({
                             id: `worker${index}`,
                             name: worker.name || `Worker ${index + 1}`,
-                            role: 'worker',
                             capabilities: worker.capabilities || [],
                             status: 'idle'
                         });

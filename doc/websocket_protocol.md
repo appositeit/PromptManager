@@ -4,9 +4,9 @@ This document describes the WebSocket protocol used for real-time editing in the
 
 ## Connection Endpoints
 
-- **Prompts**: `/api/prompts/ws/{prompt_id}`
-- **Fragments**: `/api/prompts/ws/fragments/{fragment_id}`
-- **Debug**: `/debug/websocket` (test page for WebSocket connections)
+- **Prompts**: `/ws/prompts/{prompt_id}`
+- **Fragments**: `/ws/prompts/fragments/{fragment_id}`
+- **Debug**: `/api/ws/test` (Updated - now uses /api prefix)
 
 ## Message Format
 
@@ -129,7 +129,7 @@ If a WebSocket connection fails, the client fallbacks to the REST API. The serve
 
 ```javascript
 // Connect to WebSocket
-const ws = new WebSocket(`ws://localhost:8081/api/prompts/ws/${promptId}`);
+const ws = new WebSocket(`ws://localhost:8081/ws/prompts/${promptId}`);
 
 // Handle connection open
 ws.onopen = function() {

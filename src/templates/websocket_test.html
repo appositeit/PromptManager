@@ -16,7 +16,7 @@
                     <div class="mb-3">
                         <label for="websocket-url" class="form-label">WebSocket URL</label>
                         <div class="input-group">
-                            <input type="text" class="form-control" id="websocket-url" value="ws://{{ request.headers.get('host') }}/api/debug/api/ws/test">
+                            <input type="text" class="form-control" id="websocket-url" value="{{ url_for('ws_debug') }}">
                             <button class="btn btn-primary" id="connect-btn">Connect</button>
                         </div>
                     </div>
@@ -67,19 +67,19 @@
                         <button class="list-group-item list-group-item-action" id="test-general">
                             <h5 class="mb-1">Test WebSocket General Connection</h5>
                             <p class="mb-1">Tests connectivity to a general test WebSocket endpoint</p>
-                            <small>Endpoint: <code>ws://{{ request.headers.get('host') }}/api/debug/api/ws/test</code></small>
+                            <small>Endpoint: <code>{{ url_for('ws_debug') }}</code></small>
                         </button>
                         
                         <button class="list-group-item list-group-item-action" id="test-fragments">
                             <h5 class="mb-1">Test Fragments WebSocket</h5>
                             <p class="mb-1">Tests connectivity to the fragments WebSocket endpoint (requires fragment ID)</p>
-                            <small>Endpoint: <code>ws://{{ request.headers.get('host') }}/api/prompts/ws/fragments/{fragment_id}</code></small>
+                            <small>Endpoint: <code>{{ url_for('ws_fragment', fragment_id='{fragment_id}') }}</code></small>
                         </button>
                         
                         <button class="list-group-item list-group-item-action" id="test-prompts">
                             <h5 class="mb-1">Test Prompts WebSocket</h5>
                             <p class="mb-1">Tests connectivity to the prompts WebSocket endpoint (requires prompt ID)</p>
-                            <small>Endpoint: <code>ws://{{ request.headers.get('host') }}/api/prompts/ws/{prompt_id}</code></small>
+                            <small>Endpoint: <code>{{ url_for('ws_prompt', prompt_id='{prompt_id}') }}</code></small>
                         </button>
                     </div>
                 </div>
@@ -189,7 +189,7 @@
         
         // Test buttons
         document.getElementById('test-general').addEventListener('click', function() {
-            document.getElementById('websocket-url').value = `ws://${window.location.host}/api/debug/api/ws/test`;
+            document.getElementById('websocket-url').value = "{{ url_for('ws_debug') }}";
             connectWebSocket();
         });
         
@@ -212,7 +212,7 @@
                 return;
             }
             
-            document.getElementById('websocket-url').value = `ws://${window.location.host}/api/prompts/ws/fragments/${fragmentId}`;
+            setFragmentUrl(fragmentId);
             
             // Close the modal
             const fragmentModal = bootstrap.Modal.getInstance(document.getElementById('fragmentIdModal'));
@@ -230,7 +230,7 @@
                 return;
             }
             
-            document.getElementById('websocket-url').value = `ws://${window.location.host}/api/prompts/ws/${promptId}`;
+            setPromptUrl(promptId);
             
             // Close the modal
             const promptModal = bootstrap.Modal.getInstance(document.getElementById('promptIdModal'));
@@ -280,7 +280,7 @@
                 addMessage('system', 'Connection established');
                 
                 // For fragment and prompt connections, try to send an expand message
-                if (url.includes('/api/prompts/ws/fragments/') || url.includes('/api/prompts/ws/')) {
+                if (url.includes('/ws/prompts/fragments/') || url.includes('/ws/prompts/')) {
                     socket.send(JSON.stringify({
                         action: 'expand',
                         content: 'Test content for expansion'
@@ -358,28 +358,45 @@
             return;
         }
         
-        const messageInput = document.getElementById('message-input');
-        const message = messageInput.value.trim();
+        const url = document.getElementById('websocket-url').value;
+        const messageText = document.getElementById('message-input').value;
         
-        if (!message) {
-            return;
+        let messageObject;
+        try {
+            messageObject = JSON.parse(messageText);
+        } catch (error) {
+            // If not valid JSON, check if it's a debug connection
+            if (url.includes('/api/ws/test')) {
+                // Send as plain text for debug endpoint
+                messageObject = messageText;
+            } else {
+                log('Message must be valid JSON', 'error');
+                return;
+            }
         }
         
-        try {
-            // Try to parse as JSON if it starts with { or [
-            if ((message.startsWith('{') && message.endsWith('}')) || 
-                (message.startsWith('[') && message.endsWith(']'))) {
-                const jsonData = JSON.parse(message);
-                socket.send(JSON.stringify(jsonData));
-                addMessage('sent', JSON.stringify(jsonData, null, 2));
-            } else {
-                // Send as plain text
-                socket.send(message);
-                addMessage('sent', message);
+        // Add prompt_id or fragment_id if relevant
+        if (url.includes('/ws/prompts/fragments/') || url.includes('/ws/prompts/')) {
+            const urlParts = url.split('/');
+            const id = urlParts[urlParts.length - 1];
+            
+            if (typeof messageObject === 'object') {
+                if (url.includes('/fragments/')) {
+                    messageObject.fragment_id = id;
+                } else {
+                    messageObject.prompt_id = id;
+                }
             }
+        }
+        
+        const messageToSend = (typeof messageObject === 'object') ? JSON.stringify(messageObject) : messageObject;
+        
+        try {
+            socket.send(messageToSend);
+            addMessage('sent', messageToSend);
             
             // Clear input
-            messageInput.value = '';
+            document.getElementById('message-input').value = '';
         } catch (error) {
             console.error('Error sending message:', error);
             addMessage('error', `Error sending message: ${error.message}`);
@@ -529,6 +546,14 @@
                     </div>
                 `;
             });
+    }
+    
+    function setFragmentUrl(fragmentId) {
+        document.getElementById('websocket-url').value = "{{ url_for('ws_fragment', fragment_id='__FRAGMENT_ID_PLACEHOLDER__') }}".replace('__FRAGMENT_ID_PLACEHOLDER__', fragmentId);
+    }
+    
+    function setPromptUrl(promptId) {
+        document.getElementById('websocket-url').value = "{{ url_for('ws_prompt', prompt_id='__PROMPT_ID_PLACEHOLDER__') }}".replace('__PROMPT_ID_PLACEHOLDER__', promptId);
     }
 </script>
 {% endblock %}

@@ -2,17 +2,76 @@
 
 {% block title %}Manage Prompts{% endblock %}
 
-{% block header_title %}Prompt Management{% endblock %}
+{% block header_title %}Manage Prompts & Directories{% endblock %}
 
 {% block header_actions %}
-<div class="btn-group">
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newPromptModal" id="new-prompt-btn" title="New Prompt (Alt+N)">
-        <i class="bi bi-plus-circle"></i> New Prompt
+    <div class="btn-group me-2">
+        <button class="btn btn-primary" id="add-prompt-btn" title="Create a new prompt (Alt+N)" data-bs-toggle="modal" data-bs-target="#newPromptModal">
+            <i class="bi bi-plus-circle-fill"></i> New Prompt
     </button>
-    <button class="btn btn-outline-secondary" id="refresh-all-btn" title="Refresh All Prompts">
+        <button class="btn btn-secondary" id="add-directory-modal-btn" title="Add a new prompt directory" data-bs-toggle="modal" data-bs-target="#addDirectoryModal">
+            <i class="bi bi-folder-plus"></i> Add Directory
+        </button>
+        <button class="btn btn-info" id="refresh-all-btn" title="Reload prompts from all directories">
         <i class="bi bi-arrow-clockwise"></i> Refresh All
     </button>
 </div>
+    {{ super() }} {# This will include the help button from base.html #}
+{% endblock %}
+
+{% block modal_help_content %}
+    <h4>Manage Prompts & Directories Help</h4>
+    <p>This page allows you to view, create, and manage your prompts and prompt directories.</p>
+    
+    <h5>Keyboard Shortcuts</h5>
+    <table class="table table-sm table-bordered">
+        <thead>
+            <tr><th>Shortcut</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>Alt + N</code></td><td>Create a new prompt</td></tr>
+            <tr><td><code>Alt + H</code> or click <i class="bi bi-question-circle"></i></td><td>Show this help dialog</td></tr>
+        </tbody>
+    </table>
+
+    <h5>Functionality</h5>
+    <h6>Prompts Table:</h6>
+    <ul>
+        <li>Displays all available prompts.</li>
+        <li><strong>Name:</strong> Click to open the prompt editor.</li>
+        <li><strong>Description:</strong> A brief description of the prompt.</li>
+        <li><strong>Tags:</strong> Keywords associated with the prompt.</li>
+        <li><strong>Type:</strong> Indicates if a prompt is 'Standard' or 'Composite' (contains inclusions).</li>
+        <li><strong>Modified:</strong> Last modification date. Click to sort.</li>
+        <li><strong>Actions:</strong>
+            <ul>
+                <li><i class="bi bi-pencil-fill"></i> Edit: Open the prompt in the editor.</li>
+                <li><i class="bi bi-trash-fill"></i> Delete: Delete the prompt (with confirmation).</li>
+            </ul>
+        </li>
+        <li>Use the search box to filter prompts by name, description, or tags.</li>
+    </ul>
+
+    <h6>Directories Table:</h6>
+    <ul>
+        <li>Displays all registered prompt directories.</li>
+        <li><strong>Name:</strong> Display name for the directory.</li>
+        <li><strong>Path:</strong> Filesystem path to the directory.</li>
+        <li><strong>Description:</strong> A brief description of the directory.</li>
+        <li><strong>Actions:</strong>
+            <ul>
+                <li><i class="bi bi-arrow-clockwise"></i> Refresh: Reload prompts from this specific directory.</li>
+                <li><i class="bi bi-trash-fill"></i> Remove: Remove the directory from Prompt Manager (does not delete files).</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h6>Buttons:</h6>
+    <ul>
+        <li><strong>New Prompt:</strong> Opens the editor to create a new prompt.</li>
+        <li><strong>Add Directory:</strong> Opens a dialog to register a new directory containing prompts.</li>
+        <li><strong>Refresh All:</strong> Reloads prompts from all registered directories.</li>
+    </ul>
 {% endblock %}
 
 {% block content %}
@@ -23,7 +82,7 @@
                 <div class="card-header">
                     <div class="row align-items-center">
                         <div class="col">
-                            <h5 class="card-title mb-0">Prompts</h5>
+                            <h5 class="card-title mb-0">Prompts <span id="prompts-count" class="text-muted small"></span></h5>
                         </div>
                         <div class="col-auto">
                             <div class="input-group">
@@ -80,14 +139,14 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">Directories</h5>
-                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addDirectoryModal">
+                    <h5 class="card-title mb-0">Directories <span id="directories-count" class="text-muted small"></span></h5>
+                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addDirectoryModal" title="Add New Directory (Alt+A)">
                         <i class="bi bi-folder-plus"></i> Add Directory
                     </button>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table table-hover" id="directories-table">
                             <thead>
                                 <tr>
                                     <th>Name</th>
@@ -139,15 +198,6 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label for="promptRole" class="form-label">Role (Optional)</label>
-                        <select class="form-select" id="promptRole">
-                            <option value="">None</option>
-                            <option value="architect">Architect</option>
-                            <option value="worker">Worker</option>
-                        </select>
-                        <div class="form-text">Assign a specific role to this prompt</div>
-                    </div>
-                    <div class="mb-3">
                         <label for="promptDescription" class="form-label">Description</label>
                         <input type="text" class="form-control" id="promptDescription">
                     </div>
@@ -177,24 +227,25 @@
             </div>
             <div class="modal-body">
                 <form id="addDirectoryForm">
-                    <div class="mb-3">
-                        <label for="directoryPath" class="form-label">Directory Path</label>
-                        <input type="text" class="form-control" id="directoryPath" required>
+                    <div class="mb-3 suggestions-container">
+                        <label for="directoryPath" class="form-label" title="Tab for path completion, Alt+T to move to next field.">Directory Path</label>
+                        <input type="text" class="form-control" id="directoryPath" required autocomplete="off" title="Tab for path completion, Alt+T to move to next field.">
+                        <!-- Suggestions list will be inserted here by JavaScript -->
                     </div>
                     <div class="mb-3">
-                        <label for="directoryName" class="form-label">Display Name</label>
-                        <input type="text" class="form-control" id="directoryName">
+                        <label for="directoryName" class="form-label" title="Alt+T to navigate fields. Ctrl+Enter to Add, Ctrl+Esc to Cancel.">Display Name</label>
+                        <input type="text" class="form-control" id="directoryName" title="Alt+T to navigate fields. Ctrl+Enter to Add, Ctrl+Esc to Cancel.">
                         <div class="form-text">If not provided, the directory name will be used</div>
                     </div>
                     <div class="mb-3">
-                        <label for="directoryDescription" class="form-label">Description</label>
-                        <input type="text" class="form-control" id="directoryDescription">
+                        <label for="directoryDescription" class="form-label" title="Alt+T to navigate fields. Ctrl+Enter to Add, Ctrl+Esc to Cancel.">Description</label>
+                        <input type="text" class="form-control" id="directoryDescription" title="Alt+T to navigate fields. Ctrl+Enter to Add, Ctrl+Esc to Cancel.">
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="addDirectoryBtn">Add</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" title="Cancel (Ctrl+Esc)">Cancel</button>
+                <button type="button" class="btn btn-primary" id="addDirectoryBtn" title="Add (Ctrl+Enter)">Add</button>
             </div>
         </div>
     </div>
@@ -211,6 +262,10 @@
             <div class="modal-body">
                 <form id="editDirectoryForm">
                     <input type="hidden" id="editDirectoryPath">
+                    <div class="mb-3">
+                        <label class="form-label">Directory Path</label>
+                        <p class="form-control-plaintext ps-2" id="displayDirectoryPath"></p>
+                    </div>
                     <div class="mb-3">
                         <label for="editDirectoryName" class="form-label">Display Name</label>
                         <input type="text" class="form-control" id="editDirectoryName" required>
@@ -272,8 +327,8 @@
 
 {% endblock %}
 
-{% block extra_js %}
-<script src="/static/js/utils.js"></script>
+{% block page_specific_js %}
+{# <script src="/static/js/utils.js"></script> #} {# Redundant: Already loaded in base.html #}
 <script src="/static/js/directory_manager.js"></script>
 <style>
     /* Styles for sortable headers */
@@ -311,27 +366,24 @@
     /* Directory column styling */
     table th:nth-child(1), /* Directory */
     table td:nth-child(1) {
-        max-width: 150px;
-        width: 15%;
+        /*max-width: 150px;*/
+        /*width: 15%;*/
         word-break: break-word;
     }
-    
     /* Make description and tags columns smaller */
     table th:nth-child(3), /* Description */
     table td:nth-child(3) {
-        max-width: 200px;
-        width: 15%;
+        /*max-width: 200px;*/
+        /*width: 15%;*/
     }
-    
     table th:nth-child(5), /* Tags */
     table td:nth-child(5) {
-        max-width: 150px;
-        width: 15%;
+        /*max-width: 150px;*/
+        /*width: 15%;*/
     }
-    
     table th:nth-child(6), /* Last Updated */
     table td:nth-child(6) {
-        width: 10%;
+        /*width: 10%;*/
     }
     
     /* Selected row styling */
@@ -362,10 +414,48 @@
     .status-badge:active {
         transform: scale(0.95);
     }
+
+    /* Styles for path completion suggestions */
+    .suggestions-container {
+        position: relative; /* Needed for absolute positioning of the list */
+    }
+    .suggestions-list {
+        position: absolute;
+        background-color: #fff;
+        border: 1px solid #eee;
+        border-top: none;
+        z-index: 1050; /* Ensure it's above other elements, like modal backdrop */
+        list-style-type: none;
+        padding: 0;
+        margin: 0;
+        max-height: 150px;
+        overflow-y: auto;
+        width: 100%; /* Match the width of the input typically */
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .suggestions-list li {
+        padding: 8px 12px;
+        cursor: pointer;
+    }
+    .suggestions-list li:hover {
+        background-color: #f0f0f0;
+    }
+    .suggestions-list li.selected-suggestion {
+        background-color: #e0e0e0;
+    }
+
+    /* Styles for the Actions column */
+    table th:nth-child(6), /* Actions */
+    table td:nth-child(6) {
+        width: 120px;
+        min-width: 100px;
+        max-width: 160px;
+    }
 </style>
 <script>
     // Global variables
     let prompts = [];
+    let allPrompts = [];
     let directories = [];
     let currentFilter = {
         type: 'all',
@@ -378,6 +468,16 @@
         column: 'directory',
         direction: 'asc'
     };
+
+    // Debounce utility function
+    function debounce(func, delay) {
+        let timeout;
+        return function(...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), delay);
+        };
+    }
     
     /**
      * Perform a stable sort on an array based on a given comparison function.
@@ -507,41 +607,75 @@ Remember that you're part of a team - your specialized work contributes to solvi
             });
     }
 
-    // Make sure prompts are loaded immediately when the page loads
     // Force a direct API request immediately on page load
     window.addEventListener('load', function() {
-        console.log('Window loaded - directly fetching prompts');
+        console.log('Window loaded - ensuring directories and then fetching prompts');
         
-        // Force an immediate prompts fetch on page load
+        loadDirectories().then(() => {
+            console.log('Directories loaded on window.load, now fetching prompts');
         fetch('/api/prompts/all')
             .then(response => response.json())
             .then(data => {
                 console.log('Directly fetched prompts on window load:', data.length);
-                prompts = data;
+                allPrompts = data;
                 updatePromptsTable();
                 updateTagFilters();
             })
             .catch(err => console.error('Direct prompt fetch error:', err));
+        }).catch(dirErr => {
+            console.error('Failed to load directories on window.load:', dirErr);
+            // Still try to load prompts as a fallback
+            fetch('/api/prompts/all')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Directly fetched prompts on window load (after dir load failure):', data.length);
+                    allPrompts = data;
+                    updatePromptsTable();
+                    updateTagFilters();
+                })
+                .catch(err => console.error('Direct prompt fetch error (after dir load failure):', err));
+        });
     });
     
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded - initializing UI and loading data');
+        // console.log('[DEBUG] DOMContentLoaded: Event listener fired.'); // Removed
         
         // Add Alt+N shortcut for "New Prompt"
         document.addEventListener('keydown', function(e) {
-            if (e.altKey && e.key === 'n') {
+            if (e.altKey && e.key.toLowerCase() === 'n') {
+                // Ensure not in an input field where Alt+N might be legitimate
+                if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'SELECT') {
+                    return;
+                }
                 e.preventDefault();
-                // Open the New Prompt modal
                 const newPromptModal = new bootstrap.Modal(document.getElementById('newPromptModal'));
                 newPromptModal.show();
-                // Focus the ID field
                 setTimeout(() => {
                     document.getElementById('promptId').focus();
-                }, 300);
+                }, 300); // Delay focus slightly for modal to open
+            }
+        });
+        
+        // Add Alt+A shortcut for "Add Directory" modal
+        document.addEventListener('keydown', function(e) {
+            if (e.altKey && e.key.toLowerCase() === 'a') {
+                // Ensure not in an input field where Alt+A might be legitimate (e.g., select all)
+                if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'SELECT') {
+                    return;
+                }
+                e.preventDefault();
+                const addDirectoryModal = new bootstrap.Modal(document.getElementById('addDirectoryModal'));
+                addDirectoryModal.show();
+                // Focus the directoryPathInput field after modal opens
+                setTimeout(() => {
+                    const dirPathInput = document.getElementById('directoryPath');
+                    if (dirPathInput) dirPathInput.focus();
+                }, 300); // Delay focus slightly for modal to open
             }
         });
         
         // Initialize by loading prompts and directories
+        // console.log('[DEBUG] DOMContentLoaded: About to call Promise.all for loadPrompts and loadDirectories.'); // Removed
         Promise.all([
             loadPrompts(),
             loadDirectories()
@@ -682,40 +816,252 @@ Remember that you're part of a team - your specialized work contributes to solvi
             createPromptBtn.addEventListener('click', createPrompt);
         }
         
-        // Add role selection handler
-        const promptRoleSelect = document.getElementById('promptRole');
-        if (promptRoleSelect) {
-            promptRoleSelect.addEventListener('change', function() {
-                const role = this.value;
-                
-                if (role && defaultPrompts[role]) {
-                    // Update tags field to include the role
-                    const tagsField = document.getElementById('promptTags');
-                    const currentTags = tagsField.value.split(',').map(t => t.trim()).filter(t => t);
-                    
-                    if (!currentTags.includes(role)) {
-                        currentTags.push(role);
+        // Add directory form handler
+        const addDirectoryForm = document.getElementById('addDirectoryForm');
+        const addDirectoryBtn = document.getElementById('addDirectoryBtn');
+        const directoryPathInput = document.getElementById('directoryPath');
+        const directoryNameInput = document.getElementById('directoryName');
+        const directoryDescriptionInput = document.getElementById('directoryDescription');
+        const addDirectoryModalElement = document.getElementById('addDirectoryModal');
+
+        let suggestionsListElement = null; 
+        let activeSuggestionIndex = -1;
+
+        function displayPathSuggestions(suggestions, inputElement, baseCompletedPathForSelection) {
+            const container = inputElement.parentElement; // Should be .suggestions-container
+            if (!suggestionsListElement) {
+                suggestionsListElement = document.createElement('ul');
+                suggestionsListElement.className = 'suggestions-list';
+                suggestionsListElement.id = 'directory-path-suggestions';
+                container.appendChild(suggestionsListElement);
+            }
+
+            suggestionsListElement.innerHTML = ''; // Clear old suggestions
+            activeSuggestionIndex = -1; // Reset active suggestion
+
+            if (suggestions && suggestions.length > 0) {
+                suggestions.forEach((suggestionText, index) => {
+                    const li = document.createElement('li');
+                    li.textContent = suggestionText;
+                    li.addEventListener('mousedown', function(e) { // Use mousedown to fire before blur
+                        e.preventDefault(); // Prevent input blur
+                        
+                        let finalPath;
+                        // baseCompletedPathForSelection is data.completed_path from the API for the suggestion list context
+                        if (baseCompletedPathForSelection.endsWith('/')) {
+                            finalPath = baseCompletedPathForSelection + suggestionText;
+                        } else {
+                            const lastSlashIndex = baseCompletedPathForSelection.lastIndexOf('/');
+                            const dirPart = (lastSlashIndex === -1) ? '' : baseCompletedPathForSelection.substring(0, lastSlashIndex + 1);
+                            finalPath = dirPart + suggestionText;
+                        }
+                        finalPath = finalPath.replace(/\/\/+/g, '/');
+                        inputElement.value = finalPath;
+                        suggestionsListElement.style.display = 'none';
+                        inputElement.focus();
+                    });
+                    suggestionsListElement.appendChild(li);
+                });
+                suggestionsListElement.style.display = 'block';
+            } else {
+                suggestionsListElement.style.display = 'none';
+            }
+        }
+
+        if (addDirectoryBtn && addDirectoryForm && directoryPathInput) {
+            const debouncedFetchSuggestions = debounce(async function(inputValue) {
+                if (!suggestionsListElement || suggestionsListElement.style.display !== 'block') {
+                    // Don't fetch if suggestions are not meant to be visible
+                    // or if list element doesn't exist yet (should be created by Tab first)
+                    return;
+                }
+                if (!inputValue && suggestionsListElement) {
+                    suggestionsListElement.innerHTML = '';
+                    suggestionsListElement.style.display = 'none';
+                    activeSuggestionIndex = -1;
+                    return;
+                }
+                if (!inputValue) return;
+
+                try {
+                    const response = await fetch('/api/prompts/filesystem/complete_path', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ partial_path: inputValue })
+                    });
+                    if (!response.ok) {
+                        // Don't show error toast on every keystroke, just clear suggestions
+                        if (suggestionsListElement) suggestionsListElement.style.display = 'none';
+                        return;
                     }
-                    
-                    if (!currentTags.includes('role')) {
-                        currentTags.push('role');
-                    }
-                    
-                    tagsField.value = currentTags.join(', ');
+                    const data = await response.json();
+                    // When dynamically filtering, we use the current input value as the base for selection,
+                    // as data.completed_path might be different from what user is currently typing.
+                    // OR, we can pass data.completed_path to ensure consistency if API handles it well.
+                    // For now, let's assume suggestions are always relative to data.completed_path.
+                    displayPathSuggestions(data.suggestions, directoryPathInput, data.completed_path);
+                } catch (error) {
+                    console.error('Dynamic suggestion fetch error:', error);
+                    if (suggestionsListElement) suggestionsListElement.style.display = 'none';
+                }
+            }, 300); // 300ms debounce delay
+
+            directoryPathInput.addEventListener('input', function(event) {
+                const currentVal = this.value;
+                if (suggestionsListElement && suggestionsListElement.style.display === 'block') {
+                    debouncedFetchSuggestions(currentVal);
+                } else if (currentVal === '' && suggestionsListElement) {
+                    // If user clears input and list was visible, hide it.
+                    suggestionsListElement.innerHTML = '';
+                    suggestionsListElement.style.display = 'none';
+                    activeSuggestionIndex = -1;
                 }
             });
-        }
-        
-        // Add directory form handler
-        const addDirectoryBtn = document.getElementById('addDirectoryBtn');
-        if (addDirectoryBtn) {
+
+            directoryPathInput.addEventListener('keydown', async function(event) {
+                // Alt+T: Move to next field (Display Name)
+                if (event.altKey && event.key.toLowerCase() === 't') {
+                    console.log('Alt+T detected in directoryPathInput');
+                    event.preventDefault();
+                    directoryNameInput.focus();
+                    return;
+                }
+
+                // Plain Tab: Path completion
+                if (event.key === 'Tab' && !event.altKey && !event.shiftKey && !event.ctrlKey) { 
+                    event.preventDefault();
+                    const partialPath = this.value;
+                    if (!partialPath && suggestionsListElement) {
+                        suggestionsListElement.style.display = 'none';
+                        return;
+                    }
+                    if (!partialPath) return;
+                    // ... (rest of plain Tab logic for API call and displayPathSuggestions) ...
+                    try {
+                        const response = await fetch('/api/prompts/filesystem/complete_path', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ partial_path: partialPath })
+                        });
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            showToast(`Path completion failed: ${errorData.detail || response.statusText}`, 'danger');
+                            if (suggestionsListElement) suggestionsListElement.style.display = 'none';
+                            return;
+                        }
+                        const data = await response.json();
+                        this.value = data.completed_path; 
+                        displayPathSuggestions(data.suggestions, this, data.completed_path);
+                    } catch (error) {
+                        showToast('Error fetching path completions.', 'danger');
+                        if (suggestionsListElement) suggestionsListElement.style.display = 'none';
+                    }
+                    return; // Stop after handling Tab
+                }
+
+                // Suggestion list navigation (only if list is visible)
+                if (suggestionsListElement && suggestionsListElement.style.display === 'block') {
+                    if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        if (activeSuggestionIndex < suggestionsListElement.children.length - 1) {
+                            activeSuggestionIndex++;
+                            updateSuggestionHighlight();
+                        }
+                        return;
+                    }
+                    if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        if (activeSuggestionIndex > 0) {
+                            activeSuggestionIndex--;
+                            updateSuggestionHighlight();
+                        }
+                        return;
+                    }
+                    if (event.key === 'Enter' && activeSuggestionIndex > -1) {
+                        event.preventDefault();
+                        suggestionsListElement.children[activeSuggestionIndex].dispatchEvent(new Event('mousedown'));
+                        return;
+                    }
+                }
+
+                // Escape: Close suggestion list if open
+                if (event.key === 'Escape') {
+                    if (suggestionsListElement && suggestionsListElement.style.display === 'block') {
+                        event.preventDefault();
+                        suggestionsListElement.style.display = 'none';
+                        activeSuggestionIndex = -1; // Reset index
+                        // Do not return here, allow Escape to bubble if suggestions were not open for modal closure
+                    }
+                }
+            });
+
+            directoryNameInput.addEventListener('keydown', function(event) {
+                // Alt+T: Navigate fields
+                if (event.altKey && event.key.toLowerCase() === 't') {
+                    event.preventDefault();
+                    if (event.shiftKey) { // Alt+Shift+T to go to previous (Path)
+                        directoryPathInput.focus();
+                    } else { // Alt+T to go to next (Description)
+                        directoryDescriptionInput.focus();
+                    }
+                }
+            });
+
+            directoryDescriptionInput.addEventListener('keydown', function(event) {
+                // Alt+T: Navigate fields
+                if (event.altKey && event.key.toLowerCase() === 't') {
+                    event.preventDefault();
+                    if (event.shiftKey) { // Alt+Shift+T to go to previous (Name)
+                        directoryNameInput.focus();
+                    } else { // Alt+T to go to first (Path)
+                        directoryPathInput.focus(); 
+                    }
+                }
+            });
+
+            // Modal-wide shortcuts for Ctrl+Enter and Ctrl+Esc
+            if (addDirectoryModalElement) {
+                addDirectoryModalElement.addEventListener('keydown', function(event) {
+                    if (event.ctrlKey && event.key === 'Enter') {
+                        event.preventDefault();
+                        addDirectoryBtn.click(); // Simulate click on Add button
+                    } else if (event.ctrlKey && event.key === 'Escape') {
+                        event.preventDefault();
+                        // Find the cancel button and click it
+                        const cancelBtn = addDirectoryModalElement.querySelector('.modal-footer button[data-bs-dismiss="modal"]');
+                        if (cancelBtn) {
+                            cancelBtn.click();
+                        }
+                    }
+                });
+            }
+
+            directoryPathInput.addEventListener('blur', function() {
+                // Delay hiding to allow click on suggestion to register
+                setTimeout(() => {
+                    if (suggestionsListElement && suggestionsListElement.style.display === 'block' && !suggestionsListElement.matches(':hover')) {
+                         suggestionsListElement.style.display = 'none';
+                    }
+                }, 150);
+            });
+            
+            function updateSuggestionHighlight() {
+                for (let i = 0; i < suggestionsListElement.children.length; i++) {
+                    suggestionsListElement.children[i].classList.remove('selected-suggestion');
+                }
+                if (activeSuggestionIndex > -1) {
+                    suggestionsListElement.children[activeSuggestionIndex].classList.add('selected-suggestion');
+                    suggestionsListElement.children[activeSuggestionIndex].scrollIntoView({ block: 'nearest' });
+                }
+            }
+
             addDirectoryBtn.addEventListener('click', addDirectory);
         }
         
         // Edit directory form handler
         const updateDirectoryBtn = document.getElementById('updateDirectoryBtn');
         if (updateDirectoryBtn) {
-            updateDirectoryBtn.addEventListener('click', updateDirectory);
+            updateDirectoryBtn.addEventListener('click', handleUpdateDirectoryForm);
         }
         
         // Delete prompt confirmation
@@ -774,6 +1120,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
     
     // Updated with more aggressive loading approach
     function loadPrompts() {
+        // console.log('[DEBUG] loadPrompts: Function called.'); // Removed
         const tableBody = document.getElementById('prompts-table-body');
         
         // Show loading indicator
@@ -789,29 +1136,19 @@ Remember that you're part of a team - your specialized work contributes to solvi
         `;
         
         return new Promise((resolve, reject) => {
-            // First try to reload all prompts from the server to ensure we have fresh data
-            fetch('/api/prompts/reload', {
-                method: 'POST'
-            })
-            .then(response => {
-                console.log('Server prompt reload initiated');
-                // Now try to fetch the prompts with retry logic
+            // Directly fetch prompts with retry logic
                 fetchPromptsWithRetry(resolve, reject);
-            })
-            .catch(error => {
-                console.warn('Server reload failed, trying direct fetch:', error);
-                // If server reload fails, still try to fetch prompts directly
-                fetchPromptsWithRetry(resolve, reject);
-            });
         });
     }
     
     // Helper function to fetch prompts with retry logic
     function fetchPromptsWithRetry(resolve, reject, retries = 5) {
+        // console.log('[DEBUG] fetchPromptsWithRetry: Function called.'); // Removed
         const tableBody = document.getElementById('prompts-table-body');
         
-        console.log(`Fetching prompts (${retries} retries left)`);
+        // console.log(`Fetching prompts (${retries} retries left)`); // Kept original log
         
+        // console.log('[DEBUG] fetchPromptsWithRetry: About to fetch /api/prompts/all'); // Removed
         fetch('/api/prompts/all')
             .then(response => {
                 if (!response.ok) {
@@ -832,7 +1169,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
                     return;
                 }
                 
-                prompts = data;
+                allPrompts = data;
                 updatePromptsTable();
                 updateTagFilters();
                 resolve(data); // Resolve the promise with the loaded data
@@ -873,12 +1210,12 @@ Remember that you're part of a team - your specialized work contributes to solvi
         const tableBody = document.getElementById('prompts-table-body');
         
         try {
-            if (!Array.isArray(prompts)) {
+            if (!Array.isArray(allPrompts)) {
                 throw new Error('Prompts data is not an array');
             }
             
             // Filter prompts based on current filters
-            let filteredPrompts = prompts;
+            let filteredPrompts = allPrompts;
             
             if (currentFilter.type !== 'all') {
                 // Filter based on composite status instead of prompt_type
@@ -910,13 +1247,26 @@ Remember that you're part of a team - your specialized work contributes to solvi
             }
             
             // Filter out prompts from disabled directories
+            console.log('[updatePromptsTable] Global directories before filtering:', JSON.parse(JSON.stringify(directories)));
             const enabledDirectories = directories
                 .filter(dir => dir.enabled)
-                .map(dir => dir.path);
+                .map(dir => {
+                    let path = dir.path;
+                    if (path.endsWith('/')) {
+                        path = path.slice(0, -1);
+                    }
+                    return path;
+                });
+            console.log('[updatePromptsTable] Normalized enabled directory paths:', enabledDirectories);
             
-            filteredPrompts = filteredPrompts.filter(prompt =>
-                enabledDirectories.includes(prompt.directory)
-            );
+            filteredPrompts = filteredPrompts.filter(prompt => {
+                const promptDir = prompt.directory;
+                const isIncluded = enabledDirectories.includes(promptDir);
+                if (!isIncluded) {
+                    console.log(`[updatePromptsTable] Prompt '${prompt.id}' from directory '${promptDir}' is NOT IN enabled directories:`, enabledDirectories);
+                }
+                return isIncluded;
+            });
             
             // Sort based on current sort settings using stableSort for a stable sort algorithm
             filteredPrompts = stableSort(filteredPrompts, (a, b) => {
@@ -982,6 +1332,8 @@ Remember that you're part of a team - your specialized work contributes to solvi
             // Add prompts to table
             filteredPrompts.forEach(prompt => {
                 const row = document.createElement('tr');
+                row.dataset.promptId = prompt.unique_id; // Add dataset for unique_id
+                row.classList.add('prompt-row');         // Add class for easy selection
                 
                 // Directory cell
                 const dirCell = document.createElement('td');
@@ -991,10 +1343,8 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 // ID cell
                 const idCell = document.createElement('td');
                 const idLink = document.createElement('a');
-                // Use unique_id for the href if available to avoid conflicts
-                const linkId = prompt.unique_id || prompt.id;
-                idLink.href = `/prompts/${encodeURIComponent(linkId)}`;
-                // Still display the normal ID to the user
+                // Always use the regular ID for consistency
+                idLink.href = `/prompts/${encodeURIComponent(prompt.id)}`;
                 idLink.textContent = prompt.id;
                 // Add a title with the directory for clarity
                 idLink.title = `${prompt.id} (in ${prompt.directory_name || prompt.directory})`;
@@ -1062,6 +1412,13 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 
                 tableBody.appendChild(row);
             });
+            
+            // ... inside updatePromptsTable, after filtering and before rendering ...
+            const promptsCountSpan = document.getElementById('prompts-count');
+            if (promptsCountSpan) {
+                const denominator = typeof window.totalPromptCount === 'number' ? window.totalPromptCount : allPrompts.length;
+                promptsCountSpan.textContent = `(${filteredPrompts.length}/${denominator})`;
+            }
         } catch (error) {
             console.error('Error updating prompts table:', error);
             tableBody.innerHTML = `
@@ -1077,6 +1434,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
     
     // Updated to return a Promise for better initialization handling
     function loadDirectories() {
+        // console.log('[DEBUG] loadDirectories: Function called.'); // Removed
         const tableBody = document.getElementById('directories-table-body');
         
         // Show loading indicator
@@ -1092,6 +1450,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
         `;
         
         return new Promise((resolve, reject) => {
+            // console.log('[DEBUG] loadDirectories: About to fetch /api/prompts/directories/all'); // Removed
             fetch('/api/prompts/directories/all')
                 .then(response => {
                     if (!response.ok) {
@@ -1106,7 +1465,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
                     return updateDirectoriesUI().then(() => {
                         // After successfully loading directories, trigger a prompts reload
                         // to ensure prompts table is populated
-                        if (directories.length > 0 && prompts.length === 0) {
+                        if (directories.length > 0 && allPrompts.length === 0) {
                             console.log("Found directories but no prompts - initiating automatic prompts reload");
                             return loadPrompts()
                                 .then(() => console.log("Successfully reloaded prompts after directory load"))
@@ -1152,7 +1511,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
         
         // Collect all unique tags
         const tags = new Set();
-        prompts.forEach(prompt => {
+        allPrompts.forEach(prompt => {
             if (prompt.tags) {
                 prompt.tags.forEach(tag => tags.add(tag));
             }
@@ -1350,6 +1709,13 @@ Remember that you're part of a team - your specialized work contributes to solvi
             // Update directory select in the New Prompt modal
             populateDirectorySelect('promptDirectory');
             
+            // ... inside updateDirectoriesUI, after rendering all rows ...
+            const directoriesCountSpan = document.getElementById('directories-count');
+            if (directoriesCountSpan) {
+                const enabledCount = directories.filter(dir => dir.enabled).length;
+                directoriesCountSpan.textContent = `(${enabledCount}/${directories.length})`;
+            }
+            
             resolve();
         });
     }
@@ -1357,6 +1723,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
     // Function to show the edit directory modal
     function showEditDirectoryModal(directory) {
         document.getElementById('editDirectoryPath').value = directory.path;
+        document.getElementById('displayDirectoryPath').textContent = directory.path;
         document.getElementById('editDirectoryName').value = directory.name;
         document.getElementById('editDirectoryDescription').value = directory.description || '';
         
@@ -1366,7 +1733,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
     }
     
     // Function to update directory
-    function updateDirectory() {
+    function handleUpdateDirectoryForm() {
         const path = document.getElementById('editDirectoryPath').value;
         const name = document.getElementById('editDirectoryName').value.trim();
         const description = document.getElementById('editDirectoryDescription').value.trim();
@@ -1386,7 +1753,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
         // Show loading toast
         showToast('Updating directory...', 'info');
         
-        // Use the imported function from directory_manager.js
+        // Use the imported function from directory_manager.js (should now be the global one)
         updateDirectory(path, directoryData)
             .then(data => {
                 // Update directory in local state
@@ -1472,7 +1839,6 @@ Remember that you're part of a team - your specialized work contributes to solvi
             document.getElementById('promptId').value = '';
             document.getElementById('promptDescription').value = '';
             document.getElementById('promptTags').value = '';
-            document.getElementById('promptRole').value = '';
             
             // Show toast
             showToast('Prompt created successfully');

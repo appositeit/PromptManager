@@ -5,15 +5,14 @@ This module provides FastAPI routes for the web interface to manage sessions,
 including rendering session pages and connecting to the Coordinator API.
 """
 
-from fastapi import APIRouter, HTTPException, Request, Depends, Form
+from fastapi import APIRouter, HTTPException, Request, Depends, WebSocket, WebSocketDisconnect, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 import httpx
-from typing import Dict, Any, Optional
-import os
+from typing import Dict, Any, List, Optional, Union
 from datetime import datetime
-from pydantic import BaseModel
-import json
+from src.services.session import get_session_service
+from src.services.prompt_service import PromptService
 
 # Initialize templates
 templates = Jinja2Templates(directory="src/templates")
@@ -69,7 +68,7 @@ async def get_active_sessions() -> Dict[str, Any]:
             response = await client.get(f"{API_BASE_URL}/sessions/active")
             response.raise_for_status()
             return response.json()
-        except Exception as e:
+        except Exception:
             # Just return empty list on error
             return []
 
@@ -87,7 +86,6 @@ async def create_session(request: Request):
         body = await request.json()
         
         # Use the session service to create a session
-        from services.session import get_session_service
         session_service = get_session_service()
         
         # Create the session
@@ -107,7 +105,6 @@ async def start_session(session_id: str):
     """
     try:
         # Use the session service to update session status
-        from services.session import get_session_service
         session_service = get_session_service()
         
         # Update session status
@@ -132,7 +129,6 @@ async def stop_session(session_id: str):
     """
     try:
         # Use the session service to update session status
-        from services.session import get_session_service
         session_service = get_session_service()
         
         # Update session status
@@ -160,7 +156,6 @@ async def send_message(session_id: str, request: Request):
         body = await request.json()
         
         # Use the session service to add the message
-        from services.session import get_session_service
         session_service = get_session_service()
         
         # Add the message
@@ -238,7 +233,6 @@ async def list_sessions():
     """List all sessions."""
     try:
         # Use the session service to list sessions
-        from services.session import get_session_service
         session_service = get_session_service()
         
         # List all sessions
@@ -254,7 +248,6 @@ async def list_active_sessions():
     """List active sessions (running or initialized)."""
     try:
         # Use the session service to list active sessions
-        from services.session import get_session_service
         session_service = get_session_service()
         
         # List active sessions
@@ -270,7 +263,6 @@ async def get_session_messages(session_id: str):
     """Get messages for a session."""
     try:
         # Use the session service to get session messages
-        from services.session import get_session_service
         session_service = get_session_service()
         
         # Get session messages
@@ -279,26 +271,6 @@ async def get_session_messages(session_id: str):
         return messages
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting session messages: {str(e)}")
-
-
-@router.get("/api/sessions/{session_id}", status_code=200)
-async def get_session(session_id: str):
-    """Get a session by ID."""
-    try:
-        # Use the session service to get the session
-        from services.session import get_session_service
-        session_service = get_session_service()
-        
-        # Get the session
-        session = session_service.get_session(session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-        
-        return session
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting session: {str(e)}")
 
 
 # Web UI Routes
@@ -354,5 +326,4 @@ async def get_session_page_ui(request: Request, session_id: str):
 @router.get("/", response_class=HTMLResponse)
 async def get_home_page(request: Request):
     """Redirect to the prompt management page."""
-    from fastapi.responses import RedirectResponse
     return RedirectResponse(url="/manage/prompts")

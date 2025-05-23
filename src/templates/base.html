@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Prompt Manager{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/img/logo.svg">
     <!-- CSS Dependencies -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
@@ -33,10 +34,17 @@
     <div class="container-fluid p-0">
         <header class="bg-primary text-white py-3 px-4 d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center">
-                <h3 class="m-0">Prompt Manager: {% block header_title %}Prompt Management{% endblock %}</h3>
+                <a href="/manage/prompts" class="pm-logo-link me-3">
+                    <img src="/static/img/pm_logo.png" alt="Prompt Manager Home" id="pm-header-logo">
+                </a>
+                <h3 class="m-0">{% block header_title %}Prompt Management{% endblock %}</h3>
             </div>
             <div>
-                {% block header_actions %}{% endblock %}
+                {% block header_actions %}
+                    <button class="btn btn-outline-info ms-2" id="page-help-btn" title="Page Help">
+                        <i class="bi bi-question-circle"></i>
+                    </button>
+                {% endblock %}
             </div>
         </header>
         
@@ -79,58 +87,44 @@
             </div>
         </div>
     </div>
+
+    <!-- Help Modal -->
+    <div class="modal fade" id="help-modal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="helpModalLabel">Page Help</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="help-modal-body">
+                    {% block modal_help_content %}
+                    <p>Help content for this page is not yet available.</p>
+                    {% endblock %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% block page_specific_modals %}{% endblock %}
     {% endblock %}
     
     <script>
         // Initialize dayjs relativeTime plugin
         dayjs.extend(dayjs_plugin_relativeTime);
         
-        // Utility function to show a toast message
-        function showToast(message, type = 'success') {
-            // Check if there's already a toast container
-            let toastContainer = document.querySelector('.toast-container');
-            
-            // Create container if it doesn't exist
-            if (!toastContainer) {
-                toastContainer = document.createElement('div');
-                toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-                document.body.appendChild(toastContainer);
+        document.addEventListener('DOMContentLoaded', function () {
+            const helpButton = document.getElementById('page-help-btn');
+            if (helpButton) {
+                const helpModal = new bootstrap.Modal(document.getElementById('help-modal'));
+                helpButton.addEventListener('click', function () {
+                    helpModal.show();
+                });
             }
-            
-            // Create toast
-            const toastElement = document.createElement('div');
-            toastElement.className = `toast align-items-center text-white bg-${type} border-0`;
-            toastElement.setAttribute('role', 'alert');
-            toastElement.setAttribute('aria-live', 'assertive');
-            toastElement.setAttribute('aria-atomic', 'true');
-            
-            // Create inner toast content
-            toastElement.innerHTML = `
-                <div class="d-flex">
-                    <div class="toast-body">
-                        ${message}
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-            `;
-            
-            // Add to container
-            toastContainer.appendChild(toastElement);
-            
-            // Create and show toast
-            const toast = new bootstrap.Toast(toastElement, {
-                autohide: true,
-                delay: 3000
-            });
-            toast.show();
-            
-            // Clean up after hiding
-            toastElement.addEventListener('hidden.bs.toast', function() {
-                toastElement.remove();
-            });
-        }
+        });
     </script>
     
-    {% block extra_js %}{% endblock %}
+    {% block page_specific_js %}{% endblock %}
 </body>
 </html>

@@ -5,7 +5,6 @@ This module provides a FastAPI router for the prompt management API.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
 from typing import List, Dict, Any, Optional
 import logging
 import json
@@ -254,5 +253,5 @@ async def websocket_prompt(
         logger.error(f"WebSocket error: {str(e)}")
         try:
             await websocket.close(code=1011, reason=str(e))
-        except:
+        except Exception:
             pass

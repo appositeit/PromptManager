@@ -5,9 +5,8 @@ This module provides a compatibility layer that redirects fragment API calls
 to the prompt API.
 """
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
-from starlette.routing import NoMatchFound
 
 # Create router with the same prefix as the original fragments router
 router = APIRouter(prefix="/api/prompts/fragments", tags=["fragments"], include_in_schema=False)

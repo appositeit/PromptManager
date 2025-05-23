@@ -9,8 +9,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api", tags=["sessions"])
 
@@ -107,14 +107,16 @@ def get_session(session_id: str) -> Optional[Dict]:
 
 
 def create_session(config: SessionConfig) -> Dict:
-    """Create a new session."""
-    data_dir = get_data_dir()
-    
-    # Generate a session ID
+    """Create a new session and save it to disk."""
+    # Generate session ID
     session_id = str(uuid.uuid4())
     
-    # Create the session directory
-    session_dir = data_dir.parent / session_id
+    # Get data directory
+    data_dir = get_data_dir()
+    
+    # Create session directory
+    session_dir_name = config.directory if config.directory else session_id
+    session_dir = data_dir.parent / session_dir_name
     session_dir.mkdir(parents=True, exist_ok=True)
     
     # Create subdirectories
@@ -124,7 +126,7 @@ def create_session(config: SessionConfig) -> Dict:
     
     # Create session data
     now = datetime.now().isoformat()
-    session = {
+    session: Dict[str, Any] = {
         "id": session_id,
         "name": config.name,
         "description": config.description,

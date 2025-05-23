@@ -5,8 +5,7 @@ This module provides functionality for initializing and managing prompt director
 """
 
 import os
-from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from loguru import logger
 
 # Default prompt directories

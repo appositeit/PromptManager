@@ -607,54 +607,53 @@
     }
     
     function setupWebSocket() {
-        // Close existing connection if any
-        if (websocket && websocket.readyState !== WebSocket.CLOSED) {
-            websocket.close();
-        }
-        
-        // Create new WebSocket connection
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/api/prompts/ws/fragments/${fragmentId}`;
-        console.log(`Connecting to WebSocket at: ${wsUrl}`);
-        
-        websocket = new WebSocket(wsUrl);
-        
-        websocket.onopen = function(event) {
-            console.log('WebSocket connection established');
-        };
-        
-        websocket.onmessage = function(event) {
-            const data = JSON.parse(event.data);
+        try {
+            // url_for for a WebSocket route in FastAPI Jinja2 templates
+            // often returns the full URL (e.g., "ws://host/path").
+            const wsUrl = "{{ url_for('ws_fragment', fragment_id=fragment_id) }}";
             
-            if (data.action === 'initial') {
-                // Initial content load, already handled by REST API
-            } else if (data.action === 'update_status') {
-                if (data.success) {
-                    document.getElementById('fragment-status').textContent = 'Saved';
-                    document.getElementById('fragment-status').classList.remove('bg-info', 'bg-warning');
-                    document.getElementById('fragment-status').classList.add('bg-success');
-                    document.getElementById('fragment-last-updated').textContent = 'Updated ' + dayjs(data.timestamp).fromNow();
-                    unsavedChanges = false;
-                } else {
-                    document.getElementById('fragment-status').textContent = 'Error Saving';
-                    document.getElementById('fragment-status').classList.remove('bg-info');
-                    document.getElementById('fragment-status').classList.add('bg-danger');
+            console.log(`Connecting to fragment WebSocket at: ${wsUrl}`);
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function(event) {
+                console.log('WebSocket connection established');
+            };
+            
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                if (data.action === 'initial') {
+                    // Initial content load, already handled by REST API
+                } else if (data.action === 'update_status') {
+                    if (data.success) {
+                        document.getElementById('fragment-status').textContent = 'Saved';
+                        document.getElementById('fragment-status').classList.remove('bg-info', 'bg-warning');
+                        document.getElementById('fragment-status').classList.add('bg-success');
+                        document.getElementById('fragment-last-updated').textContent = 'Updated ' + dayjs(data.timestamp).fromNow();
+                        unsavedChanges = false;
+                    } else {
+                        document.getElementById('fragment-status').textContent = 'Error Saving';
+                        document.getElementById('fragment-status').classList.remove('bg-info');
+                        document.getElementById('fragment-status').classList.add('bg-danger');
+                    }
+                } else if (data.action === 'expanded') {
+                    document.getElementById('fragment-expanded').innerHTML = marked.parse(data.content);
+                    updateDependenciesList(data.dependencies);
                 }
-            } else if (data.action === 'expanded') {
-                document.getElementById('fragment-expanded').innerHTML = marked.parse(data.content);
-                updateDependenciesList(data.dependencies);
-            }
-        };
-        
-        websocket.onclose = function(event) {
-            console.log('WebSocket connection closed');
-            // Attempt to reconnect after a delay
-            setTimeout(setupWebSocket, 2000);
-        };
-        
-        websocket.onerror = function(error) {
-            console.error('WebSocket error:', error);
-        };
+            };
+            
+            socket.onclose = function(event) {
+                console.log('WebSocket connection closed');
+                // Attempt to reconnect after a delay
+                setTimeout(setupWebSocket, 2000);
+            };
+            
+            socket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        } catch (error) {
+            console.error('Error setting up WebSocket:', error);
+        }
     }
     
     function showCreateFragmentModal() {

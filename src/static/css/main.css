@@ -209,3 +209,67 @@ a:hover {
     right: 20px;
     z-index: 1060;
 }
+
+/* Custom Toast Styling */
+.toast-success-subtle {
+  background-color: #d1e7dd !important; /* Light green */
+  color: #0a3622 !important; /* Dark green text */
+  border: 1px solid #a3cfbb !important; /* A slightly darker border for definition */
+}
+
+.toast-success-subtle .toast-header {
+  background-color: #c1dfd2 !important; /* Slightly darker header for the subtle toast */
+  color: #0a3622 !important;
+  border-bottom: 1px solid #a3cfbb !important;
+}
+
+/* Ensure close button is visible on subtle toast */
+.toast-success-subtle .toast-header .btn-close {
+  /* Bootstrap's btn-close-dark class, added in JS, will handle the styling */
+}
+
+/* Reduce padding in table cells for more compact tables */
+table.table td,
+table.table th {
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+}
+
+/* Header Logo Styling */
+#pm-header-logo {
+  height: 54px; /* Adjust as needed */
+  width: auto;
+  vertical-align: middle; /* Align with the text in the h3 */
+}
+
+.pm-logo-link {
+  display: inline-flex; /* Helps with vertical alignment */
+  align-items: center;
+  /* margin-right is already on the element via me-3 class in base.html */
+}
+
+/* Directories Table Column Width Optimization */
+#directories-table {
+    table-layout: auto;
+    width: 100%;
+}
+
+#directories-table th:nth-child(1), /* Name column header */
+#directories-table td:nth-child(1) { /* Name column cells */
+    min-width: 150px; /* Adjust as needed */
+    overflow-wrap: break-word; /* Allow wrapping for long names */
+}
+
+#directories-table th:nth-child(3), /* Path column header */
+#directories-table td:nth-child(3) { /* Path column cells */
+    min-width: 250px; /* Increased min-width for path */
+    overflow-wrap: break-word;
+    word-break: break-all; /* Force break for very long non-spacing paths */
+}
+
+#directories-table th:nth-child(4), /* Description column header */
+#directories-table td:nth-child(4) { /* Description column cells */
+    /* Allow description to be narrower if content is short or empty */
+    /* No specific min-width, let it shrink if needed */
+    overflow-wrap: break-word;
+}

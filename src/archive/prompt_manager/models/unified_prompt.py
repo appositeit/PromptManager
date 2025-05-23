@@ -6,7 +6,7 @@ This module provides a data model for prompts in the system.
 
 from enum import Enum
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import os
 import json
 from datetime import datetime

@@ -9,9 +9,8 @@ import os
 import re
 import json
 import yaml
-from typing import Dict, List, Optional, Set, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timezone
-from pathlib import Path
 from loguru import logger
 
 
@@ -47,7 +46,7 @@ class Resource:
                 directory: str,
                 content: str,
                 description: Optional[str] = None,
-                tags: List[str] = None,
+                tags: Optional[List[str]] = None,
                 created_at: Optional[datetime] = None,
                 updated_at: Optional[datetime] = None):
         """
@@ -96,8 +95,8 @@ class BaseResourceService:
             config_file: Path to configuration file for saved directories
             auto_load: Whether to automatically load resources on initialization
         """
-        self.directories = []
-        self.resources = {}
+        self.directories: List[ResourceDirectory] = []
+        self.resources: Dict[str, Resource] = {}
         self.config_file = config_file
         
         # Regular expression for inclusion markers
@@ -123,6 +122,10 @@ class BaseResourceService:
     
     def _load_directory_config(self) -> List[Dict]:
         """Load directory configuration from disk."""
+        if not self.config_file:
+            logger.debug("No config file specified for loading, returning empty list")
+            return []
+
         logger.debug(f"Loading directory configuration from {self.config_file}")
         
         if not os.path.exists(self.config_file):
@@ -232,7 +235,7 @@ class BaseResourceService:
         logger.debug(f"Removing directory: {path}")
         
         initial_resource_count = len(self.resources)
-        initial_directory_count = len(self.directories)
+        # initial_directory_count = len(self.directories) # Unused variable
         
         # Find directory index
         directory_idx = None
@@ -277,7 +280,7 @@ class BaseResourceService:
         Returns:
             Tuple of (front matter dict, content without front matter)
         """
-        front_matter = {}
+        front_matter: Dict[str, Any] = {}
         
         if not content.startswith('---'):
             return front_matter, content

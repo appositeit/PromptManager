@@ -6,14 +6,14 @@ prompts from the filesystem.
 """
 
 import os
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, List, Optional, Set, Tuple
 from datetime import datetime, timezone
 from pathlib import Path
 from loguru import logger
 
 from src.models.unified_prompt import Prompt, PromptType
 from src.models.prompt import PromptDirectory
-from src.services.base import BaseResourceService, ResourceDirectory
+from src.services.base import BaseResourceService
 
 
 class PromptService(BaseResourceService):
@@ -31,8 +31,9 @@ class PromptService(BaseResourceService):
             base_directories: List of directories containing prompts
             auto_load: Whether to automatically load prompts on initialization
         """
-        super().__init__(base_directories, self.CONFIG_FILE, False)
-        self.prompts = {}  # Store prompts by ID
+        super().__init__(base_directories, self.CONFIG_FILE, auto_load=False)
+        
+        self.prompts: Dict[str, Prompt] = {}  # Store prompts by ID
         
         if auto_load:
             self.load_all_prompts()
@@ -46,13 +47,13 @@ class PromptService(BaseResourceService):
             enabled=True
         )
     
-    @property
+    @property # type: ignore[override]
     def resources(self) -> Dict[str, Prompt]:
         """Get all prompts."""
         return self.prompts
     
     @resources.setter
-    def resources(self, value):
+    def resources(self, value): # type: ignore[override]
         """Set all prompts."""
         self.prompts = value
         
@@ -339,7 +340,7 @@ class PromptService(BaseResourceService):
                     directory: str,
                     prompt_type: PromptType = PromptType.STANDARD,
                     description: Optional[str] = None,
-                    tags: List[str] = None) -> Prompt:
+                    tags: Optional[List[str]] = None) -> Prompt:
         """
         Create a new prompt.
         

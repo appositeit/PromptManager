@@ -1,20 +1,23 @@
 """
 Unified prompt model.
 
-This module defines a unified model for prompts, replacing the separate fragment
-and template models with a simpler, more consistent approach.
+This module defines a unified model for prompts with proper ID uniqueness.
+The new schema ensures that prompt IDs are globally unique while maintaining
+clear separation between display names and internal identifiers.
 """
 
-from typing import Dict, List, Optional, Set
-from datetime import datetime, timezone
-from pydantic import BaseModel, Field
+from typing import List, Optional
+from datetime import datetime
+from pydantic import BaseModel, Field, validator
 from pathlib import Path
+import re
 
 
 class Prompt(BaseModel):
-    """A unified prompt model."""
+    """A unified prompt model with proper ID uniqueness."""
     
-    id: str
+    id: str  # Full path: "directory_name/filename_stem" - globally unique
+    name: str  # Display name: just the filename stem - can be duplicated
     filename: str
     directory: str
     content: str
@@ -22,35 +25,87 @@ class Prompt(BaseModel):
     tags: List[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
-    unique_id: Optional[str] = None
+    unique_id: Optional[str] = None  # Deprecated, for backward compatibility
     
     @property
     def full_path(self) -> str:
-        """Get the full path to the prompt file."""
+        """Get the full filesystem path."""
         return str(Path(self.directory) / self.filename)
     
     @property
     def is_composite(self) -> bool:
-        """Check if this prompt is a composite prompt."""
-        # Since we removed the prompt_type field, we'll determine if it's composite
-        # by checking if the content contains inclusion markers
+        """Check if this prompt contains inclusions."""
         return "[[" in self.content and "]]" in self.content
+    
+    @classmethod
+    def generate_id(cls, directory: str, name: str) -> str:
+        """Generate a unique ID from directory and name.
+        
+        Args:
+            directory: Full directory path
+            name: Prompt name (filename stem)
+            
+        Returns:
+            Unique ID in format "directory_name/name"
+        """
+        # Extract the last component of the directory path for the ID
+        dir_path = Path(directory)
+        base_name = dir_path.name or "root"  # Handle root directory edge case
+        
+        # Clean up any problematic characters in the directory name
+        clean_dir_name = re.sub(r'[^\w\-_]', '_', base_name)
+        clean_name = re.sub(r'[^\w\-_]', '_', name)
+        
+        return f"{clean_dir_name}/{clean_name}"
+    
+    @classmethod
+    def parse_id(cls, prompt_id: str) -> tuple[str, str]:
+        """Parse a prompt ID to extract directory name and prompt name.
+        
+        Args:
+            prompt_id: The full prompt ID (e.g., "general/restart")
+            
+        Returns:
+            Tuple of (directory_name, prompt_name)
+        """
+        if '/' in prompt_id:
+            return prompt_id.split('/', 1)
+        else:
+            # Handle legacy IDs that might not have directory prefix
+            return "", prompt_id
     
     @property
     def get_unique_id(self) -> str:
-        """Generate a unique ID that includes both directory and filename."""
-        if self.unique_id:
-            return self.unique_id
-        # Create a unique ID using full directory path and filename
-        # Include more of the path to ensure uniqueness
-        dir_path = Path(self.directory)
-        # Use the last two parts of the path if available to avoid collisions
-        if len(dir_path.parts) >= 2:
-            dir_part = f"{dir_path.parts[-2]}_{dir_path.parts[-1]}"
-        else:
-            dir_part = dir_path.name
+        """Backward compatibility - return the new ID."""
+        return self.id
+    
+    @validator('id')
+    def validate_id_format(cls, v):
+        """Ensure ID follows the expected format."""
+        if not v:
+            raise ValueError("ID cannot be empty")
         
-        # Clean up any special characters that might cause issues
-        dir_part = dir_part.replace("/", "_").replace("\\", "_").replace(" ", "_")
+        # Allow both new format (dir/name) and legacy format (name only) during transition
+        if '/' in v:
+            parts = v.split('/')
+            if len(parts) != 2 or not all(parts):
+                raise ValueError("ID must be in format 'directory/name' with non-empty parts")
         
-        return f"{dir_part}_{self.id}"
+        return v
+    
+    @validator('name')
+    def validate_name(cls, v):
+        """Ensure name is valid."""
+        if not v or not v.strip():
+            raise ValueError("Name cannot be empty")
+        return v.strip()
+    
+    def update_id_from_directory_and_name(self):
+        """Update the ID based on current directory and name.
+        
+        This method should be called when directory or name changes
+        to ensure ID remains consistent.
+        """
+        self.id = self.generate_id(self.directory, self.name)
+        # Update unique_id for backward compatibility
+        self.unique_id = self.id

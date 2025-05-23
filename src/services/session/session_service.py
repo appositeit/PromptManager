@@ -6,8 +6,6 @@ part of the coordinator project. For now it provides stub functionality for
 compatibility until the session management can be properly integrated or removed.
 """
 
-import os
-import json
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone
 import uuid

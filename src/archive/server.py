@@ -11,12 +11,12 @@ import re
 import asyncio
 import traceback
 from jinja2 import Environment, FileSystemLoader
-from typing import Optional
 from pathlib import Path
 import argparse
 import uvicorn
-from datetime import datetime, timezone
-from fastapi import FastAPI, Depends, HTTPException, Request
+from datetime import datetime
+from typing import Optional
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
@@ -25,6 +25,10 @@ import starlette.routing
 from loguru import logger
 import logging
 
+from src.api.unified_router import router as api_router
+from src.api.session_routes import router as session_router
+from src.services.prompt_service import PromptService
+
 # Create the application
 app = FastAPI(
     title="Prompt Management System",
@@ -32,14 +36,8 @@ app = FastAPI(
     version="0.1.0"
 )
 
-from src.api.unified_router import router as api_router
-from src.api.session_routes import router as session_router
-from src.services.prompt_service import PromptService
-from src.models.unified_prompt import Prompt, PromptType
-
-
 # Set up logging
-def setup_logging(log_file: str = None):
+def setup_logging(log_file: Optional[str] = None):
     """Set up logging configuration."""
     # Remove default logger
     logger.remove()
@@ -125,7 +123,7 @@ async def log_requests(request: Request, call_next):
         # Special handling for route errors
         logger.error(f"Route error: {str(e)}")
         if "static" in str(e):
-            logger.error(f"Static file error - check template references for static files")
+            logger.error("Static file error - check template references for static files")
             # Try to recover and show static files directly
             try:
                 # Extract the path from the error
@@ -157,7 +155,6 @@ async def shutdown_server(request: Request):
     """
     from fastapi.responses import JSONResponse
     from fastapi.background import BackgroundTasks
-    import asyncio
     import signal
     import os
     
@@ -361,7 +358,7 @@ async def template_redirect(request: Request, template_id: str):
 @app.get("/manage/prompts")
 async def manage_prompts(request: Request):
     """Render the prompt management page."""
-    logger.debug(f"Loading template: manage_prompts.html")
+    logger.debug("Loading template: manage_prompts.html")
     response = templates.TemplateResponse(
         "manage_prompts.html", 
         {"request": request, "timestamp": datetime.now().isoformat()}
@@ -388,7 +385,7 @@ async def manage_templates_redirect(request: Request):
 @app.get("/settings")
 async def settings(request: Request):
     """Render the settings page."""
-    logger.debug(f"Loading template: settings.html")
+    logger.debug("Loading template: settings.html")
     response = templates.TemplateResponse(
         "settings.html", 
         {"request": request, "timestamp": datetime.now().isoformat()}
@@ -400,7 +397,7 @@ async def settings(request: Request):
 @app.get("/debug/websocket")
 async def websocket_test_page(request: Request):
     """Render the WebSocket test page."""
-    logger.debug(f"Loading template: websocket_test.html")
+    logger.debug("Loading template: websocket_test.html")
     response = templates.TemplateResponse(
         "websocket_test.html", 
         {"request": request, "timestamp": datetime.now().isoformat()}
@@ -411,7 +408,7 @@ async def websocket_test_page(request: Request):
 @app.get("/debug/search-replace")
 async def search_replace_test_page(request: Request):
     """Render the search and replace test page."""
-    logger.debug(f"Loading template: search_replace_test.html")
+    logger.debug("Loading template: search_replace_test.html")
     response = templates.TemplateResponse(
         "search_replace_test.html", 
         {"request": request, "timestamp": datetime.now().isoformat()}

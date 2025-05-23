@@ -7,7 +7,7 @@ prompt fragments from the filesystem.
 
 import os
 import re
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Any
 from datetime import datetime, timezone
 from pathlib import Path
 import yaml
@@ -215,7 +215,7 @@ class FragmentService:
             
             # Add front matter if we have description or tags
             if fragment.description or fragment.tags:
-                front_matter = {}
+                front_matter: Dict[str, Any] = {}
                 
                 if fragment.description:
                     front_matter['description'] = fragment.description

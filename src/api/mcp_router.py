@@ -2,18 +2,19 @@
 API routes for MCP server management.
 """
 
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, HTTPException
 
-from coordinator.prompts.models.mcp import MCPServerConfig, RoleMCPConfig
-from coordinator.prompts.services.mcp import MCPServerService
-
+# Import models and service from the service module
+from src.services.mcp import MCPServerService, MCPServerConfig, RoleMCPConfig
+# Note: MCPToolConfig is defined in services.mcp but not directly used in this router's responses/requests yet.
 
 # Create the router
 router = APIRouter(prefix="/api/mcp", tags=["mcp"])
 
-# Create the service
-mcp_service = MCPServerService()
+# Create the service instance using the imported service
+# This will use the persistent service that saves to JSON files.
+mcp_service = MCPServerService() # Initialize with default data_dir behavior from the service
 
 
 @router.get("/servers", response_model=List[MCPServerConfig])

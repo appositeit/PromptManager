@@ -4,14 +4,14 @@ Simple server for the prompt manager.
 This is a simpler version of the server that helps debug import issues.
 """
 
-import os
-import sys
 from pathlib import Path
-import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+
+from src.api.router import router as prompts_router
+from src.api.fragments_router import router as fragments_router
 
 # Create app
 app = FastAPI(
@@ -37,10 +37,6 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 
 # Set up templates
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-
-# Import routers
-from src.api.router import router as prompts_router
-from src.api.fragments_router import router as fragments_router
 
 # Include routers
 app.include_router(prompts_router)

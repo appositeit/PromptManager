@@ -7,7 +7,7 @@ from loguru import logger
 
 router = APIRouter(tags=["debug"])
 
-@router.websocket("/api/ws/test")
+@router.websocket("/api/ws/test", name="ws_debug")
 async def websocket_test(websocket: WebSocket):
     """Test WebSocket endpoint for direct testing at '/api/ws/test'."""
     try:
@@ -37,7 +37,7 @@ async def websocket_test(websocket: WebSocket):
     finally:
         logger.info("WebSocket test connection closed")
 
-@router.websocket("/api/debug/ws/test")
+@router.websocket("/api/debug/ws/test", name="ws_debug_test_connection")
 async def test_websocket(websocket: WebSocket):
     """Test WebSocket endpoint for connection diagnosis."""
     logger.info(f"WebSocket test connection from {websocket.client}")

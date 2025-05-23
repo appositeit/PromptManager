@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Prompt Editor{% endblock %}
+{% block title %}Prompt Editor: {{ template_safe_prompt_id }}{% endblock %}
 
 {% block extra_js_head %}
 <script src="/static/js/utils.js"></script>
+<script src="/static/js/search-replace.js"></script>
 {% endblock %}
 
-{% block header_title %}{{ prompt_id }}{% endblock %}
+{% block header_title %}{{ template_safe_prompt_id }}{% endblock %}
 
 {% block header_actions %}
 <div class="btn-group me-2">
@@ -24,7 +25,7 @@
     <button id="search-replace-btn" class="btn btn-outline-primary" title="Search and Replace (Alt+R)">
         <i class="bi bi-search"></i> Search/Replace
     </button>
-    <button id="rename-btn" class="btn btn-outline-primary" title="Rename this prompt">
+    <button id="rename-btn" class="btn btn-outline-primary" title="Rename this prompt (Alt+M)">
         <i class="bi bi-pencil-square"></i> Rename
     </button>
     <button id="save-btn" class="btn btn-outline-success min-width-100" title="Save changes (Alt+S)">
@@ -34,11 +35,69 @@
         <i class="bi bi-trash"></i> Delete
     </button>
 </div>
+{{ super() }} {# This will include the help button from base.html #}
+{% endblock %}
+
+{% block modal_help_content %}
+    <h4>Prompt Editor Help ({{ template_safe_prompt_id }})</h4>
+    <p>This page allows you to edit the content, metadata, and view dependencies of a prompt.</p>
+
+    <h5>Keyboard Shortcuts</h5>
+    <table class="table table-sm table-bordered">
+        <thead>
+            <tr><th>Shortcut</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>Alt + S</code></td><td>Save prompt content and metadata</td></tr>
+            <tr><td><code>Alt + C</code></td><td>Copy prompt content (expanded if composite) to clipboard</td></tr>
+            <tr><td><code>Alt + T</code></td><td>Toggle between Raw and Expanded content views</td></tr>
+            <tr><td><code>Alt + R</code></td><td>Open Search/Replace dialog (in Raw Content view)</td></tr>
+            <tr><td><code>Alt + B</code></td><td>Go back to the prompt list</td></tr>
+            <tr><td><code>Alt + M</code></td><td>Open Rename prompt dialog</td></tr>
+            <tr><td><code>Ctrl + Space</code></td><td>(In editor) Show auto-complete for prompt inclusions e.g., <code>[[another_prompt]]</code></td></tr>
+            <tr><td><code>Alt + H</code> or click <i class="bi bi-question-circle"></i></td><td>Show this help dialog</td></tr>
+        </tbody>
+    </table>
+
+    <h5>Functionality</h5>
+    <h6>Main Editor Area:</h6>
+    <ul>
+        <li><strong>Raw Content Tab:</strong> Edit the direct content of the prompt. Use <code>[[prompt_name]]</code> to include other prompts (case-sensitive).</li>
+        <li><strong>Expanded Content Tab:</strong> View the prompt with all inclusions fully expanded (read-only). This is how the prompt will be seen by models/tools that consume it.</li>
+        <li>The editor auto-saves content and metadata changes shortly after you stop typing. The "Save" button provides immediate manual saving.</li>
+    </ul>
+
+    <h6>Sidebar:</h6>
+    <ul>
+        <li><strong>Metadata Card:</strong>
+            <ul>
+                <li><strong>Type Badge:</strong> Automatically updates to 'Standard' or 'Composite' based on whether <code>[[...]]</code> inclusions are present in the raw content.</li>
+                <li><strong>Last Updated:</strong> Timestamp of the last save.</li>
+                <li><strong>Directory:</strong> The directory this prompt belongs to.</li>
+                <li><strong>Description:</strong> A brief, editable description for the prompt.</li>
+                <li><strong>Tags:</strong> Comma-separated tags for categorizing and searching.</li>
+            </ul>
+        </li>
+        <li><strong>Dependencies Card:</strong> Lists all other prompts directly included by this prompt (i.e., prompts referenced as <code>[[dependency_name]]</code>). Click to navigate to the dependency.</li>
+        <li><strong>Referenced By Card:</strong> Lists all other prompts that include this prompt. Click to navigate to the referencing prompt.</li>
+    </ul>
+
+    <h6>Header Buttons:</h6>
+    <ul>
+        <li><strong>Back to List:</strong> Navigates back to the "Manage Prompts" page.</li>
+        <li><strong>Copy:</strong> Copies the prompt content. If the prompt is composite, the fully expanded content is copied. Otherwise, the raw content is copied.</li>
+        <li><strong>Toggle View:</strong> Switches between the "Raw Content" and "Expanded Content" tabs.</li>
+        <li><strong>Search/Replace:</strong> Opens a search and replace dialog for the "Raw Content" editor.</li>
+        <li><strong>Rename:</strong> Allows you to change the ID (name) of the prompt. This will also update references in other prompts if possible.</li>
+        <li><strong>Save:</strong> Manually saves any pending changes to content or metadata. The button provides feedback during the save process.</li>
+        <li><strong>Delete:</strong> Deletes the prompt (with confirmation).</li>
+    </ul>
 {% endblock %}
 
 {% block content %}
 <!-- Hidden element to store prompt ID for JavaScript -->
-<span id="prompt-id" class="d-none">{{ prompt_id }}</span>
+<span id="prompt-id" class="d-none">{{ template_safe_prompt_id }}</span>
+<span id="prompt-true-unique-id" class="d-none">{{ actual_unique_id }}</span>
 
 <div class="container-fluid">
     <div class="row">
@@ -190,8 +249,14 @@
 {% block extra_css %}
 <style>
     /* Make the editor take up maximum vertical space */
+    /* Revert Flexbox changes, go back to direct height on #editor */
+    /* .editor-container { ... } */
+    /* #editor-tabs { ... } */
+    /* .tab-content { ... } */
+    /* #raw-content, #expanded-content { ... } */
+
     #editor {
-        height: calc(85vh - 90px);
+        height: calc(85vh - 90px); /* Original calculation */
         min-height: 600px;
     }
     
@@ -222,6 +287,46 @@
         overflow: visible; /* Remove scrollbar */
         border: 1px solid #dee2e6;
         border-radius: 4px;
+        font-size: 14px; /* Base font size, matches CodeMirror */
+        line-height: 1.6; /* Base line height, matches CodeMirror */
+    }
+    
+    /* Ensure all child elements inherit the base font size and line height by default */
+    #preview * {
+        font-size: inherit;
+        line-height: inherit;
+    }
+    
+    /* Specific styling for headings within the preview to make them proportional */
+    #preview h1 {
+        font-size: 1.8em !important; /* Approx 25px if base is 14px */
+        margin-top: 0.20em; /* Reduced from 0.34em (approx 0.6 * 0.34) */
+        margin-bottom: 0.20em; /* Reduced from 0.34em */
+    }
+    #preview h2 {
+        font-size: 1.5em !important; /* Approx 21px */
+        margin-top: 0.25em; /* Reduced from 0.42em (approx 0.6 * 0.42) */
+        margin-bottom: 0.25em; /* Reduced from 0.42em */
+    }
+    #preview h3 {
+        font-size: 1.17em !important; /* Approx 16.4px */
+        margin-top: 0.30em;  /* Reduced from 0.5em (0.6 * 0.5) */
+        margin-bottom: 0.30em;  /* Reduced from 0.5em */
+    }
+    #preview h4 {
+        font-size: 1em !important; /* Approx 14px */
+        margin-top: 0.40em; /* Reduced from 0.67em (approx 0.6 * 0.67) */
+        margin-bottom: 0.40em; /* Reduced from 0.67em */
+    }
+    #preview h5 {
+        font-size: 0.83em !important; /* Approx 11.6px */
+        margin-top: 0.50em; /* Reduced from 0.84em (approx 0.6 * 0.84) */
+        margin-bottom: 0.50em; /* Reduced from 0.84em */
+    }
+    #preview h6 {
+        font-size: 0.67em !important; /* Approx 9.4px */
+        margin-top: 0.70em; /* Reduced from 1.17em (approx 0.6 * 1.17) */
+        margin-bottom: 0.70em; /* Reduced from 1.17em */
     }
     
     /* Ensure markdown content in preview is properly styled */
@@ -316,1083 +421,658 @@
         background-color: #007bff;
         color: white;
     }
+    
+    /* Ensure the custom hint dropdown is above other elements */
+    .CodeMirror-hints {
+        z-index: 1051; /* Higher than Bootstrap modals (1050) */
+    }
 </style>
 {% endblock %}
 
-{% block extra_js %}
-<script src="/static/js/search-replace.js"></script>
+{% block page_specific_js %}
 <script>
-    // Import utility functions
-    // Use the showToast function from utils.js
-    
-    // Convert markdown to HTML
-    function markdownToHtml(markdown) {
-        if (!markdown) return '';
-        
-        // Simple markdown to HTML conversion
-        return markdown
-            .replace(/\n\n/g, '<br><br>')
-            .replace(/\n/g, '<br>')
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/```([a-z]*)\n([\s\S]*?)\n```/g, '<pre><code class="language-$1">$2</code></pre>')
-            .replace(/`([^`]+)`/g, '<code>$1</code>')
-            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-            .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
-            .replace(/^## (.*?)$/gm, '<h2>$1</h2>')
-            .replace(/^### (.*?)$/gm, '<h3>$1</h3>')
-            .replace(/^#### (.*?)$/gm, '<h4>$1</h4>')
-            .replace(/^##### (.*?)$/gm, '<h5>$1</h5>')
-            .replace(/^###### (.*?)$/gm, '<h6>$1</h6>');
-    }
-    
-    // Format date function
-    function formatDate(dateString) {
-        
-        if (!dateString) return 'Unknown';
-        try {
-            // Try using dayjs if available
-            if (window.dayjs) {
-                return dayjs(dateString).format('YYYY-MM-DD HH:mm:ss');
-            }
-            // Fallback to native Date
-            const date = new Date(dateString);
-            return date.toLocaleString();
-        } catch (error) {
-            console.error('Error formatting date:', error);
-            return dateString;
+    let editor;
+    let currentPromptData = null;
+    const promptId = document.getElementById('prompt-id').textContent;
+    const saveButton = document.getElementById('save-btn');
+    const saveStatusIcon = saveButton ? saveButton.querySelector('i') : null;
+    const originalSaveButtonText = saveButton ? saveButton.innerHTML : '';
+    const descriptionInput = document.getElementById('prompt-description');
+    const tagsInput = document.getElementById('prompt-tags');
+    const isCompositeBadge = document.getElementById('is-composite-badge');
+    const lastUpdatedSpan = document.getElementById('last-updated');
+    const promptDirectorySpan = document.getElementById('prompt-directory');
+    const dependenciesDiv = document.getElementById('dependencies');
+    const referencedByDiv = document.getElementById('referenced-by');
+    const warningsDiv = document.getElementById('warnings');
+    const warningsCard = document.getElementById('warnings-card');
+    const rawContentTab = document.getElementById('raw-tab');
+    const expandedContentTab = document.getElementById('expanded-tab');
+    const rawContentPane = document.getElementById('raw-content');
+    const expandedContentPane = document.getElementById('expanded-content');
+    const editorTabs = document.getElementById('editor-tabs');
+
+    let saveTimeout;
+    let isSaving = false;
+
+    function setSaveButtonState(state, message = '') {
+        if (!saveButton || !saveStatusIcon) return;
+
+        if (state === 'saving') {
+            isSaving = true;
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<i class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></i> Saving...';
+        } else if (state === 'saved') {
+            isSaving = false;
+            saveButton.disabled = false;
+            saveButton.innerHTML = '<i class="bi bi-check-lg"></i> Saved';
+            setTimeout(() => {
+                if (!isSaving) saveButton.innerHTML = originalSaveButtonText;
+            }, 2000);
+        } else if (state === 'error') {
+            isSaving = false;
+            saveButton.disabled = false;
+            saveButton.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Error';
+            // Optionally revert to original after a delay, or require user interaction
+        } else { // idle
+            isSaving = false;
+            saveButton.disabled = false;
+            saveButton.innerHTML = originalSaveButtonText;
         }
     }
-    
-    // Global variables
-    let editor;
-    let promptId = "{{ prompt_id }}";
-    let promptData = null;
-    let socket = null;
-    let expandedContent = "";
-    let dependencies = [];
-    let saveTimeout = null;
-    let isComposite = false;
-    let allPrompts = []; // Store all available prompts for autocomplete
-    let searchReplace = null; // Search and replace functionality
-    
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize CodeMirror editor
-        editor = CodeMirror(document.getElementById('editor'), {
-            mode: 'markdown',
-            theme: 'default',
-            lineNumbers: true,
-            lineWrapping: true,
-            autofocus: true,
-            extraKeys: {
-                "Tab": function(cm) {
-                    // If autocomplete is active, accept selection
-                    if (cm.state.completionActive) {
-                        cm.state.completionActive.pick();
-                        return;
-                    }
-                    // Otherwise, insert a tab
-                    cm.replaceSelection("    ");
-                },
-                "Ctrl-Space": function(cm) {
-                    cm.showHint({ hint: promptHint });
-                },
-                "Alt-T": function(cm) {
-                    toggleView();
-                },
-                "Alt-R": function(cm) {
-                    if (searchReplace && document.getElementById('raw-tab').classList.contains('active')) {
-                        searchReplace.showDialog();
-                    }
-                }
-            }
-        });
-        
-        // Initialize search and replace functionality
-        searchReplace = new SearchReplace(editor);
-        
-        // Setup the custom hint function
-        setupPromptCompletion();
-        
-        // Setup global keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Alt+B for back
-            if (e.altKey && e.key === 'b') {
-                e.preventDefault();
-                window.location.href = '/manage/prompts';
-            }
-            
-            // Alt+T for toggle view (handled in CodeMirror for when editor has focus)
-            if (e.altKey && e.key === 't' && !editor.hasFocus()) {
-                e.preventDefault();
-                toggleView();
-            }
-            
-            // Alt+C for copy content
-            if (e.altKey && e.key === 'c') {
-                e.preventDefault();
-                copyPromptContent();
-            }
-            
-            // Alt+S for save
-            if (e.altKey && e.key === 's') {
-                e.preventDefault();
-                document.getElementById('save-btn').click();
-            }
-        });
-        
-        // Load prompt data
-        loadPromptData();
-        
-        // Set up WebSocket connection for real-time editing
-        setupWebSocket();
-        
-        // Set up event handlers
-        editor.on('change', handleEditorChange);
-        
-        document.getElementById('prompt-description').addEventListener('input', handleMetadataChange);
-        document.getElementById('prompt-tags').addEventListener('input', handleMetadataChange);
-        
-        document.getElementById('copy-btn').addEventListener('click', copyPromptContent);
-        document.getElementById('toggle-view-btn').addEventListener('click', toggleView);
-        document.getElementById('search-replace-btn').addEventListener('click', function() {
-            if (searchReplace && document.getElementById('raw-tab').classList.contains('active')) {
-                searchReplace.showDialog();
-            } else if (!document.getElementById('raw-tab').classList.contains('active')) {
-                // If not in raw tab, switch to it first
-                document.getElementById('raw-tab').click();
-                setTimeout(() => {
-                    if (searchReplace) searchReplace.showDialog();
-                }, 100);
-            }
-        });
-        document.getElementById('save-btn').addEventListener('click', function() {
-            const saveBtn = this;
-            const originalContent = saveBtn.innerHTML;
-            
-            // Change button text to indicate saving (with consistent length)
-            saveBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving';
-            saveBtn.disabled = true;
-            
-            const content = editor.getValue();
-            const description = document.getElementById('prompt-description').value;
-            const tagsStr = document.getElementById('prompt-tags').value;
-            const tags = tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag);
-            
-            // First save content
-            saveViaApi(content)
-                .then(() => {
-                    // Then save metadata
-                    return saveMetadataViaApi(description, tags);
-                })
-                .then(() => {
-                    // Show "Saved" indication on button
-                    saveBtn.innerHTML = '<i class="bi bi-check-circle"></i> Saved ';
-                    saveBtn.classList.remove('btn-outline-success');
-                    saveBtn.classList.add('btn-success');
-                    
-                    // Reset button after a delay
-                    setTimeout(() => {
-                        saveBtn.innerHTML = originalContent;
-                        saveBtn.classList.remove('btn-success');
-                        saveBtn.classList.add('btn-outline-success');
-                        saveBtn.disabled = false;
-                    }, 1500);
-                })
-                .catch(() => {
-                    // Reset button on error
-                    saveBtn.innerHTML = originalContent;
-                    saveBtn.disabled = false;
+
+    function savePromptData(showToastNotification = true) {
+        if (!currentPromptData) return;
+        setSaveButtonState('saving');
+
+        const payload = {
+            content: editor.getValue(),
+            description: descriptionInput.value,
+            tags: tagsInput.value.split(',').map(tag => tag.trim()).filter(tag => tag)
+        };
+
+        fetch(`/api/prompts/${promptId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+            if (!response.ok) {
+                response.text().then(text => {
+                    console.error(`Error response body for PUT /api/prompts/${promptId}:`, text);
+                    showToast(`Save failed: ${text || response.statusText}`, 'error');
+                    setSaveButtonState('error');
                 });
+                throw new Error(`Save failed: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            currentPromptData = data; // Update with response which might include new last_updated
+            updateMetadataUI();
+            if (showToastNotification) {
+                showToast('Prompt saved successfully!', 'success');
+            }
+            setSaveButtonState('saved');
+            detectPromptType(); 
+            // After saving, re-fetch dependencies and referenced_by as they might have changed
+            // if inclusions were added/removed, or if this prompt's ID was referenced elsewhere.
+            // However, for simple content/metadata save, this is not strictly necessary unless
+            // the prompt type (composite/standard) changes, which is handled by detectPromptType.
+            // For now, we rely on detectPromptType to refresh expanded view if needed.
+        })
+        .catch(error => {
+            console.error('Error saving prompt:', error);
+            if (showToastNotification) {
+                showToast(`Error saving prompt: ${error.message}`, 'error');
+            }
+            setSaveButtonState('error');
         });
-        document.getElementById('rename-btn').addEventListener('click', showRenamePromptModal);
-        document.getElementById('confirm-rename-btn').addEventListener('click', renamePrompt);
-        document.getElementById('delete-btn').addEventListener('click', showDeleteConfirmation);
-        document.getElementById('confirm-delete-btn').addEventListener('click', deletePrompt);
-        
-        // Handle tab changes
-        document.getElementById('expanded-tab').addEventListener('click', function() {
-            // Set background to white for extended content
-            document.getElementById('expanded-content').style.backgroundColor = '#ffffff';
-            updateExpandedView();
-        });
-    });
+    }
     
     function loadPromptData() {
         fetch(`/api/prompts/${promptId}`)
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Prompt not found');
+                    response.text().then(text => console.error(`Error response body for /api/prompts/${promptId}:`, text));
+                    throw new Error(`Prompt not found or API error: ${response.status} ${response.statusText}`);
                 }
                 return response.json();
             })
             .then(data => {
-                promptData = data;
+                console.log('[DEBUG] prompt_editor.js: Received data from /api/prompts/', promptId, data); // Log received data
+                currentPromptData = data;
                 
-                // Set editor content
-                editor.setValue(data.content);
-                
-                // Set metadata fields
-                document.getElementById('prompt-description').value = data.description || '';
-                document.getElementById('prompt-tags').value = data.tags.join(', ');
-                document.getElementById('last-updated').textContent = formatDate(data.updated_at);
-                document.getElementById('prompt-directory').textContent = data.directory || 'Not specified';
-                
-                // Set "is composite" badge based on content (composite if it has inclusions)
-                const badge = document.getElementById('is-composite-badge');
-                
-                // Check if the content contains inclusions to determine if it's composite
-                isComposite = data.content.includes('[[') && data.content.includes(']]');
-                
-                if (isComposite) {
-                    badge.textContent = 'Composite';
-                    badge.classList.add('bg-success');
+                if (editor) {
+                    console.log('[DEBUG] prompt_editor.js: Setting editor value:', data.content); // Log content to be set
+                    editor.setValue(data.content || '');
+                    console.log('[DEBUG] prompt_editor.js: Editor value set.'); // Confirm value set
+                    // editor.clearHistory(); // Optional: clear undo history after loading
+                }
+                updateMetadataUI();
+                updateDependenciesUI();
+                updateReferencedByUI();
+                updateWarningsUI();
+                detectPromptType();
+                updateExpandedPreview(); // Initial preview update
+            })
+            .catch(error => {
+                console.error('Error loading prompt data:', error);
+                showToast(`Error loading prompt: ${error.message}`, 'error');
+                if (editor) editor.setValue(`Error loading prompt: ${error.message}`);
+            });
+    }
+
+    function updateMetadataUI() {
+        if (!currentPromptData) return;
+        descriptionInput.value = currentPromptData.description || '';
+        tagsInput.value = currentPromptData.tags ? currentPromptData.tags.join(', ') : '';
+        if (isCompositeBadge) {
+            isCompositeBadge.textContent = currentPromptData.is_composite ? 'Composite' : 'Standard';
+            isCompositeBadge.className = `badge rounded-pill me-2 ${currentPromptData.is_composite ? 'bg-primary' : 'bg-secondary'}`;
+        }
+        if (lastUpdatedSpan) {
+            lastUpdatedSpan.textContent = currentPromptData.last_updated ? dayjs(currentPromptData.last_updated).fromNow() : '-';
+        }
+        if (promptDirectorySpan && currentPromptData.directory_info) {
+            // Always display the full path for the directory
+            promptDirectorySpan.textContent = currentPromptData.directory_info.path || '-';
+        }
+    }
+
+    function updateDependenciesUI() {
+        if (!currentPromptData || !dependenciesDiv) return;
+        dependenciesDiv.innerHTML = ''; // Clear previous
+        if (currentPromptData.dependencies && currentPromptData.dependencies.length > 0) {
+            const list = document.createElement('ul');
+            list.className = 'list-group list-group-flush';
+            currentPromptData.dependencies.forEach(dep => {
+                const item = document.createElement('li');
+                item.className = 'list-group-item';
+                const link = document.createElement('a');
+                link.href = `/prompts/${dep.id}`;
+                link.textContent = dep.id;
+                item.appendChild(link);
+                if (dep.is_missing) {
+                    const missingBadge = document.createElement('span');
+                    missingBadge.className = 'badge bg-danger ms-2';
+                    missingBadge.textContent = 'Missing';
+                    item.appendChild(missingBadge);
+                }
+                list.appendChild(item);
+            });
+            dependenciesDiv.appendChild(list);
+                        } else {
+            dependenciesDiv.innerHTML = '<p class="text-muted small">No dependencies found.</p>';
+        }
+    }
+
+    function updateReferencedByUI() {
+        if (!currentPromptData || !referencedByDiv) return;
+        referencedByDiv.innerHTML = '<p class="text-muted small">Loading references...</p>'; // Show loading indicator
+        
+        fetch(`/api/prompts/${promptId}/referenced_by`)
+            .then(response => response.json())
+            .then(references => {
+                referencedByDiv.innerHTML = ''; // Clear loading/previous
+                if (references && references.length > 0) {
+                    const list = document.createElement('ul');
+                    list.className = 'list-group list-group-flush';
+                    references.forEach(ref => {
+                        const item = document.createElement('li');
+                        item.className = 'list-group-item';
+                        const link = document.createElement('a');
+                        link.href = `/prompts/${ref.id}`;
+                        link.textContent = ref.id;
+                        item.appendChild(link);
+                        // No type for referenced by as it's always another prompt.
+                        list.appendChild(item);
+                    });
+                    referencedByDiv.appendChild(list);
                 } else {
-                    badge.textContent = 'Standard';
-                    badge.classList.add('bg-secondary');
+                    referencedByDiv.innerHTML = '<p class="text-muted small">Not referenced by any other prompts.</p>';
                 }
-                
-                // If it's a composite prompt, update the expanded view
-                if (isComposite) {
-                    updateExpandedView();
-                }
-                
-                // Find references to this prompt
-                loadReferences();
             })
             .catch(error => {
-                console.error('Error loading prompt:', error);
-                showToast('Error loading prompt: ' + error.message, 'danger');
+                console.error('Error loading referenced_by:', error);
+                referencedByDiv.innerHTML = '<p class="text-danger small">Error loading references.</p>';
             });
     }
     
-    function setupWebSocket() {
-        try {
-            // Create WebSocket connection
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/api/prompts/ws/${promptId}`;
-            console.log(`Connecting to WebSocket at: ${wsUrl}`);
-            socket = new WebSocket(wsUrl);
-        
-        // Connection opened
-        socket.addEventListener('open', function(event) {
-            console.log('WebSocket connection established successfully');
-            
-            // Request all prompts to build autocomplete list once connected
-            loadAllPrompts();
-            
-            // Send a test message to confirm connection is working
-            console.log('Sending test expand message to WebSocket');
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({
-                    action: 'expand',
-                    content: editor.getValue(),
-                    prompt_id: promptId
-                }));
-            }
-        });
-        
-        // Listen for messages
-        socket.addEventListener('message', function(event) {
-            console.log('WebSocket message received:', event.data);
-            try {
-                const data = JSON.parse(event.data);
-                
-                switch (data.action) {
-                    case 'initial':
-                        // Initial content already loaded via API
-                        console.log('Received initial content');
-                        break;
-                        
-                    case 'update_status':
-                        if (data.success) {
-                            const lastUpdatedEl = document.getElementById('last-updated');
-                            if (lastUpdatedEl) {
-                                lastUpdatedEl.textContent = formatDate(data.timestamp);
-                            }
-                            showToast('Prompt saved', 'success');
-                        } else {
-                            showToast('Error saving prompt', 'danger');
-                        }
-                        break;
-                        
-                    case 'expanded':
-                        console.log('Received expanded content:', data);
-                        // Store expanded content for preview only - never modify the raw content
-                        expandedContent = data.expanded || data.content || '';
-                        dependencies = data.dependencies || [];
-                        
-                        // Update preview only if we're on the expanded tab
-                        if (document.getElementById('expanded-tab').classList.contains('active') || 
-                            document.getElementById('expanded-content').classList.contains('show', 'active')) {
-                            try {
-                                console.log('Updating preview with expanded content');
-                                document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
-                                
-                                // No need to force height - we want it to flow naturally
-                                // and use page scrolling instead of inner scrollbar
-                                const previewElement = document.getElementById('preview');
-                                previewElement.style.height = 'auto';
-                            } catch (error) {
-                                console.error('Error rendering expanded content:', error);
-                                document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
-                            }
-                        }
-                        
-                        // Update dependencies list
-                        updateDependenciesList();
-                        
-                        // Show warnings if any
-                        if (data.warnings && data.warnings.length > 0) {
-                            showWarnings(data.warnings);
-                        } else {
-                            hideWarnings();
-                        }
-                        break;
-                        
-                    default:
-                        console.log('Unknown action received:', data.action);
+    function updateWarningsUI() {
+        if (!currentPromptData || !warningsDiv || !warningsCard) return;
+        warningsDiv.innerHTML = ''; // Clear previous warnings
+        let hasWarnings = false;
+
+        if (currentPromptData.dependencies) {
+            currentPromptData.dependencies.forEach(dep => {
+                if (dep.is_missing) {
+                    const warning = document.createElement('div');
+                    warning.className = 'alert alert-warning p-2 small';
+                    warning.innerHTML = `<i class="bi bi-exclamation-triangle-fill me-1"></i> Missing dependency: <strong>${dep.id}</strong>. This prompt might not expand correctly.`;
+                    warningsDiv.appendChild(warning);
+                    hasWarnings = true;
                 }
-            } catch (error) {
-                console.error('Error processing WebSocket message:', error);
-            }
-        });
+            });
+        }
+        // Add more warning conditions here if needed
+
+        warningsCard.style.display = hasWarnings ? 'block' : 'none';
+    }
+
+
+    function detectPromptType() {
+        if (!editor || !currentPromptData) return;
+        const content = editor.getValue();
+        const isComposite = /\[\[.*?\]\]/.test(content);
         
-        // Connection closed
-        socket.addEventListener('close', function(event) {
-            console.log(`WebSocket connection closed with code ${event.code}, reason: ${event.reason}`);
-            
-            // Try to reconnect after a delay
-            setTimeout(() => {
-                console.log('Attempting to reconnect...');
-                setupWebSocket();
-            }, 2000);
-        });
+        if (currentPromptData.is_composite !== isComposite) {
+            currentPromptData.is_composite = isComposite; // Update local state
+            updateMetadataUI(); // Refresh badge
+            // If it changed, it implies a save is probably needed to persist this.
+            // And expanded view needs update.
+            updateExpandedPreview();
+        }
         
-        // Connection error
-        socket.addEventListener('error', function(event) {
-            console.error('WebSocket error:', event);
-            console.error('Error details:', JSON.stringify(event, Object.getOwnPropertyNames(event)));
-            showToast('WebSocket connection error. Falling back to API.', 'warning');
-            
-            // Force immediate use of API fallback
-            if (document.getElementById('expanded-tab').classList.contains('active') || 
-                document.getElementById('expanded-content').classList.contains('show', 'active')) {
-                useFallbackApi();
-            }
-        });
-        } catch (error) {
-            console.error('Error setting up WebSocket:', error);
-            showToast('WebSocket setup error: ' + error.message, 'danger');
+        // Enable expanded view tab for all prompts since it's used for markdown rendering
+        if (expandedContentTab) {
+            expandedContentTab.classList.remove('disabled');
+            expandedContentTab.removeAttribute('tabindex');
+            expandedContentTab.setAttribute('title', 'View content with markdown rendering and inclusions expanded');
         }
     }
+
+    function initializeEditor() {
+        editor = CodeMirror(document.getElementById('editor'), {
+            mode: 'markdown',
+            theme: 'monokai',
+            lineNumbers: true,
+            lineWrapping: true,
+            autofocus: true,
+            placeholder: "Enter your prompt content here. Use [[prompt_name]] to include other prompts...",
+            extraKeys: {
+                "Ctrl-Space": "autocomplete",
+                "Cmd-S": function(cm) { savePromptData(true); },
+                "Ctrl-S": function(cm) { savePromptData(true); },
+                "Tab": function(cm) {
+                    const cursor = cm.getCursor();
+                    const token = cm.getTokenAt(cursor);
+                    const line = cm.getLine(cursor.line);
+                    const textBeforeCursor = line.substring(0, cursor.ch);
+
+                    // Trigger autocomplete if:
+                    // 1. We are at the end of a line that ends with '[['
+                    // 2. The current token starts with '[[' and is not yet ']]'
+                    // 3. The text immediately before the cursor is '[['
+                    if (textBeforeCursor.endsWith('[[') || (token.string.startsWith('[[') && !token.string.endsWith(']]'))) {
+                        cm.execCommand("autocomplete");
+                    } else {
+                        // Default tab behavior (e.g., insert tab character or move focus)
+                        // CodeMirror.Pass allows other keymaps or default browser behavior to handle it.
+                        // Using editor.execCommand('indentMore') or cm.replaceSelection('\\t') might be alternatives for explicit tab insertion.
+                        return CodeMirror.Pass; 
+                    }
+                }
+            },
+            hintOptions: { hint: window.promptHint }
+        });
+
+        // Add inputRead event to trigger autocompletion immediately when typing [[
+        editor.on('inputRead', function(cm, change) {
+            if (change.text.length === 1) {
+                const cursor = cm.getCursor();
+                const line = cm.getLine(cursor.line);
+                
+                // If user just typed the second [ of [[ 
+                if (change.text[0] === '[' && cursor.ch >= 2 && line.substring(cursor.ch - 2, cursor.ch) === '[[') {
+                    // Trigger autocomplete immediately (no delay)
+                    cm.execCommand('autocomplete');
+                }
+            }
+        });
+
+        editor.on('change', function() {
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => savePromptData(false), 1500); // Auto-save after 1.5s of inactivity
+            detectPromptType(); // Check if it became composite/standard
+        });
+    }
     
-    // Function to use the API fallback for expansion
-    function useFallbackApi() {
-        const content = editor.getValue();
-        console.log('Using API fallback with content:', content);
-        
-        fetch('/api/prompts/expand', {
+    function getExpandedContent(callback) {
+        fetch(`/api/prompts/expand`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                content: content,
-                prompt_id: promptId
-            })
+            body: JSON.stringify({ prompt_id: promptId })
         })
         .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
+                if (!response.ok) throw new Error(`Failed to fetch expanded content: ${response.status} ${response.statusText}`);
             return response.json();
         })
-        .then(data => {
-            console.log('Expansion API response:', data);
-            expandedContent = data.expanded || data.content;
-            dependencies = data.dependencies || [];
-            
-            // Update preview
-            try {
-                console.log('Updating preview with expanded content from API');
-                document.getElementById('preview').innerHTML = markdownToHtml(expandedContent);
-                
-                // No need to force height - we want it to flow naturally
-                // and use page scrolling instead of inner scrollbar
-                const previewElement = document.getElementById('preview');
-                previewElement.style.height = 'auto';
-            } catch (error) {
-                console.error('Error rendering expanded content:', error);
-                document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error rendering expanded content. See console for details.</div>';
-            }
-            
-            // Update dependencies list
-            updateDependenciesList();
-            
-            // Show warnings if any
-            if (data.warnings && data.warnings.length > 0) {
-                showWarnings(data.warnings);
-            } else {
-                hideWarnings();
-            }
-        })
+            .then(data => callback(null, data.expanded_content))
         .catch(error => {
-            console.error('Error with API fallback:', error);
-            showToast('Error expanding content: ' + error.message, 'danger');
-            document.getElementById('preview').innerHTML = '<div class="alert alert-danger">Error expanding content. API fallback failed.</div>';
-        });
+                console.error("Error fetching expanded content:", error);
+                callback(error, null);
+            });
     }
-    
-    function handleEditorChange() {
-        // Clear previous timeout
-        if (saveTimeout) {
-            clearTimeout(saveTimeout);
-        }
-        
-        // Set new timeout for autosave (debounce)
-        saveTimeout = setTimeout(() => {
-            const content = editor.getValue();
-            
-            // Update the composite status
-            isComposite = content.includes('[[') && content.includes(']]');
-            const badge = document.getElementById('is-composite-badge');
-            
-            // Clear existing classes
-            badge.classList.remove('bg-success', 'bg-secondary');
-            
-            // Set new badge
-            if (isComposite) {
-                badge.textContent = 'Composite';
-                badge.classList.add('bg-success');
-            } else {
-                badge.textContent = 'Standard';
-                badge.classList.add('bg-secondary');
-            }
-            
-            // Always save via API for reliable saving
-            const saveBtn = document.getElementById('save-btn');
-            const originalContent = saveBtn.innerHTML;
-            
-            // Temporarily change button appearance to show "Saving..." in a subtle way
-            saveBtn.classList.remove('btn-outline-success');
-            saveBtn.classList.add('btn-success');
-            
-            saveViaApi(content)
-                .then(() => {
-                    // Show "Saved" indication on button
-                    saveBtn.innerHTML = '<i class="bi bi-check-circle"></i> Saved';
-                    
-                    // Reset button after a delay
-                    setTimeout(() => {
-                        saveBtn.innerHTML = originalContent;
-                        saveBtn.classList.remove('btn-success');
-                        saveBtn.classList.add('btn-outline-success');
-                    }, 1500);
-                })
-                .catch(() => {
-                    // Reset button on error
-                    saveBtn.innerHTML = originalContent;
-                    saveBtn.classList.remove('btn-success');
-                    saveBtn.classList.add('btn-outline-success');
-                });
-            
-            // Also update expansion preview if this is a composite prompt
-            if (isComposite && document.getElementById('expanded-tab').classList.contains('active')) {
-                updateExpandedView();
-            }
-            
-        }, 1000); // 1 second debounce
-    }
-    
-    // Function to save via API when WebSocket is not available
-    function saveViaApi(content) {
-        // No longer show a toast for saving - we'll indicate this on the button
-        
-        return fetch(`/api/prompts/${promptId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                content: content
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Save API response:', data);
-            
-            // Update last updated timestamp if available
-            if (data.updated_at) {
-                const lastUpdatedEl = document.getElementById('last-updated');
-                if (lastUpdatedEl) {
-                    lastUpdatedEl.textContent = formatDate(data.updated_at);
-                }
-            }
-            
-            // If this is a composite prompt, update the expanded view
-            if (isComposite) {
-                if (document.getElementById('expanded-tab').classList.contains('active') || 
-                    document.getElementById('expanded-content').classList.contains('show', 'active')) {
-                    useFallbackApi();
-                }
-            }
-            
-            return data;
-        })
-        .catch(error => {
-            console.error('Error saving via API:', error);
-            showToast('Error saving prompt: ' + error.message, 'danger');
-            throw error; // Re-throw to allow promise chaining
-        });
-    }
-    
-    function handleMetadataChange() {
-        // Clear previous timeout
-        if (saveTimeout) {
-            clearTimeout(saveTimeout);
-        }
-        
-        // Set new timeout for autosave (debounce)
-        saveTimeout = setTimeout(() => {
-            const description = document.getElementById('prompt-description').value;
-            const tagsStr = document.getElementById('prompt-tags').value;
-            const tags = tagsStr.split(',').map(tag => tag.trim()).filter(tag => tag);
-            
-            // Try to send update via WebSocket
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                try {
-                    socket.send(JSON.stringify({
-                        action: 'update_metadata',
-                        description: description,
-                        tags: tags
-                    }));
-                } catch (error) {
-                    console.error('Error sending WebSocket message for metadata:', error);
-                    // Fall back to API save
-                    saveMetadataViaApi(description, tags);
-                }
-            } else {
-                // WebSocket not available, use API fallback
-                console.log('WebSocket not available for metadata save, using API fallback');
-                saveMetadataViaApi(description, tags);
-            }
-        }, 1000); // 1 second debounce
-    }
-    
-    // Function to save metadata via API when WebSocket is not available
-    function saveMetadataViaApi(description, tags) {
-        // No longer show a toast for saving - we'll indicate this on the button
-        
-        return fetch(`/api/prompts/${promptId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                description: description,
-                tags: tags
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Save metadata API response:', data);
-            
-            // Update last updated timestamp if available
-            if (data.updated_at) {
-                const lastUpdatedEl = document.getElementById('last-updated');
-                if (lastUpdatedEl) {
-                    lastUpdatedEl.textContent = formatDate(data.updated_at);
-                }
-            }
-            
-            return data;
-        })
-        .catch(error => {
-            console.error('Error saving metadata via API:', error);
-            showToast('Error saving metadata: ' + error.message, 'danger');
-            throw error; // Re-throw to allow promise chaining
-        });
-    }
-    
-    function updateExpandedView() {
-        console.log('Updating expanded view');
-        
-        // Get current content
-        const content = editor.getValue();
-        console.log('Current editor content:', content);
-        
-        // Ensure the expanded content tab has white background extending fully
-        const expandedContentElement = document.getElementById('expanded-content');
-        expandedContentElement.style.backgroundColor = '#ffffff';
-        
-        // Always use API fallback which is more reliable
-        useFallbackApi();
-    }
-    
-    function updateDependenciesList() {
-        const dependenciesContainer = document.getElementById('dependencies');
-        
-        if (dependencies.length === 0) {
-            dependenciesContainer.innerHTML = '<p class="text-muted">No dependencies found.</p>';
+
+    function updateExpandedPreview() {
+        const previewDiv = document.getElementById('preview');
+        if (!previewDiv) return;
+
+        if (!currentPromptData) {
+            previewDiv.innerHTML = '<div class="alert alert-warning">No content available.</div>';
             return;
         }
-        
-        let html = '<ul class="list-group list-group-flush">';
-        
-        dependencies.forEach(dep => {
-            html += `
-                <li class="list-group-item py-1 px-2">
-                    <a href="/prompts/${dep}">${dep}</a>
-                </li>
-            `;
-        });
-        
-        html += '</ul>';
-        
-        dependenciesContainer.innerHTML = html;
-    }
-    
-    function loadReferences() {
-        // Find all prompts that reference this one
-        fetch('/api/prompts/all')
-            .then(response => response.json())
-            .then(prompts => {
-                // Filter prompts that might reference this one
-                const references = prompts.filter(p => 
-                    p.content.includes(`[[${promptId}]]`) ||
-                    p.content.includes(`[[${promptId}.md]]`)
-                );
-                
-                const referencedByContainer = document.getElementById('referenced-by');
-                
-                if (references.length === 0) {
-                    referencedByContainer.innerHTML = '<p class="text-muted">No references found.</p>';
-                    return;
-                }
-                
-                let html = '<ul class="list-group list-group-flush">';
-                
-                references.forEach(ref => {
-                    // Check if the prompt is composite
-                    const isComposite = ref.content.includes('[[') && ref.content.includes(']]');
-                    
-                    html += `
-                        <li class="list-group-item py-1 px-2">
-                            <div>
-                                <a href="/prompts/${ref.id}">${ref.id}</a>
-                                ${ref.description ? `<small class="text-muted d-block">${ref.description}</small>` : ''}
-                            </div>
-                            <span class="badge ${isComposite ? 'bg-success' : 'bg-secondary'} rounded-pill">
-                                ${isComposite ? 'Composite' : 'Standard'}
-                            </span>
-                        </li>
-                    `;
-                });
-                
-                html += '</ul>';
-                
-                referencedByContainer.innerHTML = html;
-            })
-            .catch(error => {
-                console.error('Error loading references:', error);
-                document.getElementById('referenced-by').innerHTML = '<p class="text-danger">Error loading references.</p>';
-            });
-    }
-    
-    function copyPromptContent() {
-        // When Alt+C is pressed, we should copy the expanded content
-        // If we don't have expanded content yet, let's get it
-        if (!expandedContent && editor.getValue().includes('[[')) {
-            // We need to ensure we have the expanded content before copying
-            const rawContent = editor.getValue();
-            
-            // Make a quick API call to get the expanded content
-            fetch('/api/prompts/expand', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    content: rawContent,
-                    prompt_id: promptId
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                expandedContent = data.expanded;
-                copyToClipboard(expandedContent);
-            })
-            .catch(error => {
-                console.error('Error expanding content for copy:', error);
-                // Fall back to raw content if expansion fails
-                copyToClipboard(rawContent);
-            });
-        } else {
-            // Either we have expanded content already, or this is not a composite prompt
-            const contentToCopy = expandedContent || editor.getValue();
-            copyToClipboard(contentToCopy);
-        }
-    }
-    
-    function copyToClipboard(content) {
-        // Copy to clipboard
-        navigator.clipboard.writeText(content)
-            .then(() => {
-                showToast('Copied to clipboard');
-            })
-            .catch(error => {
-                console.error('Error copying to clipboard:', error);
-                showToast('Error copying to clipboard', 'danger');
-                
-                // Fallback method for browsers that don't support clipboard API
-                try {
-                    const textarea = document.createElement('textarea');
-                    textarea.value = content;
-                    textarea.style.position = 'fixed';  // Avoid scrolling to bottom
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                    showToast('Copied to clipboard (fallback method)');
-                } catch (fallbackError) {
-                    console.error('Fallback copy failed:', fallbackError);
-                    showToast('Could not copy to clipboard', 'danger');
+
+        if (currentPromptData.is_composite) {
+            previewDiv.innerHTML = '<div class="text-center p-3"><div class="spinner-border spinner-border-sm" role="status"></div><span class="ms-2">Loading expanded content...</span></div>';
+            getExpandedContent((error, expandedContent) => {
+                if (error) {
+                    previewDiv.innerHTML = `<div class="alert alert-danger">Error loading expanded content: ${error.message}</div>`;
+                } else {
+                    previewDiv.innerHTML = marked.parse(expandedContent || '');
                 }
             });
-    }
-    
-    function toggleView() {
-        // Toggle between raw and expanded view
-        const rawTab = document.getElementById('raw-tab');
-        const expandedTab = document.getElementById('expanded-tab');
-        
-        if (rawTab.classList.contains('active')) {
-            rawTab.classList.remove('active');
-            document.getElementById('raw-content').classList.remove('show', 'active');
-            
-            expandedTab.classList.add('active');
-            document.getElementById('expanded-content').classList.add('show', 'active');
-            
-            // Update expanded view
-            updateExpandedView();
         } else {
-            expandedTab.classList.remove('active');
-            document.getElementById('expanded-content').classList.remove('show', 'active');
-            
-            rawTab.classList.add('active');
-            document.getElementById('raw-content').classList.add('show', 'active');
+            // For non-composite prompts, just render the raw content as markdown
+            previewDiv.innerHTML = marked.parse(editor.getValue() || '');
         }
     }
-    
-    function showRenamePromptModal() {
-        // Pre-fill with current prompt ID
-        document.getElementById('new-prompt-id').value = promptId;
-        
-        // Show the modal
+
+    function showRenameModal() {
+        const newPromptIdInput = document.getElementById('new-prompt-id');
+        newPromptIdInput.value = promptId; // Pre-fill with current ID
         const renameModal = new bootstrap.Modal(document.getElementById('renamePromptModal'));
-        renameModal.show();
-        
-        // Focus the input field
-        setTimeout(() => {
-            document.getElementById('new-prompt-id').focus();
-            document.getElementById('new-prompt-id').select();
-        }, 300);
-        
-        // Clear any previous warnings
-        document.getElementById('rename-warning').style.display = 'none';
-    }
-    
-    function renamePrompt() {
-        const newPromptId = document.getElementById('new-prompt-id').value.trim();
-        
-        // Validate
-        if (!newPromptId) {
-            document.getElementById('rename-warning-text').textContent = 'Prompt name cannot be empty';
-            document.getElementById('rename-warning').style.display = 'block';
-            return;
-        }
-        
-        if (newPromptId === promptId) {
-            // No change, just close the modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('renamePromptModal'));
-            modal.hide();
-            return;
-        }
-        
-        // Check if a prompt with this name already exists
-        fetch(`/api/prompts/check_exists/${newPromptId}`)
+        const renameWarning = document.getElementById('rename-warning');
+        const renameWarningText = document.getElementById('rename-warning-text');
+        renameWarning.style.display = 'none'; 
+
+        // Check if it's referenced
+        fetch(`/api/prompts/${promptId}/referenced_by`)
             .then(response => response.json())
-            .then(data => {
-                if (data.exists) {
-                    // Show warning
-                    document.getElementById('rename-warning-text').textContent = 
-                        `A prompt with the name "${newPromptId}" already exists. Please choose a different name.`;
-                    document.getElementById('rename-warning').style.display = 'block';
-                    return;
+            .then(references => {
+                if (references && references.length > 0) {
+                    renameWarningText.textContent = `This prompt is referenced by ${references.length} other prompt(s). Renaming will attempt to update these references.`;
+                    renameWarning.style.display = 'block';
                 }
-                
-                // Proceed with rename
-                performRename(newPromptId);
-            })
-            .catch(error => {
-                console.error('Error checking prompt existence:', error);
-                // If we can't check, try anyway but tell the user there might be a risk
-                document.getElementById('rename-warning-text').textContent = 
-                    'Could not verify if this name is available. Proceeding might overwrite an existing prompt.';
-                document.getElementById('rename-warning').style.display = 'block';
-                
-                // Add a button to force rename
-                const warningEl = document.getElementById('rename-warning');
-                const forceButton = document.createElement('button');
-                forceButton.className = 'btn btn-sm btn-warning mt-2';
-                forceButton.textContent = 'Rename Anyway';
-                forceButton.addEventListener('click', () => performRename(newPromptId));
-                warningEl.appendChild(forceButton);
             });
+        renameModal.show();
     }
     
-    function performRename(newPromptId) {
-        // Show saving indicator on the rename button
-        const renameBtn = document.getElementById('confirm-rename-btn');
-        const originalBtnText = renameBtn.textContent;
-        renameBtn.textContent = 'Renaming...';
-        renameBtn.disabled = true;
-        
-        // Prepare data for rename
-        const renameData = {
-            old_id: promptId,
-            new_id: newPromptId,
-            // Include the current content and metadata to ensure nothing is lost
-            content: editor.getValue(),
-            description: document.getElementById('prompt-description').value,
-            tags: document.getElementById('prompt-tags').value.split(',').map(tag => tag.trim()).filter(tag => tag)
-        };
-        
-        // Send rename request
-        fetch('/api/prompts/rename', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(renameData)
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Failed to rename prompt: ${response.status} ${response.statusText}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('renamePromptModal'));
-            modal.hide();
-            
-            // Show success toast
-            showToast('Prompt renamed successfully', 'success');
-            
-            // Redirect to the new prompt URL
-            window.location.href = `/prompts/${newPromptId}`;
-        })
-        .catch(error => {
-            console.error('Error renaming prompt:', error);
-            // Reset button
-            renameBtn.textContent = originalBtnText;
-            renameBtn.disabled = false;
-            
-            // Show error
-            document.getElementById('rename-warning-text').textContent = 
-                `Error renaming prompt: ${error.message}`;
-            document.getElementById('rename-warning').style.display = 'block';
-        });
-    }
-    
-    function showDeleteConfirmation() {
+    function showDeleteModal() {
         const deleteModal = new bootstrap.Modal(document.getElementById('deletePromptModal'));
         deleteModal.show();
     }
     
-    function deletePrompt() {
-        // Send DELETE request
-        fetch(`/api/prompts/${promptId}`, {
-            method: 'DELETE'
+    function performRename() {
+        const newPromptId = document.getElementById('new-prompt-id').value.trim();
+        if (!newPromptId || newPromptId === promptId) {
+            showToast('New name is invalid or same as current.', 'warning');
+            return;
+        }
+        if (!/^[a-zA-Z0-9_-]+$/.test(newPromptId)) {
+            showToast('New name contains invalid characters. Use only letters, numbers, underscores, and hyphens.', 'error');
+                    return;
+                }
+                
+        fetch(`/api/prompts/rename`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ old_id: promptId, new_id: newPromptId })
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error('Failed to delete prompt');
+                response.json().then(err => {
+                    showToast(`Rename failed: ${err.detail || response.statusText}`, 'error');
+                }).catch(() => {
+                    showToast(`Rename failed: ${response.statusText}`, 'error');
+                });
+                throw new Error('Rename failed');
             }
             return response.json();
         })
         .then(data => {
-            // Success - redirect to prompts list
-            showToast('Prompt deleted successfully');
-            
-            // Redirect after a short delay
-            setTimeout(() => {
-                window.location.href = '/manage/prompts';
-            }, 1000);
+            showToast(data.message || 'Prompt renamed successfully!', 'success');
+            // Redirect to the new prompt ID
+            window.location.href = `/prompts/${newPromptId}`;
         })
         .catch(error => {
-            console.error('Error deleting prompt:', error);
-            showToast('Error deleting prompt: ' + error.message, 'danger');
+            console.error('Error renaming prompt:', error);
+            // Toast already shown if response.ok was false and had json
         });
     }
-    
-    function showWarnings(warnings) {
-        const warningsCard = document.getElementById('warnings-card');
-        const warningsContainer = document.getElementById('warnings');
-        
-        // Create warning message HTML
-        let html = '<ul class="list-group">';
-        
-        warnings.forEach(warning => {
-            html += `
-                <li class="list-group-item list-group-item-warning">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    ${warning}
-                </li>
-            `;
-        });
-        
-        html += '</ul>';
-        
-        // Update warnings container and show card
-        warningsContainer.innerHTML = html;
-        warningsCard.style.display = 'block';
+
+    function performDelete() {
+        fetch(`/api/prompts/${promptId}`, { method: 'DELETE' })
+        .then(response => {
+            if (!response.ok) {
+                response.json().then(err => {
+                    showToast(`Delete failed: ${err.detail || response.statusText}`, 'error');
+                }).catch(() => {
+                    showToast(`Delete failed: ${response.statusText}`, 'error');
+                });
+                throw new Error('Delete failed');
+            }
+            return response.json();
+        })
+        .then(data => {
+            showToast(data.message || 'Prompt deleted successfully!', 'success');
+            window.location.href = '/manage/prompts'; // Redirect to prompt list
+        })
+        .catch(error => console.error('Error deleting prompt:', error));
     }
-    
-    function hideWarnings() {
-        const warningsCard = document.getElementById('warnings-card');
-        warningsCard.style.display = 'none';
-    }
-    
-    // Load all prompts for autocomplete
-    function loadAllPrompts() {
-        fetch('/api/prompts/all')
-            .then(response => response.json())
-            .then(prompts => {
-                // Store the prompts for autocomplete
-                allPrompts = prompts.map(p => p.id);
-                console.log(`Loaded ${allPrompts.length} prompts for autocomplete`);
-            })
-            .catch(error => {
-                console.error('Error loading prompts for autocomplete:', error);
+
+    function copyContent() {
+        const contentToCopy = (currentPromptData && currentPromptData.is_composite) ? document.getElementById('preview').innerText : editor.getValue();
+        navigator.clipboard.writeText(contentToCopy)
+            .then(() => showToast('Content copied to clipboard!', 'success'))
+            .catch(err => {
+                showToast('Failed to copy content.', 'error');
+                console.error('Error copying content: ', err);
             });
     }
     
-    // Set up the prompt completion functionality
-    function setupPromptCompletion() {
-        // Add custom helper for CodeMirror hints
-        if (!CodeMirror.helpers) {
-            CodeMirror.helpers = {};
+    function toggleView() {
+        console.log('[DEBUG] toggleView called.');
+        const rawTabInstance = bootstrap.Tab.getOrCreateInstance(rawContentTab);
+        const expandedTabInstance = bootstrap.Tab.getOrCreateInstance(expandedContentTab);
+
+        if (!rawTabInstance || !expandedTabInstance) {
+            console.error('[DEBUG] toggleView: Critical error - Bootstrap Tab instances could not be found or created.');
+            showToast("Error: Tab functionality could not be initialized.", "error");
+            return;
+        }
+        console.log(`[DEBUG] toggleView: rawContentPane.classList.contains('show') = ${rawContentPane.classList.contains('show')}`);
+        if (currentPromptData) {
+            console.log(`[DEBUG] toggleView: currentPromptData exists. is_composite = ${currentPromptData.is_composite}`);
+        } else {
+            console.log('[DEBUG] toggleView: currentPromptData is null/undefined.');
+        }
+
+        if (rawContentPane.classList.contains('show')) {
+            if (currentPromptData) {
+                console.log('[DEBUG] toggleView: Attempting to show expanded tab.');
+                updateExpandedPreview(); // Ensure it's fresh before showing
+                expandedTabInstance.show();
+            } else {
+                console.log('[DEBUG] toggleView: Cannot show expanded tab - data not loaded');
+                showToast('Cannot show expanded view - data is still loading.', 'info');
+            }
+        } else {
+            console.log('[DEBUG] toggleView: Attempting to show raw tab.');
+            rawTabInstance.show();
+        }
+    }
+    
+    function setupSearchReplace() {
+        const searchReplaceBtn = document.getElementById('search-replace-btn');
+        if (searchReplaceBtn) {
+            searchReplaceBtn.addEventListener('click', () => {
+                if (editor && rawContentPane.classList.contains('show')) {
+                    editor.execCommand("replace");
+                } else {
+                    showToast("Search/Replace is only available in Raw Content view.", "info");
+                }
+            });
+        }
+    }
+
+    // Define our custom hint function
+    window.promptHint = function(cm, options) {
+        return new Promise(function(accept) {
+            const cursor = cm.getCursor();
+            const token = cm.getTokenAt(cursor);
+            let searchTerm = '';
+            let fromPos = null;
+
+            // Check if we are inside a [[ ]] block
+            if (token.string.startsWith('[[')) {
+                searchTerm = token.string.substring(2);
+                fromPos = CodeMirror.Pos(cursor.line, token.start + 2); // Start after '[['
+            } else if (cm.getLine(cursor.line).substring(0, cursor.ch).includes('[[')) {
+                // More robust check if cursor is after '[[' but not necessarily at start of token
+                const lineContent = cm.getLine(cursor.line);
+                const lastOpenBracket = lineContent.lastIndexOf('[[', cursor.ch - 1);
+                if (lastOpenBracket !== -1) {
+                    const potentialSearchTerm = lineContent.substring(lastOpenBracket + 2, cursor.ch);
+                    if (!potentialSearchTerm.includes(']]')) { // Ensure we are not after a closing bracket
+                        searchTerm = potentialSearchTerm;
+                        fromPos = CodeMirror.Pos(cursor.line, lastOpenBracket + 2);
+                    }
+                }
+            }
+
+            console.log(`[PromptHint] Search term determined: '${searchTerm}'`); // Log for search term
+
+            // If empty search term, we should still show all completions 
+            // (this happens right after typing '[[')
+            const isEmptySearch = searchTerm.trim() === '';
+            console.log(`[PromptHint] Search term is ${isEmptySearch ? 'empty' : `'${searchTerm}'`}`);
+            
+            // We build the request URL differently based on whether we have a search term or not
+            const fetchUrl = isEmptySearch 
+                ? `/api/prompts/search_suggestions?exclude=${encodeURIComponent(promptId)}`
+                : `/api/prompts/search_suggestions?query=${encodeURIComponent(searchTerm)}&exclude=${encodeURIComponent(promptId)}`;
+
+            // Fetch suggestions from the API
+            fetch(fetchUrl)
+                .then(res => res.json())
+                .then(function(data) {
+                    if (data && data.length > 0) {
+                        // Sort the suggestions alphabetically
+                        const sortedData = [...data].sort((a, b) => a.id.localeCompare(b.id));
+                        
+                        const hints = sortedData.map(item => {
+                            return {
+                                text: item.id + ']]', // Text to insert
+                                displayText: item.id // Text to display in the hint list
+                            };
+                        });
+                        
+                        // Determine the 'from' and 'to' positions for replacement
+                        const from = fromPos;
+                        const to = cursor;
+
+                        return accept({list: hints, from: from, to: to});
+                    }
+                    return accept(null);
+                })
+                .catch(function() {
+                    return accept(null);
+                });
+        });
+    };
+
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeEditor();
+        const searchReplace = new SearchReplace(editor); // Instantiate SearchReplace
+        loadPromptData();
+
+        if (saveButton) {
+            saveButton.addEventListener('click', () => savePromptData(true));
+        }
+        if (descriptionInput) {
+            descriptionInput.addEventListener('input', () => {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => savePromptData(false), 1500);
+            });
+        }
+        if (tagsInput) {
+            tagsInput.addEventListener('input', () => {
+                clearTimeout(saveTimeout);
+                saveTimeout = setTimeout(() => savePromptData(false), 1500);
+            });
         }
         
-        // Override the default hint keymap to fix arrow key selection issues
-        const customKeys = {
-            // Preserve the selection when moving up/down
-            Up: function(cm, handle) {
-                handle.moveFocus(-1);
-                return true; // Handled
-            },
-            Down: function(cm, handle) {
-                handle.moveFocus(1);
-                return true; // Handled
-            },
-            PageUp: function(cm, handle) {
-                handle.moveFocus(-handle.menuSize() + 1, true);
-                return true;
-            },
-            PageDown: function(cm, handle) {
-                handle.moveFocus(handle.menuSize() - 1, true);
-                return true;
-            },
-            Home: function(cm, handle) {
-                handle.setFocus(0);
-                return true;
-            },
-            End: function(cm, handle) {
-                handle.setFocus(handle.length - 1);
-                return true;
-            },
-            Enter: function(cm, handle) {
-                if (handle.selectedHint >= 0) {
-                    handle.pick();
-                } else {
-                    cm.replaceSelection("\n");
-                }
-                return true;
-            },
-            Tab: function(cm, handle) {
-                if (handle.selectedHint >= 0) {
-                    handle.pick();
-                } else {
-                    cm.replaceSelection("\t");
-                }
-                return true;
-            },
-            Esc: function(cm, handle) {
-                handle.close();
-                return true;
-            }
-        };
+        const copyBtn = document.getElementById('copy-btn');
+        if (copyBtn) copyBtn.addEventListener('click', copyContent);
+
+        const toggleViewBtn = document.getElementById('toggle-view-btn');
+        if (toggleViewBtn) toggleViewBtn.addEventListener('click', toggleView);
+
+        const renameBtn = document.getElementById('rename-btn');
+        if (renameBtn) renameBtn.addEventListener('click', showRenameModal);
         
-        // Define our custom hint function
-        window.promptHint = function(editor, options) {
-            const cursor = editor.getCursor();
-            const line = editor.getLine(cursor.line);
-            const lineBeforeCursor = line.substring(0, cursor.ch);
-            
-            // Check if we're typing after [[ 
-            const match = lineBeforeCursor.match(/\[\[([^\]]*?)$/);
-            if (!match) return null;
-            
-            const prefix = match[1]; // The text after [[ but before cursor
-            
-            // Filter prompts based on prefix
-            const filteredPrompts = allPrompts.filter(prompt => 
-                prompt.toLowerCase().includes(prefix.toLowerCase())
-            );
-            
-            if (filteredPrompts.length === 0) return null;
-            
-            // Return the hint object with options that fix arrow key behavior
-            return {
-                list: filteredPrompts.map(prompt => ({ 
-                    text: prompt + "]]", 
-                    displayText: prompt 
-                })),
-                from: { line: cursor.line, ch: cursor.ch - prefix.length },
-                to: cursor,
-                selectedHint: 0 // Start with the first suggestion selected
-            };
-        };
+        const confirmRenameBtn = document.getElementById('confirm-rename-btn');
+        if (confirmRenameBtn) confirmRenameBtn.addEventListener('click', performRename);
+
+        const deleteBtn = document.getElementById('delete-btn');
+        if (deleteBtn) deleteBtn.addEventListener('click', showDeleteModal);
         
-        // Listen for [[ key sequence to trigger autocomplete
-        editor.on('keyup', function(cm, event) {
-            const cursor = cm.getCursor();
-            const line = cm.getLine(cursor.line);
-            const lineBeforeCursor = line.substring(0, cursor.ch);
-            
-            // Check if we just typed [[ or are within a [[ ]] pair
-            if (lineBeforeCursor.endsWith('[[') || lineBeforeCursor.match(/\[\[([^\]]*?)$/)) {
-                cm.showHint({ 
-                    hint: promptHint,
-                    completeSingle: false,
-                    closeOnUnfocus: false,
-                    customKeys: customKeys
-                });
+        const searchReplaceBtn = document.getElementById('search-replace-btn');
+        if (searchReplaceBtn) {
+            searchReplaceBtn.addEventListener('click', () => {
+                if (rawContentPane.classList.contains('show')) {
+                    searchReplace.showDialog();
+                } else {
+                    showToast("Search/Replace is only available in Raw Content view. Please switch to 'Raw Content' tab first.", "info");
+                }
+            });
+        }
+
+        // Ensure expanded preview updates when its tab is shown
+        if (expandedContentTab) {
+            expandedContentTab.addEventListener('shown.bs.tab', function (event) {
+                updateExpandedPreview();
+            });
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(event) {
+            if (event.altKey) {
+                switch (event.key.toLowerCase()) {
+                    case 's':
+                        event.preventDefault();
+                        saveButton.click();
+                        break;
+                    case 'c':
+                        event.preventDefault();
+                        copyBtn.click();
+                        break;
+                    case 't':
+                        event.preventDefault();
+                        toggleViewBtn.click();
+                        break;
+                    case 'r':
+                        event.preventDefault();
+                        searchReplaceBtn?.click();
+                        break;
+                    case 'b':
+                        event.preventDefault();
+                        document.getElementById('back-btn')?.click();
+                        break;
+                    case 'm':
+                        event.preventDefault();
+                        renameBtn.click();
+                        break;
+                }
             }
         });
-    }
+
+    });
 </script>
 {% endblock %}
