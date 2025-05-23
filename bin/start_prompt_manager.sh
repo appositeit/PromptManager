@@ -6,7 +6,7 @@ set -e
 
 # Default mode is foreground
 BACKGROUND_MODE=false
-PORT="8081" # Default port
+PORT="8095" # Default port
 
 # Parse command-line arguments
 while getopts ":bp:" opt; do
@@ -34,6 +34,22 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 PID_FILE="$PROJECT_ROOT/logs/server.pid"
 
+# Determine host-specific venv
+HOST=$(hostname)
+case "$HOST" in
+    "mie")
+        VENV_DIR="$PROJECT_ROOT/mie_venv"
+        ;;
+    "nara")
+        VENV_DIR="$PROJECT_ROOT/nara_venv"
+        ;;
+    *)
+        # Fallback for unknown hosts
+        VENV_DIR="$PROJECT_ROOT/venv"
+        echo "Warning: Unknown host '$HOST', using generic venv directory"
+        ;;
+esac
+
 # Change to project directory
 cd "$PROJECT_ROOT"
 
@@ -60,16 +76,17 @@ else
     fi
 fi
 
-# Set up virtual environment if it doesn't exist
-if [ ! -d "$PROJECT_ROOT/venv" ]; then
-    echo "Setting up virtual environment..."
-    python -m venv "$PROJECT_ROOT/venv"
+# Set up host-specific virtual environment if it doesn't exist
+if [ ! -d "$VENV_DIR" ]; then
+    echo "Setting up host-specific virtual environment for $HOST: $VENV_DIR"
+    python -m venv "$VENV_DIR"
     
     echo "Installing dependencies..."
-    . "$PROJECT_ROOT/venv/bin/activate" # Using . for POSIX compliance
+    . "$VENV_DIR/bin/activate" # Using . for POSIX compliance
     pip install -r "$PROJECT_ROOT/requirements.txt"
 else
-    . "$PROJECT_ROOT/venv/bin/activate" # Using . for POSIX compliance
+    echo "Using existing host-specific virtual environment: $VENV_DIR"
+    . "$VENV_DIR/bin/activate" # Using . for POSIX compliance
 fi
 
 # Check for existing server using the PID file first, then port
@@ -98,17 +115,17 @@ fi
 
 # Server starting logic
 if [ "$BACKGROUND_MODE" = true ]; then
-  echo "Starting Prompt Manager in background on http://localhost:$PORT"
+  echo "Starting Prompt Manager in background on http://0.0.0.0:$PORT"
   echo "Output will be logged to $MAIN_LOG_FILE"
   # Activate venv for nohup environment if not already inherited (though `.` above should suffice for current shell)
   # The `env PYTHONPATH=...` is good. `cd` to project root is also good.
-  nohup env PYTHONPATH="$PROJECT_ROOT" "$PROJECT_ROOT/venv/bin/python" -m src.server --host localhost --port "$PORT" >> "$MAIN_LOG_FILE" 2>&1 &
+  nohup env PYTHONPATH="$PROJECT_ROOT" "$VENV_DIR/bin/python" -m src.server --host 0.0.0.0 --port "$PORT" >> "$MAIN_LOG_FILE" 2>&1 &
   echo $! > "$PID_FILE"
   echo "Server started in background with PID $(cat "$PID_FILE")."
   sleep 1 # Give it a moment 
 else
-  echo "Starting Prompt Manager in foreground on http://localhost:$PORT"
+  echo "Starting Prompt Manager in foreground on http://0.0.0.0:$PORT"
   echo "Logging to $TIMESTAMPED_LOG_FILE (symlinked by $MAIN_LOG_FILE)"
   # Use exec to replace the shell process with the python process
-  exec env PYTHONPATH="$PROJECT_ROOT" "$PROJECT_ROOT/venv/bin/python" -m src.server --host localhost --port "$PORT" 2>&1 | tee -a "$TIMESTAMPED_LOG_FILE"
+  exec env PYTHONPATH="$PROJECT_ROOT" "$VENV_DIR/bin/python" -m src.server --host 0.0.0.0 --port "$PORT" 2>&1 | tee -a "$TIMESTAMPED_LOG_FILE"
 fi
