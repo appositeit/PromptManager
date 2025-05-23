@@ -159,7 +159,268 @@ async def get_prompt_suggestions(
         logger.opt(exception=True).error(f"Error searching prompt suggestions: {e}")
         raise HTTPException(status_code=500, detail="Internal server error while searching prompt suggestions")
 
-@router.get("/{prompt_id}", response_model=Dict)
+# Directory routes - MUST come before the catch-all {prompt_id:path} route
+@router.get("/directories/all", response_model=List[Dict])
+async def get_all_directories(prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """Get all configured prompt directories."""
+    return [d.dict() for d in prompt_service.directories]
+
+@router.post("/directories", response_model=Dict)
+async def add_directory(directory: DirectoryCreate, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """Add a new prompt directory."""
+    logger.info(f"Adding directory: {directory.path}")
+    try:
+        # Normalize path before adding. PromptService's add_directory also normalizes.
+        # Consider if client-side normalization or a utility function is better before this point.
+        normalized_path = os.path.normpath(directory.path)
+        
+        # Check if directory already exists by normalized path
+        for existing_dir in prompt_service.directories:
+            if existing_dir.path == normalized_path:
+                logger.warning(f"Directory with normalized path '{normalized_path}' already exists.")
+                raise HTTPException(status_code=400, detail=f"Directory '{normalized_path}' already exists.")
+
+        success = prompt_service.add_directory(
+            path=directory.path, # Let PromptService handle its internal normalization fully
+            name=directory.name,
+            description=directory.description
+        )
+        if not success:
+            # This could be due to path not found or other issues in add_directory
+            logger.error(f"Failed to add directory: {directory.path}")
+            raise HTTPException(status_code=400, detail="Could not add directory. Ensure path is valid and accessible.")
+        
+        # Find the added directory to return its full data
+        # add_directory in PromptService now returns bool, so we need to retrieve it.
+        # This assumes PromptService's internal normalization matches what we'd expect to find.
+        added_dir_obj = None
+        for d_obj in prompt_service.directories:
+            if d_obj.path == prompt_service._normalize_path(directory.path):
+                 added_dir_obj = d_obj
+                 break
+        
+        if not added_dir_obj:
+            # Should not happen if add_directory succeeded and normalization is consistent
+            logger.error(f"Could not find directory '{directory.path}' after adding it.")
+            raise HTTPException(status_code=500, detail="Error retrieving directory after adding.")
+            
+        return added_dir_obj.dict()
+
+    except HTTPException: # Re-raise HTTP exceptions directly
+        raise
+    except Exception as e:
+        logger.opt(exception=True).error(f"Error adding directory {directory.path}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error adding directory.")
+
+@router.put("/directories/{directory_path:path}", response_model=Dict)
+async def update_directory(directory_path: str, data: DirectoryUpdate, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """Update an existing prompt directory's name, description, or enabled status."""
+    # Normalize the input path for comparison
+    normalized_input_path = os.path.normpath(directory_path)
+    logger.info(f"Updating directory: Normalized path '{normalized_input_path}' with data: {data.dict(exclude_none=True)}")
+
+    found_dir: Optional[PromptDirectory] = None
+    for d in prompt_service.directories:
+        if os.path.normpath(d.path) == normalized_input_path:
+            found_dir = d
+            break
+            
+    if not found_dir:
+        raise HTTPException(status_code=404, detail=f"Directory not found: {directory_path}")
+
+    updated = False
+    reload_needed = False # Flag to check if prompts need reloading due to path or enabled change
+
+    if data.name is not None and found_dir.name != data.name:
+        logger.info(f"Updating directory name from '{found_dir.name}' to '{data.name}'")
+        found_dir.name = data.name
+        updated = True
+        
+    if data.description is not None and found_dir.description != data.description:
+        logger.info(f"Updating directory description from '{found_dir.description}' to '{data.description}'")
+        found_dir.description = data.description
+        updated = True
+        
+    if data.enabled is not None and found_dir.enabled != data.enabled:
+        logger.info(f"Updating directory enabled status from '{found_dir.enabled}' to '{data.enabled}'")
+        found_dir.enabled = data.enabled
+        updated = True
+        reload_needed = True # Prompts should be reloaded if enabled status changes
+
+    if updated:
+        prompt_service._save_directory_config() # Save changes to the config file
+        logger.info(f"Directory '{found_dir.path}' updated in config.")
+        
+        if reload_needed and found_dir.enabled:
+            logger.info(f"Directory '{found_dir.path}' was enabled or re-enabled, reloading its prompts.")
+            # Pass the PromptDirectory object directly
+            count = prompt_service.load_prompts_from_directory(found_dir)
+            logger.info(f"Reloaded {count} prompts from directory: {found_dir.path}")
+        elif reload_needed and not found_dir.enabled:
+            logger.info(f"Directory '{found_dir.path}' was disabled. Prompts from this directory will be effectively unavailable until re-enabled.")
+            # Optionally, clear prompts from this directory from the service's cache
+            # For now, they just won't be reloaded or actively served if get_prompt filters by enabled dirs.
+            # prompt_service.clear_prompts_from_directory(found_dir.path) # Example of a method to implement
+
+    return found_dir.dict()
+
+@router.post("/directories/{directory_path:path}/toggle", response_model=Dict)
+async def toggle_directory_status(directory_path: str, data: DirectoryStatusToggle, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """Toggle the enabled status of a directory."""
+    normalized_path_to_find = prompt_service._normalize_path(directory_path)
+    logger.info(f"Toggling status for directory: Original='{directory_path}', Normalized='{normalized_path_to_find}' to enabled={data.enabled}")
+
+    dir_to_toggle = None
+    for i, d_obj in enumerate(prompt_service.directories):
+        if d_obj.path == normalized_path_to_find:
+            dir_to_toggle = d_obj
+            break
+    
+    if not dir_to_toggle:
+        raise HTTPException(status_code=404, detail=f"Directory '{directory_path}' not found.")
+
+    if data.enabled is not None and dir_to_toggle.enabled != data.enabled:
+        dir_to_toggle.enabled = data.enabled
+        
+        if dir_to_toggle.enabled:
+            logger.info(f"Directory '{dir_to_toggle.path}' re-enabled, reloading its prompts.")
+            count = prompt_service.load_prompts_from_directory(dir_to_toggle)
+            logger.info(f"Reloaded {count} prompts from '{dir_to_toggle.path}'.")
+        else:
+            logger.info(f"Directory '{dir_to_toggle.path}' disabled.")
+
+        prompt_service._save_directory_config()
+        logger.info(f"Directory config saved after toggling status for '{dir_to_toggle.path}'.")
+
+    return dir_to_toggle.dict()
+
+@router.delete("/directories/{directory_path:path}", response_model=Dict)
+async def delete_directory(directory_path: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """Delete a directory from the prompt service."""
+    logger.info(f"Deleting directory: {directory_path}")
+    
+    normalized_path = prompt_service._normalize_path(directory_path)
+    success = prompt_service.remove_directory(normalized_path)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Directory '{directory_path}' not found or could not be deleted")
+        
+    return {"message": f"Directory '{directory_path}' deleted successfully"}
+
+# Other specific routes (reload, expand, rename, filesystem/complete_path)
+@router.post("/reload", response_model=Dict)
+async def reload_all_prompts_endpoint(prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """Reload all prompts from all configured directories."""
+    logger.info("API endpoint /reload called. Reloading all prompts.")
+    try:
+        count = prompt_service.load_all_prompts()
+        return {"message": f"Successfully reloaded {count} prompts from all directories.", "count": count}
+    except Exception as e:
+        logger.opt(exception=True).error(f"Error during /reload endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error while reloading prompts: {str(e)}")
+
+@router.post("/expand", response_model=PromptExpandResponse)
+async def expand_prompt_content(
+    request_data: PromptExpandRequest,
+    prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)
+):
+    """Expand a prompt's content by recursively including dependencies."""
+    logger.info(f"Expanding prompt: {request_data.prompt_id}")
+    try:
+        prompt = prompt_service.get_prompt(request_data.prompt_id, directory=request_data.directory)
+        if not prompt:
+            raise HTTPException(status_code=404, detail=f"Prompt '{request_data.prompt_id}' not found for expansion.")
+
+        expanded_content, dependencies, warnings = prompt_service.expand_prompt_content(prompt.id)
+        
+        return PromptExpandResponse(
+            prompt_id=prompt.id,
+            original_content=prompt.content,
+            expanded_content=expanded_content,
+            dependencies=dependencies,
+            warnings=warnings
+        )
+    except ValueError as ve:
+        logger.error(f"ValueError expanding prompt: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.opt(exception=True).error(f"Error expanding prompt: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during prompt expansion")
+
+@router.post("/rename", response_model=Dict)
+async def rename_prompt_endpoint(
+    rename_data: PromptRenameRequest,
+    prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)
+):
+    """Rename an existing prompt using the new schema."""
+    logger.info(f"Renaming prompt from '{rename_data.old_id}' to '{rename_data.new_name}'")
+
+    # Sanitize the new_name
+    original_new_name = rename_data.new_name
+    sanitized_new_name = original_new_name.replace(" ", "_")
+
+    if original_new_name != sanitized_new_name:
+        logger.info(f"Sanitizing new_name for rename: '{original_new_name}' -> '{sanitized_new_name}'")
+        rename_data.new_name = sanitized_new_name
+    
+    # Get the old prompt to check if it exists
+    old_prompt_obj = prompt_service.get_prompt(rename_data.old_id)
+    if not old_prompt_obj:
+        raise HTTPException(status_code=404, detail=f"Prompt '{rename_data.old_id}' not found.")
+
+    # Generate the new ID from directory and new name
+    from src.models.unified_prompt import Prompt
+    new_id = Prompt.generate_id(old_prompt_obj.directory, rename_data.new_name)
+    
+    # Check if a prompt with the new ID already exists
+    if new_id != old_prompt_obj.id:  # Only check if the ID would actually change
+        target_prompt_exists = prompt_service.get_prompt(new_id)
+        if target_prompt_exists:
+            detail_msg = f"Prompt with ID '{new_id}' already exists."
+            if original_new_name != rename_data.new_name:
+                detail_msg += f" (Original new name '{original_new_name}' was sanitized to '{rename_data.new_name}')"
+            raise HTTPException(status_code=409, detail=detail_msg) # 409 Conflict
+
+    success = prompt_service.rename_prompt(
+        old_identifier=rename_data.old_id,
+        new_name=rename_data.new_name,
+        content=rename_data.content,
+        description=rename_data.description,
+        tags=rename_data.tags
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail=f"Failed to rename prompt '{rename_data.old_id}'. Check server logs for details.")
+
+    # If successful, return the new prompt details
+    renamed_prompt = prompt_service.get_prompt(new_id)
+    if not renamed_prompt:
+        logger.error(f"Failed to retrieve prompt '{new_id}' after successful rename operation.")
+        raise HTTPException(status_code=500, detail="Error retrieving prompt after rename.")
+
+    prompt_dict = renamed_prompt.dict()
+    prompt_dict["directory_name"] = get_directory_name(renamed_prompt.directory)
+    
+    # Include a message about sanitization if it occurred
+    if original_new_name != renamed_prompt.name:
+        prompt_dict["sanitized_message"] = f"Original new name '{original_new_name}' was sanitized to '{renamed_prompt.name}'."
+    
+
+# --- Filesystem Path Completion Endpoint ---
+from src.services.filesystem_service import FilesystemService
+
+@router.post("/filesystem/complete_path", response_model=FilesystemCompletionResponse)
+async def complete_path(request: FilesystemPathRequest):
+    fs_service = FilesystemService()
+    result = fs_service.get_path_completions(request.partial_path)
+    return FilesystemCompletionResponse(
+        completed_path=result.completed_path,
+        suggestions=result.suggestions,
+        is_directory=result.is_directory
+    )
+
+# Catch-all route for individual prompts - MUST come LAST to avoid conflicts
+@router.get("/{prompt_id:path}", response_model=Dict)
 async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
     """
     Get a specific prompt by ID.
@@ -210,6 +471,16 @@ async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None, prom
         prompt_dict["warnings"] = [f"Error expanding dependencies: {e}"]
 
     return prompt_dict
+
+@router.get("/{prompt_id}/referenced_by", response_model=List[Dict])
+async def get_prompt_references(prompt_id: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """Get all prompts that reference the given prompt_id."""
+    logger.info(f"Fetching references for prompt_id: {prompt_id}")
+    references = prompt_service.get_references_to_prompt(prompt_id)
+    if references is None: # Assuming the service might return None if the prompt itself doesn't exist
+        logger.warning(f"Prompt '{prompt_id}' not found when trying to get its references.")
+        raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found.")
+    return references
 
 
 @router.post("/", response_model=Dict, status_code=201)
@@ -387,211 +658,3 @@ async def rename_prompt_endpoint(
     
     return prompt_dict
 
-@router.get("/directories/all", response_model=List[Dict])
-async def get_all_directories(prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """Get all configured prompt directories."""
-    return [d.dict() for d in prompt_service.directories]
-
-@router.post("/directories", response_model=Dict)
-async def add_directory(directory: DirectoryCreate, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """Add a new prompt directory."""
-    logger.info(f"Adding directory: {directory.path}")
-    try:
-        # Normalize path before adding. PromptService's add_directory also normalizes.
-        # Consider if client-side normalization or a utility function is better before this point.
-        normalized_path = os.path.normpath(directory.path)
-        
-        # Check if directory already exists by normalized path
-        for existing_dir in prompt_service.directories:
-            if existing_dir.path == normalized_path:
-                logger.warning(f"Directory with normalized path '{normalized_path}' already exists.")
-                raise HTTPException(status_code=400, detail=f"Directory '{normalized_path}' already exists.")
-
-        success = prompt_service.add_directory(
-            path=directory.path, # Let PromptService handle its internal normalization fully
-            name=directory.name,
-            description=directory.description
-        )
-        if not success:
-            # This could be due to path not found or other issues in add_directory
-            logger.error(f"Failed to add directory: {directory.path}")
-            raise HTTPException(status_code=400, detail="Could not add directory. Ensure path is valid and accessible.")
-        
-        # Find the added directory to return its full data
-        # add_directory in PromptService now returns bool, so we need to retrieve it.
-        # This assumes PromptService's internal normalization matches what we'd expect to find.
-        added_dir_obj = None
-        for d_obj in prompt_service.directories:
-            if d_obj.path == prompt_service._normalize_path(directory.path):
-                 added_dir_obj = d_obj
-                 break
-        
-        if not added_dir_obj:
-            # Should not happen if add_directory succeeded and normalization is consistent
-            logger.error(f"Could not find directory '{directory.path}' after adding it.")
-            raise HTTPException(status_code=500, detail="Error retrieving directory after adding.")
-            
-        return added_dir_obj.dict()
-
-    except HTTPException: # Re-raise HTTP exceptions directly
-        raise
-    except Exception as e:
-        logger.opt(exception=True).error(f"Error adding directory {directory.path}: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error adding directory.")
-
-@router.put("/directories/{directory_path:path}", response_model=Dict)
-async def update_directory(directory_path: str, data: DirectoryUpdate, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """Update an existing prompt directory's name, description, or enabled status."""
-    # Normalize the input path for comparison
-    normalized_input_path = os.path.normpath(directory_path)
-    logger.info(f"Updating directory: Normalized path '{normalized_input_path}' with data: {data.dict(exclude_none=True)}")
-
-    found_dir: Optional[PromptDirectory] = None
-    for d in prompt_service.directories:
-        if os.path.normpath(d.path) == normalized_input_path:
-            found_dir = d
-            break
-            
-    if not found_dir:
-        raise HTTPException(status_code=404, detail=f"Directory not found: {directory_path}")
-
-    updated = False
-    reload_needed = False # Flag to check if prompts need reloading due to path or enabled change
-
-    if data.name is not None and found_dir.name != data.name:
-        logger.info(f"Updating directory name from '{found_dir.name}' to '{data.name}'")
-        found_dir.name = data.name
-        updated = True
-        
-    if data.description is not None and found_dir.description != data.description:
-        logger.info(f"Updating directory description from '{found_dir.description}' to '{data.description}'")
-        found_dir.description = data.description
-        updated = True
-        
-    if data.enabled is not None and found_dir.enabled != data.enabled:
-        logger.info(f"Updating directory enabled status from '{found_dir.enabled}' to '{data.enabled}'")
-        found_dir.enabled = data.enabled
-        updated = True
-        reload_needed = True # Prompts should be reloaded if enabled status changes
-
-    if updated:
-        prompt_service._save_directory_config() # Save changes to the config file
-        logger.info(f"Directory '{found_dir.path}' updated in config.")
-        
-        if reload_needed and found_dir.enabled:
-            logger.info(f"Directory '{found_dir.path}' was enabled or re-enabled, reloading its prompts.")
-            # Pass the PromptDirectory object directly
-            count = prompt_service.load_prompts_from_directory(found_dir)
-            logger.info(f"Reloaded {count} prompts from directory: {found_dir.path}")
-        elif reload_needed and not found_dir.enabled:
-            logger.info(f"Directory '{found_dir.path}' was disabled. Prompts from this directory will be effectively unavailable until re-enabled.")
-            # Optionally, clear prompts from this directory from the service's cache
-            # For now, they just won't be reloaded or actively served if get_prompt filters by enabled dirs.
-            # prompt_service.clear_prompts_from_directory(found_dir.path) # Example of a method to implement
-
-    return found_dir.dict()
-
-@router.post("/directories/{directory_path:path}/toggle", response_model=Dict)
-async def toggle_directory_status(directory_path: str, data: DirectoryStatusToggle, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """Toggle the enabled status of a directory."""
-    normalized_path_to_find = prompt_service._normalize_path(directory_path)
-    logger.info(f"Toggling status for directory: Original='{directory_path}', Normalized='{normalized_path_to_find}' to enabled={data.enabled}")
-
-    dir_to_toggle = None
-    for i, d_obj in enumerate(prompt_service.directories):
-        if d_obj.path == normalized_path_to_find:
-            dir_to_toggle = d_obj
-            break
-    
-    if not dir_to_toggle:
-        raise HTTPException(status_code=404, detail=f"Directory '{directory_path}' not found.")
-
-    if data.enabled is not None and dir_to_toggle.enabled != data.enabled:
-        dir_to_toggle.enabled = data.enabled
-        
-        if dir_to_toggle.enabled:
-            logger.info(f"Directory '{dir_to_toggle.path}' re-enabled, reloading its prompts.")
-            count = prompt_service.load_prompts_from_directory(dir_to_toggle)
-            logger.info(f"Reloaded {count} prompts from '{dir_to_toggle.path}'.")
-        else:
-            logger.info(f"Directory '{dir_to_toggle.path}' disabled.")
-
-        prompt_service._save_directory_config()
-        logger.info(f"Directory config saved after toggling status for '{dir_to_toggle.path}'.")
-
-    return dir_to_toggle.dict()
-
-@router.delete("/directories/{directory_path:path}", response_model=Dict)
-async def delete_directory(directory_path: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """Delete a directory from the prompt service."""
-    logger.info(f"Deleting directory: {directory_path}")
-    
-    normalized_path = prompt_service._normalize_path(directory_path)
-    success = prompt_service.remove_directory(normalized_path)
-    
-    if not success:
-        raise HTTPException(status_code=404, detail=f"Directory '{directory_path}' not found or could not be deleted")
-        
-    return {"message": f"Directory '{directory_path}' deleted successfully"}
-
-@router.post("/expand", response_model=PromptExpandResponse)
-async def expand_prompt_content(
-    request_data: PromptExpandRequest,
-    prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)
-):
-    """Expand a prompt's content by recursively including dependencies."""
-    logger.info(f"Expanding prompt: {request_data.prompt_id}")
-    try:
-        prompt = prompt_service.get_prompt(request_data.prompt_id, directory=request_data.directory)
-        if not prompt:
-            raise HTTPException(status_code=404, detail=f"Prompt '{request_data.prompt_id}' not found for expansion.")
-
-        expanded_content, dependencies, warnings = prompt_service.expand_prompt_content(prompt.id)
-        
-        return PromptExpandResponse(
-            prompt_id=prompt.id,
-            original_content=prompt.content,
-            expanded_content=expanded_content,
-            dependencies=dependencies,
-            warnings=warnings
-        )
-    except ValueError as ve:
-        logger.error(f"ValueError expanding prompt: {ve}")
-        raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        logger.opt(exception=True).error(f"Error expanding prompt: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error during prompt expansion")
-
-@router.post("/reload", response_model=Dict)
-async def reload_all_prompts_endpoint(prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """Reload all prompts from all configured directories."""
-    logger.info("API endpoint /reload called. Reloading all prompts.")
-    try:
-        count = prompt_service.load_all_prompts()
-        return {"message": f"Successfully reloaded {count} prompts from all directories.", "count": count}
-    except Exception as e:
-        logger.opt(exception=True).error(f"Error during /reload endpoint: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal server error while reloading prompts: {str(e)}")
-
-@router.get("/{prompt_id}/referenced_by", response_model=List[Dict])
-async def get_prompt_references(prompt_id: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """Get all prompts that reference the given prompt_id."""
-    logger.info(f"Fetching references for prompt_id: {prompt_id}")
-    references = prompt_service.get_references_to_prompt(prompt_id)
-    if references is None: # Assuming the service might return None if the prompt itself doesn't exist
-        logger.warning(f"Prompt '{prompt_id}' not found when trying to get its references.")
-        raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found.")
-    return references
-
-# --- Filesystem Path Completion Endpoint ---
-from src.services.filesystem_service import FilesystemService
-
-@router.post("/filesystem/complete_path", response_model=FilesystemCompletionResponse)
-async def complete_path(request: FilesystemPathRequest):
-    fs_service = FilesystemService()
-    result = fs_service.get_path_completions(request.partial_path)
-    return FilesystemCompletionResponse(
-        completed_path=result.completed_path,
-        suggestions=result.suggestions,
-        is_directory=result.is_directory
-    )
