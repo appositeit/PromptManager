@@ -3,7 +3,7 @@
 A standalone system for managing AI prompts with composable elements.
 
 ## Overview
-Prompt Manager provides a web interface and API for creating, organizing, and managing prompts for AI interactions. It supports composable templates, prompt directories, and real-time editing.
+Prompt Manager provides a web interface and API for creating, organizing, and managing prompts for AI interactions. It supports composable templates, prompt directories, and real-time editing. There is a focus on keyboard shortcuts and efficient workflow- directory listing and prompt embedding support tab completion, most interactions can be navigated using keyboard shortcuts, etc.
 
 ## Features
 - Create and manage prompts (standard and composite)
