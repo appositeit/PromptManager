@@ -186,16 +186,20 @@
             <div class="modal-body">
                 <form id="newPromptForm">
                     <div class="mb-3">
-                        <label for="promptId" class="form-label">Prompt ID</label>
-                        <input type="text" class="form-control" id="promptId" required>
-                        <div class="form-text">Unique identifier for the prompt (no spaces or special characters)</div>
+                        <label for="promptName" class="form-label">Prompt Name</label>
+                        <input type="text" class="form-control" id="promptName" required>
+                        <div class="form-text">Display name for the prompt (will be used as filename)</div>
                     </div>
-                    <!-- Type field removed as it's no longer needed -->
                     <div class="mb-3">
                         <label for="promptDirectory" class="form-label">Directory</label>
                         <select class="form-select" id="promptDirectory" required>
                             <!-- Directories will be loaded dynamically -->
                         </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptIdPreview" class="form-label">Generated ID</label>
+                        <input type="text" class="form-control" id="promptIdPreview" readonly>
+                        <div class="form-text">Unique identifier (generated from directory + name)</div>
                     </div>
                     <div class="mb-3">
                         <label for="promptDescription" class="form-label">Description</label>
@@ -651,7 +655,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 const newPromptModal = new bootstrap.Modal(document.getElementById('newPromptModal'));
                 newPromptModal.show();
                 setTimeout(() => {
-                    document.getElementById('promptId').focus();
+                    document.getElementById('promptName').focus();
                 }, 300); // Delay focus slightly for modal to open
             }
         });
@@ -814,6 +818,31 @@ Remember that you're part of a team - your specialized work contributes to solvi
         const createPromptBtn = document.getElementById('createPromptBtn');
         if (createPromptBtn) {
             createPromptBtn.addEventListener('click', createPrompt);
+        }
+        
+        // Add ID preview functionality
+        const promptNameInput = document.getElementById('promptName');
+        const promptDirectorySelect = document.getElementById('promptDirectory');
+        const promptIdPreview = document.getElementById('promptIdPreview');
+        
+        function updateIdPreview() {
+            const name = promptNameInput.value.trim();
+            const directory = promptDirectorySelect.value;
+            
+            if (name && directory) {
+                // Extract directory name from path (last component)
+                const dirPath = directory.split('/');
+                const dirName = dirPath[dirPath.length - 1] || 'root';
+                const previewId = `${dirName}/${name}`;
+                promptIdPreview.value = previewId;
+            } else {
+                promptIdPreview.value = '';
+            }
+        }
+        
+        if (promptNameInput && promptDirectorySelect && promptIdPreview) {
+            promptNameInput.addEventListener('input', updateIdPreview);
+            promptDirectorySelect.addEventListener('change', updateIdPreview);
         }
         
         // Add directory form handler
@@ -1241,6 +1270,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 const searchLower = currentFilter.search.toLowerCase();
                 filteredPrompts = filteredPrompts.filter(prompt => 
                     prompt.id.toLowerCase().includes(searchLower) ||
+                    (prompt.name && prompt.name.toLowerCase().includes(searchLower)) ||
                     (prompt.description && prompt.description.toLowerCase().includes(searchLower)) ||
                     (prompt.directory && prompt.directory.toLowerCase().includes(searchLower))
                 );
@@ -1279,8 +1309,9 @@ Remember that you're part of a team - your specialized work contributes to solvi
                         bValue = b.directory || '';
                         break;
                     case 'id':
-                        aValue = a.id;
-                        bValue = b.id;
+                        // Sort by name if available, fallback to ID
+                        aValue = a.name || a.id;
+                        bValue = b.name || b.id;
                         break;
                     case 'description':
                         aValue = a.description || '';
@@ -1340,15 +1371,15 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 dirCell.textContent = prompt.directory || '';
                 dirCell.title = prompt.directory || '';
                 
-                // ID cell
-                const idCell = document.createElement('td');
-                const idLink = document.createElement('a');
-                // Always use the regular ID for consistency
-                idLink.href = `/prompts/${encodeURIComponent(prompt.id)}`;
-                idLink.textContent = prompt.id;
-                // Add a title with the directory for clarity
-                idLink.title = `${prompt.id} (in ${prompt.directory_name || prompt.directory})`;
-                idCell.appendChild(idLink);
+                // Name cell (was ID cell)
+                const nameCell = document.createElement('td');
+                const nameLink = document.createElement('a');
+                // Use the ID for the URL but show the name
+                nameLink.href = `/prompts/${encodeURIComponent(prompt.id)}`;
+                nameLink.textContent = prompt.name || prompt.id; // Show name if available, fallback to ID
+                // Add a title showing the full ID for clarity
+                nameLink.title = `${prompt.name || prompt.id} (ID: ${prompt.id})`;
+                nameCell.appendChild(nameLink);
                 
                 // Description cell
                 const descCell = document.createElement('td');
@@ -1391,12 +1422,12 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 deleteBtn.className = 'btn btn-sm btn-outline-danger';
                 deleteBtn.innerHTML = '<i class="bi bi-trash"></i>';
                 deleteBtn.title = 'Delete';
-                // Use unique_id if available for deletion
-                const deleteId = prompt.unique_id || prompt.id;
+                // Use the full ID for deletion
+                const deleteId = prompt.id;
                 deleteBtn.dataset.promptId = deleteId;
-                deleteBtn.dataset.promptName = prompt.id; // For display purposes
+                deleteBtn.dataset.promptName = prompt.name || prompt.id; // For display purposes
                 deleteBtn.addEventListener('click', function() {
-                    showDeleteConfirmation(deleteId, prompt.id);
+                    showDeleteConfirmation(deleteId, prompt.name || prompt.id);
                 });
                 
                 actionsCell.appendChild(editBtn);
@@ -1404,7 +1435,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 
                 // Add cells to row
                 row.appendChild(dirCell);
-                row.appendChild(idCell);
+                row.appendChild(nameCell);
                 row.appendChild(descCell);
                 row.appendChild(tagsCell);
                 row.appendChild(updatedCell);
@@ -1779,7 +1810,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
     }
     
     function createPrompt() {
-        const id = document.getElementById('promptId').value.trim();
+        const name = document.getElementById('promptName').value.trim();
         const directory = document.getElementById('promptDirectory').value;
         const description = document.getElementById('promptDescription').value.trim();
         const tags = document.getElementById('promptTags').value.trim();
@@ -1787,8 +1818,8 @@ Remember that you're part of a team - your specialized work contributes to solvi
         const content = '';  // Empty content, will be filled with default in the backend
         
         // Validate
-        if (!id) {
-            alert('Prompt ID is required');
+        if (!name) {
+            alert('Prompt name is required');
             return;
         }
         
@@ -1800,10 +1831,10 @@ Remember that you're part of a team - your specialized work contributes to solvi
         // Create tag array
         const tagArray = tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
         
-        // Create prompt data
+        // Create prompt data with new schema
         const promptData = {
-            id: id,
-            content: content || `# ${id}\n\nEnter content here...`,
+            name: name,  // Changed from 'id' to 'name'
+            content: content || `# ${name}\n\nEnter content here...`,
             directory: directory,
             description: description,
             tags: tagArray
@@ -1836,14 +1867,18 @@ Remember that you're part of a team - your specialized work contributes to solvi
             modal.hide();
             
             // Clear form
-            document.getElementById('promptId').value = '';
+            document.getElementById('promptName').value = '';
+            document.getElementById('promptIdPreview').value = '';
             document.getElementById('promptDescription').value = '';
             document.getElementById('promptTags').value = '';
             
-            // Show toast
+            // Show toast with any sanitization message
+            if (data.sanitized_message) {
+                showToast(data.sanitized_message, 'warning');
+            }
             showToast('Prompt created successfully');
             
-            // Redirect to edit page
+            // Redirect to edit page using the returned ID
             window.location.href = `/prompts/${data.id}`;
         })
         .catch(error => {
