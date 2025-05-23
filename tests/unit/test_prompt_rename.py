@@ -1,26 +1,48 @@
+"""
+Unit tests for prompt renaming functionality within the PromptService.
+
+These tests verify the `rename_prompt` method of the PromptService,
+ensuring that prompts are correctly renamed on the filesystem and
+within the service's internal state. It covers scenarios such as
+basic renaming, renaming with content updates, and error handling
+when a target prompt ID already exists.
+
+Modules/Classes Tested:
+- src.services.prompt_service.PromptService (methods: create_prompt, rename_prompt, get_prompt)
+"""
+
 import unittest
 import os
 import tempfile
 import shutil
-from pathlib import Path
+from unittest.mock import patch
 
 # Import the PromptService for testing
 from src.services.prompt_service import PromptService
-from src.models.unified_prompt import Prompt
 
 
 class TestPromptRename(unittest.TestCase):
-    """Test the prompt rename functionality."""
+    # Removed original docstring to avoid duplication with the module-level one
 
     def setUp(self):
-        """Set up temporary test directories."""
-        self.temp_dir = tempfile.mkdtemp()
-        self.prompt_service = PromptService(auto_load=False)
-        self.prompt_service.add_directory(self.temp_dir)
+        """Set up temporary test directories and patch config file."""
+        self.test_dir = tempfile.mkdtemp()
+        
+        # Patch CONFIG_FILE to use a temporary file for this test suite
+        self.config_file_patch = patch('src.services.prompt_service.PromptService.CONFIG_FILE', 
+                                       os.path.join(self.test_dir, "test_rename_prompt_directories.json"))
+        self.mock_config_file = self.config_file_patch.start()
+        
+        # Initialize service with no base_directories and auto_load=False
+        # This ensures it starts clean and uses the patched (temporary) config file.
+        self.prompt_service = PromptService(base_directories=[], auto_load=False)
+        # Now add the temporary directory to the service that uses the temporary config
+        self.prompt_service.add_directory(self.test_dir)
 
     def tearDown(self):
-        """Clean up temporary test directories."""
-        shutil.rmtree(self.temp_dir)
+        """Clean up temporary test directories and stop patch."""
+        self.config_file_patch.stop() # Stop the patch first
+        shutil.rmtree(self.test_dir)
 
     def test_rename_prompt(self):
         """Test renaming a prompt."""
@@ -34,7 +56,7 @@ class TestPromptRename(unittest.TestCase):
         prompt = self.prompt_service.create_prompt(
             id=old_id,
             content=content,
-            directory=self.temp_dir,
+            directory=self.test_dir,
             description=description,
             tags=tags
         )
@@ -46,7 +68,7 @@ class TestPromptRename(unittest.TestCase):
         self.assertEqual(prompt.tags, tags)
 
         # Verify the file was created
-        old_file_path = os.path.join(self.temp_dir, f"{old_id}.md")
+        old_file_path = os.path.join(self.test_dir, f"{old_id}.md")
         self.assertTrue(os.path.exists(old_file_path))
 
         # Rename the prompt
@@ -63,7 +85,7 @@ class TestPromptRename(unittest.TestCase):
         self.assertFalse(os.path.exists(old_file_path))
 
         # Verify the new file exists
-        new_file_path = os.path.join(self.temp_dir, f"{new_id}.md")
+        new_file_path = os.path.join(self.test_dir, f"{new_id}.md")
         self.assertTrue(os.path.exists(new_file_path))
 
         # Verify the prompt can be retrieved by the new ID
@@ -90,7 +112,7 @@ class TestPromptRename(unittest.TestCase):
         self.prompt_service.create_prompt(
             id=old_id,
             content=original_content,
-            directory=self.temp_dir,
+            directory=self.test_dir,
             description=original_description,
             tags=original_tags
         )
@@ -131,13 +153,13 @@ class TestPromptRename(unittest.TestCase):
         self.prompt_service.create_prompt(
             id=prompt1_id,
             content="Prompt 1",
-            directory=self.temp_dir
+            directory=self.test_dir
         )
 
         self.prompt_service.create_prompt(
             id=prompt2_id,
             content="Prompt 2",
-            directory=self.temp_dir
+            directory=self.test_dir
         )
 
         # Try to rename prompt1 to prompt2 (which already exists)
@@ -154,5 +176,5 @@ class TestPromptRename(unittest.TestCase):
         self.assertIsNotNone(self.prompt_service.get_prompt(prompt2_id))
 
 
-if __name__ == "__main__":
-    unittest.main()
+# if __name__ == "__main__":
+#     unittest.main() 

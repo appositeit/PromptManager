@@ -1,0 +1,13 @@
+#!/bin/bash
+"""
+Wrapper script for add_prompt_dirs.py
+
+This script provides a convenient way to run the add_prompt_dirs.py tool
+without needing to specify the full path or remember the location.
+"""
+
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Run the Python script with all passed arguments
+exec python3 "$SCRIPT_DIR/add_prompt_dirs.py" "$@"

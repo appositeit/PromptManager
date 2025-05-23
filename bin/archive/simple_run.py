@@ -3,7 +3,6 @@
 Simple script to run the prompt manager with fixed HTTP methods.
 """
 
-import os
 import sys
 from pathlib import Path
 import uvicorn

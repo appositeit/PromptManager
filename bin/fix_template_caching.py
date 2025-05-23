@@ -7,7 +7,6 @@ This script updates the server.py file to disable Jinja2 template caching correc
 
 import os
 import sys
-from pathlib import Path
 
 # Add the project to the path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))

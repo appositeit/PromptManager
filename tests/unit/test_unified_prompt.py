@@ -1,5 +1,12 @@
 """
-Tests for the unified_prompt module.
+Unit tests for the Prompt model.
+
+These tests verify the functionality of the Prompt data model,
+including its properties like `full_path`, `is_composite`,
+and the generation of `unique_id`.
+
+Modules/Classes Tested:
+- src.models.unified_prompt.Prompt
 """
 
 import unittest
@@ -112,4 +119,4 @@ class TestUnifiedPrompt(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main() 

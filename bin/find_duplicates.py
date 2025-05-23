@@ -10,8 +10,7 @@ import re
 import hashlib
 from collections import defaultdict
 import argparse
-from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List
 
 
 class CodeDuplicationFinder:
@@ -225,11 +224,11 @@ class CodeDuplicationFinder:
             for ext, count in file_types.items():
                 if count > 5:
                     if ext == '.py':
-                        print(f"- Consider creating utility functions for duplicated Python code")
+                        print("- Consider creating utility functions for duplicated Python code")
                     elif ext == '.js':
-                        print(f"- Consider creating shared JavaScript modules for duplicated code")
+                        print("- Consider creating shared JavaScript modules for duplicated code")
                     elif ext == '.html':
-                        print(f"- Consider using template inheritance or components for duplicated HTML")
+                        print("- Consider using template inheritance or components for duplicated HTML")
                         
         print("\n==============================")
 

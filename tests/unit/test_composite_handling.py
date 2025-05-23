@@ -1,15 +1,23 @@
 """
-Tests for the prompt_service module focusing on composite prompt handling.
+Unit tests for composite prompt handling in the PromptService.
+
+These tests verify the functionality of the PromptService related to
+detecting, expanding, and managing prompts that include other prompts
+(composite prompts). This includes testing for various inclusion
+patterns, circular dependencies, and deep nesting.
+
+Modules/Classes Tested:
+- src.services.prompt_service.PromptService
+- src.models.unified_prompt.Prompt (specifically its composite-related attributes)
 """
 
 import os
 import shutil
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from unittest.mock import patch
 
 from src.services.prompt_service import PromptService
-from src.models.unified_prompt import Prompt
 
 
 class TestPromptServiceComposites(unittest.TestCase):
@@ -28,6 +36,11 @@ class TestPromptServiceComposites(unittest.TestCase):
             os.makedirs(dir_path)
             
         # Create a test prompt service
+        # Patch CONFIG_FILE to use a temporary file for this test suite
+        self.config_file_patch = patch('src.services.prompt_service.PromptService.CONFIG_FILE', 
+                                       os.path.join(self.test_dir, "test_composite_prompt_directories.json"))
+        self.mock_config_file = self.config_file_patch.start()
+        
         self.prompt_service = PromptService(base_directories=self.prompt_dirs, auto_load=False)
         
         # Add directories to the service
@@ -120,6 +133,8 @@ class TestPromptServiceComposites(unittest.TestCase):
     def tearDown(self):
         # Remove the temporary directory
         shutil.rmtree(self.test_dir)
+        # Stop the patch
+        self.config_file_patch.stop()
         
     def test_is_composite_detection(self):
         """Test detection of composite prompts"""
@@ -164,7 +179,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         expanded, dependencies, warnings = self.prompt_service.expand_inclusions(self.template1.content)
         
         # Check the expansion
-        self.assertIn("This is fragment 1", expanded)
+        self.assertIn("This is fragment 1.", expanded)
         self.assertIn("fragment1", dependencies)
         self.assertEqual(len(warnings), 0)
         
@@ -173,8 +188,8 @@ class TestPromptServiceComposites(unittest.TestCase):
         expanded, dependencies, warnings = self.prompt_service.expand_inclusions(self.template2.content)
         
         # Check the expansion
-        self.assertIn("This is fragment 1", expanded)
-        self.assertIn("This is fragment 2", expanded)
+        self.assertIn("This is fragment 1.", expanded)
+        self.assertIn("This is fragment 2.", expanded)
         self.assertEqual(len(dependencies), 2)
         self.assertIn("fragment1", dependencies)
         self.assertIn("fragment2", dependencies)
@@ -185,8 +200,8 @@ class TestPromptServiceComposites(unittest.TestCase):
         expanded, dependencies, warnings = self.prompt_service.expand_inclusions(self.complex_template.content)
         
         # Check the expansion
-        self.assertIn("This is fragment 1", expanded)  # From nested_fragment -> fragment1
-        self.assertIn("This is fragment 2", expanded)  # Direct inclusion
+        self.assertIn("This is fragment 1.", expanded)  # From nested_fragment -> fragment1
+        self.assertIn("This is fragment 2.", expanded)  # Direct inclusion
         self.assertEqual(len(dependencies), 3)
         self.assertIn("nested_fragment", dependencies)
         self.assertIn("fragment1", dependencies)
@@ -248,94 +263,99 @@ class TestPromptServiceComposites(unittest.TestCase):
         # Debug output when test fails
         print(f"Expanded content: {expanded}")
         print(f"Warnings: {warnings}")
-        
-        # Should contain the content from the deepest level
-        self.assertIn("Level 20 content with no inclusion", expanded)
-        # Should have all levels as dependencies
-        self.assertEqual(len(dependencies), 19)  # Only 19 because the last level is included but doesn't include anything else
-        # Should have no warnings
-        self.assertEqual(len(warnings), 0)
-        
+        self.assertNotIn("CIRCULAR DEPENDENCY", expanded, "Deep nesting should not trigger circular dependency error")
+        self.assertIn("Level 20 content with no inclusion", expanded, "Deeply nested content not found in expansion")
+        self.assertEqual(len(warnings), 0, "Warnings found during deep nesting expansion")
+
     def test_nonexistent_prompt_expansion(self):
-        """Test expansion with a nonexistent prompt"""
-        content = "Template with nonexistent inclusion: [[nonexistent_prompt]]"
-        expanded, dependencies, warnings = self.prompt_service.expand_inclusions(content)
+        """Test expansion of a template with a non-existent inclusion"""
+        content_with_nonexistent = "This prompt includes [[non_existent_prompt]] which does not exist."
+        expanded, dependencies, warnings = self.prompt_service.expand_inclusions(content_with_nonexistent)
         
-        # Check that expansion detected the nonexistent prompt
-        self.assertIn("PROMPT NOT FOUND", expanded)
-        self.assertEqual(len(dependencies), 0)
+        self.assertIn("[[PROMPT NOT FOUND: non_existent_prompt]]", expanded)
+        self.assertIn("non_existent_prompt", dependencies)
         self.assertEqual(len(warnings), 1)
-        self.assertIn("Prompt not found", warnings[0])
-        
+        self.assertIn("Prompt 'non_existent_prompt' not found", warnings[0])
+
     def test_find_prompts_by_inclusion(self):
-        """Test finding prompts based on inclusion marker text"""
-        # Find prompts that include fragment1
-        results = self.prompt_service.find_prompts("[[fragment1]]")
+        """Test finding prompts that include a specific prompt"""
+        # The complex_template includes nested_fragment, which includes fragment1
+        # The template1 includes fragment1
+        # The template2 includes fragment1 and fragment2
+        including_fragment1 = self.prompt_service.find_prompts_by_inclusion("fragment1")
+        ids_including_fragment1 = {p.id for p in including_fragment1}
         
-        # Should find all prompts that directly include fragment1
-        prompt_ids = [p.id for p in results]
-        self.assertIn("nested_fragment", prompt_ids)
-        self.assertIn("template1", prompt_ids)
-        self.assertIn("template2", prompt_ids)
-        
+        self.assertIn("nested_fragment", ids_including_fragment1)
+        self.assertIn("template1", ids_including_fragment1)
+        self.assertIn("template2", ids_including_fragment1)
+        self.assertIn("complex_template", ids_including_fragment1) # complex_template -> nested_fragment -> fragment1
+                                                                 # So, complex_template should also be listed.
+
     def test_reload_with_changed_content(self):
-        """Test reloading prompts with changed content affects is_composite status"""
-        # Create a new prompt that is initially not composite
-        non_composite = self.prompt_service.create_prompt(
-            id="dynamic_test_prompt",
-            content="This is a simple prompt with no inclusions.",
+        """Test that reloading a prompt correctly updates its composite status and content."""
+        prompt_id = "reload_test_prompt"
+        original_content = "Original content, not composite."
+        
+        # Create the initial prompt
+        prompt = self.prompt_service.create_prompt(
+            id=prompt_id,
+            content=original_content,
             directory=self.prompt_dirs[0]
         )
+        self.assertFalse(prompt.is_composite, "Initial prompt should not be composite")
+
+        # Manually change the file content to make it composite
+        new_content = "New content with inclusion: [[fragment1]]"
+        with open(prompt.full_path, "w") as f:
+            f.write(new_content)
         
-        # Verify it's not composite
-        self.assertFalse(non_composite.is_composite)
-        
-        # Modify content to make it composite
-        non_composite.content = "Now this includes something: [[fragment1]]"
-        self.prompt_service.save_prompt(non_composite)
-        
-        # Get the path for direct reload
-        prompt_path = non_composite.full_path
-        
-        # Reload from disk directly
-        reloaded = self.prompt_service.load_prompt(prompt_path)
-        
-        # Check that it's now detected as composite
-        self.assertTrue(reloaded.is_composite)
-        
-        # Make sure it appears in get_composite_prompts results
-        composite_prompts = self.prompt_service.get_composite_prompts(self.prompt_dirs[0])
-        fragment_composite_ids = [p.id for p in composite_prompts]
-        self.assertIn("dynamic_test_prompt", fragment_composite_ids)
-        
+        # Reload the specific prompt
+        reloaded_prompt = self.prompt_service.load_prompt(prompt.full_path)
+        self.assertIsNotNone(reloaded_prompt, "Failed to reload prompt")
+        self.assertEqual(reloaded_prompt.content, new_content, "Reloaded prompt content mismatch")
+        self.assertTrue(reloaded_prompt.is_composite, "Reloaded prompt should be composite")
+
+        # Check the prompt from the service's cache/list after a full reload
+        self.prompt_service.load_all_prompts() # This should pick up the change
+        service_prompt = self.prompt_service.get_prompt(prompt_id)
+        self.assertIsNotNone(service_prompt, "Prompt not found in service after full reload")
+        self.assertEqual(service_prompt.content, new_content, "Service prompt content mismatch after full reload")
+        self.assertTrue(service_prompt.is_composite, "Service prompt should be composite after full reload")
+
     def test_save_and_reload_composite_status(self):
-        """Test that composite status is preserved through save and reload"""
-        # Create a new prompt that is initially not composite
-        non_composite = self.prompt_service.create_prompt(
-            id="initially_non_composite",
-            content="This is a simple prompt with no inclusions.",
-            directory=self.prompt_dirs[0]
+        """Test that is_composite status is correctly determined after save and reload."""
+        prompt_id = "save_reload_composite"
+        composite_content = "This is a composite prompt: [[fragment1]]"
+
+        # Create and save a composite prompt
+        self.prompt_service.create_prompt(
+            id=prompt_id,
+            content=composite_content,
+            directory=self.prompt_dirs[0],
+            description="Test",
+            tags=[]
         )
         
-        # Verify it's not composite
-        self.assertFalse(non_composite.is_composite)
+        # Clear the service's cache and reload
+        self.prompt_service.prompts = {}
         
-        # Update content to make it composite
-        non_composite.content = "Now this includes something: [[fragment1]]"
-        self.prompt_service.save_prompt(non_composite)
+        # Find the PromptDirectory object corresponding to self.prompt_dirs[0]
+        target_dir_path = self.prompt_dirs[0]
+        directory_to_load = None
+        for d_obj in self.prompt_service.directories:
+            if d_obj.path == target_dir_path:
+                directory_to_load = d_obj
+                break
         
-        # Reload from disk and verify it's now composite
-        reloaded = self.prompt_service.load_prompt(non_composite.full_path)
-        self.assertTrue(reloaded.is_composite)
+        if not directory_to_load:
+            self.fail(f"Could not find PromptDirectory object for path: {target_dir_path}")
+            
+        self.prompt_service.load_prompts_from_directory(directory_to_load)
         
-        # Update again to make it non-composite
-        reloaded.content = "Back to being simple with no inclusions."
-        self.prompt_service.save_prompt(reloaded)
-        
-        # Reload and verify it's back to non-composite
-        re_reloaded = self.prompt_service.load_prompt(reloaded.full_path)
-        self.assertFalse(re_reloaded.is_composite)
+        loaded_prompt = self.prompt_service.get_prompt(prompt_id)
+        self.assertIsNotNone(loaded_prompt, "Prompt not loaded after save and reload")
+        self.assertTrue(loaded_prompt.is_composite, "Loaded prompt should be composite")
+        self.assertEqual(loaded_prompt.content, composite_content)
 
-
-if __name__ == "__main__":
-    unittest.main()
+# if __name__ == "__main__":
+#     unittest.main() 

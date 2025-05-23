@@ -4,9 +4,35 @@
 
 set -e
 
+# Default mode is foreground
+BACKGROUND_MODE=false
+PORT="8081" # Default port
+
+# Parse command-line arguments
+while getopts ":bp:" opt; do
+  case ${opt} in
+    b )
+      BACKGROUND_MODE=true
+      ;;
+    p )
+      PORT=$OPTARG
+      ;;
+    \? )
+      echo "Invalid option: -$OPTARG" 1>&2
+      exit 1
+      ;;
+    : )
+      echo "Invalid option: -$OPTARG requires an argument" 1>&2
+      exit 1
+      ;;
+  esac
+done
+shift $((OPTIND -1))
+
 # Get the script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PID_FILE="$PROJECT_ROOT/logs/server.pid"
 
 # Change to project directory
 cd "$PROJECT_ROOT"
@@ -14,15 +40,25 @@ cd "$PROJECT_ROOT"
 # Create logs directory if it doesn't exist
 mkdir -p "$PROJECT_ROOT/logs"
 
-# Generate timestamp for logs
-TIMESTAMP=$(date +'%Y%m%d%H%M%S')
-LOG_FILE="$PROJECT_ROOT/logs/prompt_manager_${TIMESTAMP}.log"
+MAIN_LOG_FILE="$PROJECT_ROOT/logs/prompt_manager.log" # Symlink target
+TIMESTAMPED_LOG_FILE="$PROJECT_ROOT/logs/prompt_manager_$(date +'%Y%m%d%H%M%S').log"
 
-# Create a symlink to the latest log file
-if [ -L "$PROJECT_ROOT/logs/prompt_manager.log" ]; then
-    rm "$PROJECT_ROOT/logs/prompt_manager.log"
+# Symlink management: 
+# - If in foreground, always create/update symlink to new timestamped log.
+# - If in background, only create symlink if it doesn't exist (points to MAIN_LOG_FILE where nohup appends).
+if [ "$BACKGROUND_MODE" = false ]; then
+    echo "Foreground mode: Creating/updating $MAIN_LOG_FILE symlink to $TIMESTAMPED_LOG_FILE"
+    rm -f "$MAIN_LOG_FILE"
+    ln -s "$TIMESTAMPED_LOG_FILE" "$MAIN_LOG_FILE"
+else
+    if [ ! -L "$MAIN_LOG_FILE" ]; then
+        # If background mode and no symlink, it means nohup will create MAIN_LOG_FILE directly.
+        # For consistency, we could touch it or symlink it to itself, but nohup handles creation.
+        echo "Background mode: $MAIN_LOG_FILE will be used directly by nohup."
+        # If you want a symlink even for background to a timestamped file initially, that needs more logic.
+        # For now, background logs directly to MAIN_LOG_FILE if it becomes a regular file via nohup.
+    fi
 fi
-ln -s "$LOG_FILE" "$PROJECT_ROOT/logs/prompt_manager.log"
 
 # Set up virtual environment if it doesn't exist
 if [ ! -d "$PROJECT_ROOT/venv" ]; then
@@ -30,25 +66,49 @@ if [ ! -d "$PROJECT_ROOT/venv" ]; then
     python -m venv "$PROJECT_ROOT/venv"
     
     echo "Installing dependencies..."
-    source "$PROJECT_ROOT/venv/bin/activate"
+    . "$PROJECT_ROOT/venv/bin/activate" # Using . for POSIX compliance
     pip install -r "$PROJECT_ROOT/requirements.txt"
 else
-    source "$PROJECT_ROOT/venv/bin/activate"
+    . "$PROJECT_ROOT/venv/bin/activate" # Using . for POSIX compliance
 fi
 
-# Check for existing server
-if netstat -tuln | grep -q ":8081 "; then
-    echo "Server is already running on port 8081."
-    echo "To shut down the existing server, run: curl -X POST http://localhost:8081/api/shutdown"
-    echo "Or use: lsof -i :8081 to find the process and kill it."
+# Check for existing server using the PID file first, then port
+if [ -f "$PID_FILE" ]; then
+    if ps -p $(cat "$PID_FILE") > /dev/null; then
+        # Further check if the command matches what we expect for our server
+        if ps -o cmd= -p $(cat "$PID_FILE") | grep -q "python -m src.server.*--port $PORT"; then
+            echo "Server is already running (PID $(cat "$PID_FILE"), command matches). Exiting."
+            exit 1
+        else
+            echo "PID $(cat "$PID_FILE") from $PID_FILE is running but command does not match. Stale/incorrect PID file?"
+            # Consider removing stale PID file if command doesn't match, or proceed to port check
+        fi
+    else
+        echo "Stale PID file found ($PID_FILE for PID $(cat "$PID_FILE")). Process not running. Removing $PID_FILE."
+        rm -f "$PID_FILE"
+    fi
+fi
+
+# Check for existing server by port as a fallback or if PID check was inconclusive
+if netstat -tuln | grep -q ":$PORT "; then
+    echo "Server is already running on port $PORT (found by netstat, PID check might have been inconclusive or PID file was missing/stale)."
+    echo "To manage this server, please use stop_prompt_manager.sh or check manually."
     exit 1
 fi
 
-# Create a timestamped version of the log file
-echo "Logs will be written to $LOG_FILE"
-
-# Start the server
-echo "Starting Prompt Manager on http://localhost:8081"
-
-# Use the main server.py instead of the temporary simple_run.py
-PYTHONPATH="$PROJECT_ROOT" exec python -m src.server --host localhost --port 8081 --log-file "$LOG_FILE" 2>&1 | tee -a "$LOG_FILE"
+# Server starting logic
+if [ "$BACKGROUND_MODE" = true ]; then
+  echo "Starting Prompt Manager in background on http://localhost:$PORT"
+  echo "Output will be logged to $MAIN_LOG_FILE"
+  # Activate venv for nohup environment if not already inherited (though `.` above should suffice for current shell)
+  # The `env PYTHONPATH=...` is good. `cd` to project root is also good.
+  nohup env PYTHONPATH="$PROJECT_ROOT" "$PROJECT_ROOT/venv/bin/python" -m src.server --host localhost --port "$PORT" >> "$MAIN_LOG_FILE" 2>&1 &
+  echo $! > "$PID_FILE"
+  echo "Server started in background with PID $(cat "$PID_FILE")."
+  sleep 1 # Give it a moment 
+else
+  echo "Starting Prompt Manager in foreground on http://localhost:$PORT"
+  echo "Logging to $TIMESTAMPED_LOG_FILE (symlinked by $MAIN_LOG_FILE)"
+  # Use exec to replace the shell process with the python process
+  exec env PYTHONPATH="$PROJECT_ROOT" "$PROJECT_ROOT/venv/bin/python" -m src.server --host localhost --port "$PORT" 2>&1 | tee -a "$TIMESTAMPED_LOG_FILE"
+fi

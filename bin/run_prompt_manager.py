@@ -9,7 +9,6 @@ create, manage, and utilize prompts for AI interactions.
 import os
 import sys
 import argparse
-from pathlib import Path
 
 # Add the project to the path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -20,7 +19,14 @@ src_path = os.path.join(project_root, 'src')
 sys.path.insert(0, src_path)
 
 # Import the main function from server.py
-from server import main
+try:
+    from src.server import main
+except ImportError:
+    try:
+        from server import main
+    except ImportError:
+        print("Error: Cannot import main function from server.py")
+        sys.exit(1)
 
 if __name__ == "__main__":
     # Parse arguments and pass to main
