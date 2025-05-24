@@ -866,12 +866,39 @@
 
     function copyContent() {
         const contentToCopy = (currentPromptData && currentPromptData.is_composite) ? document.getElementById('preview').innerText : editor.getValue();
-        navigator.clipboard.writeText(contentToCopy)
-            .then(() => showToast('Content copied to clipboard!', 'success'))
-            .catch(err => {
-                showToast('Failed to copy content.', 'error');
-                console.error('Error copying content: ', err);
-            });
+        
+        // Check if the Clipboard API is available
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(contentToCopy)
+                .then(() => showToast('Content copied to clipboard!', 'success'))
+                .catch(err => {
+                    showToast('Failed to copy content.', 'error');
+                    console.error('Error copying content: ', err);
+                });
+        } else {
+            // Fallback method for older browsers or insecure contexts
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = contentToCopy;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                if (document.execCommand('copy')) {
+                    showToast('Content copied to clipboard!', 'success');
+                } else {
+                    showToast('Failed to copy content. Please manually select and copy.', 'error');
+                }
+                
+                document.body.removeChild(textArea);
+            } catch (err) {
+                showToast('Copy functionality not available. Please manually select and copy.', 'error');
+                console.error('Error with fallback copy method: ', err);
+            }
+        }
     }
     
     function toggleView() {

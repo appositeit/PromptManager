@@ -217,7 +217,7 @@ async def update_directory(directory_path: str, data: DirectoryUpdate, prompt_se
     """Update an existing prompt directory's name, description, or enabled status."""
     # Normalize the input path for comparison
     normalized_input_path = os.path.normpath(directory_path)
-    logger.info(f"Updating directory: Normalized path '{normalized_input_path}' with data: {data.dict(exclude_none=True)}")
+    logger.info(f"Updating directory: Normalized path '{normalized_input_path}' with data: {data.model_dump(exclude_none=True)}")
 
     found_dir: Optional[PromptDirectory] = None
     for d in prompt_service.directories:
@@ -398,7 +398,7 @@ async def rename_prompt_endpoint(
         logger.error(f"Failed to retrieve prompt '{new_id}' after successful rename operation.")
         raise HTTPException(status_code=500, detail="Error retrieving prompt after rename.")
 
-    prompt_dict = renamed_prompt.dict()
+    prompt_dict = renamed_prompt.model_dump()
     prompt_dict["directory_name"] = get_directory_name(renamed_prompt.directory)
     
     # Include a message about sanitization if it occurred
@@ -455,7 +455,7 @@ async def create_new_prompt(
     
     # Print the incoming data for debugging
     import json
-    logger.info(f"Prompt data: {json.dumps(prompt_data.dict(), indent=2)}")
+    logger.info(f"Prompt data: {json.dumps(prompt_data.model_dump(), indent=2)}")
     
     # Validate directory
     if not prompt_data.directory:
@@ -471,7 +471,7 @@ async def create_new_prompt(
             tags=prompt_data.tags if prompt_data.tags is not None else []
         )
         
-        prompt_dict = new_prompt.dict()
+        prompt_dict = new_prompt.model_dump()
         prompt_dict["directory_name"] = get_directory_name(new_prompt.directory)
         
         # Include sanitization message if needed
@@ -538,7 +538,7 @@ async def update_existing_prompt(prompt_id: str, update_data: PromptUpdate, prom
         logger.error(f"Prompt {prompt_id} not found after supposedly successful update/save.")
         raise HTTPException(status_code=500, detail=f"Error retrieving prompt '{prompt_id}' after update.")
 
-    prompt_dict = updated_prompt_obj.dict()
+    prompt_dict = updated_prompt_obj.model_dump()
     prompt_dict["directory_name"] = get_directory_name(updated_prompt_obj.directory)
     return prompt_dict
 
@@ -570,7 +570,7 @@ async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None, prom
     if not prompt:
         raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
     
-    prompt_dict = prompt.dict() # Raw prompt data
+    prompt_dict = prompt.model_dump() # Raw prompt data
 
     # Prepare directory_info structure
     dir_config = get_directory_by_path(prompt.directory) # This is from src.services.prompt_dirs
