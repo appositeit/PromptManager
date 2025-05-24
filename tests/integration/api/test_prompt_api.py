@@ -2,7 +2,7 @@ import pytest
 import httpx
 
 # Base URL for the API
-BASE_URL = "http://localhost:8081/api"
+BASE_URL = "http://localhost:8095/api"
 
 @pytest.mark.asyncio
 async def test_get_all_prompts_returns_list():

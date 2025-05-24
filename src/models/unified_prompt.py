@@ -8,7 +8,7 @@ clear separation between display names and internal identifiers.
 
 from typing import List, Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from pathlib import Path
 import re
 
@@ -79,7 +79,8 @@ class Prompt(BaseModel):
         """Backward compatibility - return the new ID."""
         return self.id
     
-    @validator('id')
+    @field_validator('id')
+    @classmethod
     def validate_id_format(cls, v):
         """Ensure ID follows the expected format."""
         if not v:
@@ -93,7 +94,8 @@ class Prompt(BaseModel):
         
         return v
     
-    @validator('name')
+    @field_validator('name')
+    @classmethod
     def validate_name(cls, v):
         """Ensure name is valid."""
         if not v or not v.strip():
