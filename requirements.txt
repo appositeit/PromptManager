@@ -16,4 +16,5 @@ ruff>=0.1.0 # Using a recent version, adjust as needed
 mypy>=1.0.0   # Using a recent version, adjust as needed
 pytest>=7.0.0 # Using a recent version, adjust as needed
 pytest-cov>=4.0.0 # Using a recent version, adjust as needed
-pytest-asyncio>=0.21.0 # Support for async tests
+pytest-asyncio==0.21.1 # Pinned to 0.21.1 for async test stability (v0.23+ has known issues)
+nest-asyncio>=1.6.0 # Allows nested event loops, fixes async test conflicts
