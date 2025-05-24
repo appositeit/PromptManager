@@ -19,9 +19,10 @@ from src.models.unified_prompt import Prompt
 class TestUnifiedPrompt(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures"""
-        # Create a sample prompt
+        # Create a sample prompt with properly generated ID
         self.sample_prompt = Prompt(
-            id="test_prompt",
+            id=Prompt.generate_id("/test/dir", "test_prompt"),
+            name="test_prompt",
             filename="test_prompt.md",
             directory="/test/dir",
             content="# Test Prompt\n\nThis is a test prompt.",
@@ -33,7 +34,8 @@ class TestUnifiedPrompt(unittest.TestCase):
         
         # Create a sample composite prompt
         self.sample_composite_prompt = Prompt(
-            id="test_composite",
+            id=Prompt.generate_id("/test/dir", "test_composite"),
+            name="test_composite",
             filename="test_composite.md",
             directory="/test/dir",
             content="# Test Composite Prompt\n\nThis includes another prompt: [[test_prompt]]",
@@ -61,13 +63,14 @@ class TestUnifiedPrompt(unittest.TestCase):
         # Generate a unique ID
         unique_id = self.sample_prompt.get_unique_id
         
-        # Check if unique ID contains both directory and prompt ID
-        self.assertIn("dir", unique_id)
-        self.assertIn("test_prompt", unique_id)
+        # Check if unique ID contains both directory and prompt name  
+        # In the new schema, get_unique_id returns the full ID 
+        self.assertEqual(unique_id, "dir/test_prompt")  # The generated ID format
         
         # Test with predefined unique ID
         prompt_with_unique_id = Prompt(
-            id="test_prompt",
+            id=Prompt.generate_id("/test/dir", "test_prompt"),
+            name="test_prompt",
             filename="test_prompt.md",
             directory="/test/dir",
             content="# Test Prompt\n\nThis is a test prompt.",
@@ -76,14 +79,15 @@ class TestUnifiedPrompt(unittest.TestCase):
             unique_id="custom_unique_id"
         )
         
-        # get_unique_id should return the predefined unique ID
-        self.assertEqual(prompt_with_unique_id.get_unique_id, "custom_unique_id")
+        # get_unique_id should return the ID (unique_id field is deprecated)
+        self.assertEqual(prompt_with_unique_id.get_unique_id, "dir/test_prompt")
         
     def test_nested_directory_unique_id(self):
         """Test unique ID generation with nested directories"""
-        # Create a prompt with a nested directory path
+        # Create a prompt with a nested directory path using proper ID generation
         nested_prompt = Prompt(
-            id="nested_prompt",
+            id=Prompt.generate_id("/test/nested/sub/dir", "nested_prompt"),
+            name="nested_prompt",
             filename="nested_prompt.md",
             directory="/test/nested/sub/dir",
             content="# Nested Prompt\n\nThis is a nested prompt.",
@@ -94,15 +98,15 @@ class TestUnifiedPrompt(unittest.TestCase):
         # Generate a unique ID
         unique_id = nested_prompt.get_unique_id
         
-        # Check if unique ID contains the last two parts of the directory path
-        self.assertIn("sub_dir", unique_id)
-        self.assertIn("nested_prompt", unique_id)
+        # Check if unique ID contains the directory name and prompt name
+        self.assertEqual(unique_id, "dir/nested_prompt")  # Last directory component is "dir"
         
     def test_special_characters_in_directory(self):
         """Test unique ID generation with special characters in directory path"""
-        # Create a prompt with special characters in directory path
+        # Create a prompt with special characters in directory path using proper ID generation
         special_prompt = Prompt(
-            id="special_prompt",
+            id=Prompt.generate_id("/test/with space/and/special-chars", "special_prompt"),
+            name="special_prompt",
             filename="special_prompt.md",
             directory="/test/with space/and/special-chars",
             content="# Special Prompt\n\nThis is a special prompt.",
@@ -115,7 +119,7 @@ class TestUnifiedPrompt(unittest.TestCase):
         
         # Check if unique ID handles special characters correctly
         self.assertNotIn(" ", unique_id)  # No spaces
-        self.assertIn("special-chars_special_prompt", unique_id)  # Hyphens preserved
+        self.assertEqual(unique_id, "special-chars/special_prompt")  # Special chars normalized
 
 
 if __name__ == "__main__":

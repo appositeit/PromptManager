@@ -54,15 +54,15 @@ class TestPromptRename(unittest.TestCase):
 
         # Create the prompt
         prompt = self.prompt_service.create_prompt(
-            id=old_id,
+            name=old_id,
             content=content,
             directory=self.test_dir,
             description=description,
             tags=tags
         )
 
-        # Verify the prompt was created correctly
-        self.assertEqual(prompt.id, old_id)
+        # Verify the prompt was created correctly - the ID will be generated from directory/name
+        self.assertIsNotNone(prompt.id)
         self.assertEqual(prompt.content, content)
         self.assertEqual(prompt.description, description)
         self.assertEqual(prompt.tags, tags)
@@ -72,10 +72,10 @@ class TestPromptRename(unittest.TestCase):
         self.assertTrue(os.path.exists(old_file_path))
 
         # Rename the prompt
-        new_id = "renamed_prompt"
+        new_name = "renamed_prompt"
         success = self.prompt_service.rename_prompt(
-            old_id=old_id,
-            new_id=new_id
+            old_identifier=prompt.id,
+            new_name=new_name
         )
 
         # Verify the rename was successful
@@ -85,18 +85,18 @@ class TestPromptRename(unittest.TestCase):
         self.assertFalse(os.path.exists(old_file_path))
 
         # Verify the new file exists
-        new_file_path = os.path.join(self.test_dir, f"{new_id}.md")
+        new_file_path = os.path.join(self.test_dir, f"{new_name}.md")
         self.assertTrue(os.path.exists(new_file_path))
 
-        # Verify the prompt can be retrieved by the new ID
-        renamed_prompt = self.prompt_service.get_prompt(new_id)
+        # Verify the prompt can be retrieved by the new name
+        renamed_prompt = self.prompt_service.get_prompt(new_name)
         self.assertIsNotNone(renamed_prompt)
-        self.assertEqual(renamed_prompt.id, new_id)
+        self.assertEqual(renamed_prompt.name, new_name)
         self.assertEqual(renamed_prompt.content, content)
         self.assertEqual(renamed_prompt.description, description)
         self.assertEqual(renamed_prompt.tags, tags)
 
-        # Verify the prompt can no longer be retrieved by the old ID
+        # Verify the prompt can no longer be retrieved by the old name
         old_prompt = self.prompt_service.get_prompt(old_id)
         self.assertIsNone(old_prompt)
 
@@ -109,8 +109,8 @@ class TestPromptRename(unittest.TestCase):
         original_tags = ["test", "sample"]
 
         # Create the prompt
-        self.prompt_service.create_prompt(
-            id=old_id,
+        prompt = self.prompt_service.create_prompt(
+            name=old_id,
             content=original_content,
             directory=self.test_dir,
             description=original_description,
@@ -118,15 +118,15 @@ class TestPromptRename(unittest.TestCase):
         )
 
         # New data for rename
-        new_id = "renamed_prompt"
+        new_name = "renamed_prompt"
         updated_content = "# Renamed Prompt\n\nThis prompt has been renamed."
         updated_description = "A renamed prompt"
         updated_tags = ["renamed", "updated"]
 
         # Rename the prompt with updates
         success = self.prompt_service.rename_prompt(
-            old_id=old_id,
-            new_id=new_id,
+            old_identifier=prompt.id,
+            new_name=new_name,
             content=updated_content,
             description=updated_description,
             tags=updated_tags
@@ -136,9 +136,9 @@ class TestPromptRename(unittest.TestCase):
         self.assertTrue(success)
 
         # Verify the updated prompt has the correct data
-        renamed_prompt = self.prompt_service.get_prompt(new_id)
+        renamed_prompt = self.prompt_service.get_prompt(new_name)
         self.assertIsNotNone(renamed_prompt)
-        self.assertEqual(renamed_prompt.id, new_id)
+        self.assertEqual(renamed_prompt.name, new_name)
         self.assertEqual(renamed_prompt.content, updated_content)
         self.assertEqual(renamed_prompt.description, updated_description)
         self.assertEqual(renamed_prompt.tags, updated_tags)
@@ -150,22 +150,22 @@ class TestPromptRename(unittest.TestCase):
         prompt2_id = "prompt2"
 
         # Create the prompts
-        self.prompt_service.create_prompt(
-            id=prompt1_id,
+        prompt1 = self.prompt_service.create_prompt(
+            name=prompt1_id,
             content="Prompt 1",
             directory=self.test_dir
         )
 
-        self.prompt_service.create_prompt(
-            id=prompt2_id,
+        prompt2 = self.prompt_service.create_prompt(
+            name=prompt2_id,
             content="Prompt 2",
             directory=self.test_dir
         )
 
         # Try to rename prompt1 to prompt2 (which already exists)
         success = self.prompt_service.rename_prompt(
-            old_id=prompt1_id,
-            new_id=prompt2_id
+            old_identifier=prompt1.id,
+            new_name=prompt2_id
         )
 
         # Verify the rename failed

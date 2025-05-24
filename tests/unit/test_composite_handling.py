@@ -54,7 +54,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         """Create a set of test prompts with various inclusion patterns"""
         # Create simple fragments
         self.fragment1 = self.prompt_service.create_prompt(
-            id="fragment1",
+            name="fragment1",
             content="This is fragment 1.",
             directory=self.prompt_dirs[0],
             description="A simple fragment",
@@ -62,7 +62,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         )
         
         self.fragment2 = self.prompt_service.create_prompt(
-            id="fragment2",
+            name="fragment2",
             content="This is fragment 2.",
             directory=self.prompt_dirs[0],
             description="Another simple fragment",
@@ -71,7 +71,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         
         # Create a fragment that includes another fragment
         self.nested_fragment = self.prompt_service.create_prompt(
-            id="nested_fragment",
+            name="nested_fragment",
             content="This is a nested fragment: [[fragment1]]",
             directory=self.prompt_dirs[0],
             description="A fragment that includes another fragment",
@@ -80,7 +80,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         
         # Create simple templates
         self.template1 = self.prompt_service.create_prompt(
-            id="template1",
+            name="template1",
             content="Template with one inclusion: [[fragment1]]",
             directory=self.prompt_dirs[1],
             description="A simple template",
@@ -88,7 +88,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         )
         
         self.template2 = self.prompt_service.create_prompt(
-            id="template2",
+            name="template2",
             content="Template with multiple inclusions: [[fragment1]] and [[fragment2]]",
             directory=self.prompt_dirs[1],
             description="A template with multiple inclusions",
@@ -97,7 +97,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         
         # Create a complex template with nested inclusions
         self.complex_template = self.prompt_service.create_prompt(
-            id="complex_template",
+            name="complex_template",
             content="Complex template with nested inclusions: [[nested_fragment]] and [[fragment2]]",
             directory=self.prompt_dirs[1],
             description="A complex template with nested inclusions",
@@ -106,7 +106,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         
         # Create a template with self-reference (circular dependency)
         self.circular_template = self.prompt_service.create_prompt(
-            id="circular_template",
+            name="circular_template",
             content="Template with circular reference: [[circular_template]]",
             directory=self.prompt_dirs[1],
             description="A template with a circular reference",
@@ -115,7 +115,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         
         # Create a template with mutual circular dependency
         self.mutual_circular1 = self.prompt_service.create_prompt(
-            id="mutual_circular1",
+            name="mutual_circular1",
             content="Template with mutual circular reference: [[mutual_circular2]]",
             directory=self.prompt_dirs[1],
             description="A template with a mutual circular reference",
@@ -123,7 +123,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         )
         
         self.mutual_circular2 = self.prompt_service.create_prompt(
-            id="mutual_circular2",
+            name="mutual_circular2",
             content="Template with mutual circular reference: [[mutual_circular1]]",
             directory=self.prompt_dirs[1],
             description="A template with a mutual circular reference",
@@ -160,15 +160,15 @@ class TestPromptServiceComposites(unittest.TestCase):
         
         # Check that specific prompts are in the results
         prompt_ids = [p.id for p in composite_prompts]
-        self.assertIn("nested_fragment", prompt_ids)
-        self.assertIn("template1", prompt_ids)
-        self.assertIn("template2", prompt_ids)
-        self.assertIn("complex_template", prompt_ids)
+        self.assertIn("fragments/nested_fragment", prompt_ids)
+        self.assertIn("templates/template1", prompt_ids)
+        self.assertIn("templates/template2", prompt_ids)
+        self.assertIn("templates/complex_template", prompt_ids)
         
         # Test filtering by directory
         fragments_dir_composites = self.prompt_service.get_composite_prompts(self.prompt_dirs[0])
         self.assertGreaterEqual(len(fragments_dir_composites), 1)  # At least the nested fragment
-        self.assertTrue(any(p.id == "nested_fragment" for p in fragments_dir_composites))
+        self.assertTrue(any(p.id == "fragments/nested_fragment" for p in fragments_dir_composites))
         
         templates_dir_composites = self.prompt_service.get_composite_prompts(self.prompt_dirs[1])
         # Should have at least the 5 templates we created, but might have more
@@ -249,7 +249,7 @@ class TestPromptServiceComposites(unittest.TestCase):
                 content = f"Level {i} content with no inclusion"
                 
             prompt = self.prompt_service.create_prompt(
-                id=current_id,
+                name=current_id,
                 content=content,
                 directory=self.prompt_dirs[1],
                 description=f"Level {i} template",
@@ -285,11 +285,11 @@ class TestPromptServiceComposites(unittest.TestCase):
         including_fragment1 = self.prompt_service.find_prompts_by_inclusion("fragment1")
         ids_including_fragment1 = {p.id for p in including_fragment1}
         
-        self.assertIn("nested_fragment", ids_including_fragment1)
-        self.assertIn("template1", ids_including_fragment1)
-        self.assertIn("template2", ids_including_fragment1)
-        self.assertIn("complex_template", ids_including_fragment1) # complex_template -> nested_fragment -> fragment1
-                                                                 # So, complex_template should also be listed.
+        self.assertIn("fragments/nested_fragment", ids_including_fragment1)
+        self.assertIn("templates/template1", ids_including_fragment1)
+        self.assertIn("templates/template2", ids_including_fragment1)
+        self.assertIn("templates/complex_template", ids_including_fragment1) # complex_template -> nested_fragment -> fragment1
+                                                                             # So, complex_template should also be listed.
 
     def test_reload_with_changed_content(self):
         """Test that reloading a prompt correctly updates its composite status and content."""
@@ -298,7 +298,7 @@ class TestPromptServiceComposites(unittest.TestCase):
         
         # Create the initial prompt
         prompt = self.prompt_service.create_prompt(
-            id=prompt_id,
+            name=prompt_id,
             content=original_content,
             directory=self.prompt_dirs[0]
         )
@@ -329,7 +329,7 @@ class TestPromptServiceComposites(unittest.TestCase):
 
         # Create and save a composite prompt
         self.prompt_service.create_prompt(
-            id=prompt_id,
+            name=prompt_id,
             content=composite_content,
             directory=self.prompt_dirs[0],
             description="Test",

@@ -117,7 +117,7 @@ class TestPromptService(unittest.TestCase):
         
         # Create a prompt
         prompt = self.prompt_service.create_prompt(
-            id=self.sample_prompts["standard"]["id"],
+            name=self.sample_prompts["standard"]["id"],
             content=self.sample_prompts["standard"]["content"],
             directory=self.prompt_dirs[0],
             description=self.sample_prompts["standard"]["description"],
@@ -125,12 +125,12 @@ class TestPromptService(unittest.TestCase):
         )
         
         # Check prompt properties
-        self.assertEqual(prompt.id, self.sample_prompts["standard"]["id"])
+        self.assertEqual(prompt.name, self.sample_prompts["standard"]["id"])
         self.assertEqual(prompt.content, self.sample_prompts["standard"]["content"])
         self.assertEqual(prompt.directory, self.prompt_dirs[0])
         
         # Check if prompt file was created
-        expected_file_path = os.path.join(self.prompt_dirs[0], f"{prompt.id}.md")
+        expected_file_path = os.path.join(self.prompt_dirs[0], f"{prompt.name}.md")
         self.assertTrue(os.path.exists(expected_file_path))
         
     def test_get_prompt(self):
@@ -139,7 +139,7 @@ class TestPromptService(unittest.TestCase):
         self.prompt_service.add_directory(self.prompt_dirs[0])
         prompt_data = self.sample_prompts["standard"]
         self.prompt_service.create_prompt(
-            id=prompt_data["id"],
+            name=prompt_data["id"],
             content=prompt_data["content"],
             directory=self.prompt_dirs[0]
         )
@@ -149,7 +149,7 @@ class TestPromptService(unittest.TestCase):
         
         # Check if retrieved prompt matches created prompt
         self.assertIsNotNone(retrieved_prompt)
-        self.assertEqual(retrieved_prompt.id, prompt_data["id"])
+        self.assertEqual(retrieved_prompt.name, prompt_data["id"])
         self.assertEqual(retrieved_prompt.content, prompt_data["content"])
         
     def test_delete_prompt(self):
@@ -158,7 +158,7 @@ class TestPromptService(unittest.TestCase):
         self.prompt_service.add_directory(self.prompt_dirs[0])
         prompt_data = self.sample_prompts["standard"]
         prompt = self.prompt_service.create_prompt(
-            id=prompt_data["id"],
+            name=prompt_data["id"],
             content=prompt_data["content"],
             directory=self.prompt_dirs[0]
         )
@@ -183,6 +183,7 @@ class TestPromptService(unittest.TestCase):
         # Create a standard prompt
         standard_prompt = Prompt(
             id="standard",
+            name="standard",
             filename="standard.md",
             directory=self.prompt_dirs[0],
             content="This is a standard prompt.",
@@ -193,6 +194,7 @@ class TestPromptService(unittest.TestCase):
         # Create a composite prompt
         composite_prompt = Prompt(
             id="composite",
+            name="composite",
             filename="composite.md",
             directory=self.prompt_dirs[0],
             content="This is a composite prompt: [[standard]]",
@@ -212,7 +214,7 @@ class TestPromptService(unittest.TestCase):
         # Create a standard prompt
         standard_prompt_data = self.sample_prompts["standard"]
         standard_prompt = self.prompt_service.create_prompt(
-            id=standard_prompt_data["id"],
+            name=standard_prompt_data["id"],
             content=standard_prompt_data["content"],
             directory=self.prompt_dirs[0]
         )
@@ -220,7 +222,7 @@ class TestPromptService(unittest.TestCase):
         # Create a composite prompt that includes the standard one
         composite_prompt_data = self.sample_prompts["composite"]
         composite_prompt = self.prompt_service.create_prompt(
-            id=composite_prompt_data["id"],
+            name=composite_prompt_data["id"],
             content=composite_prompt_data["content"],
             directory=self.prompt_dirs[0]
         )
@@ -230,7 +232,7 @@ class TestPromptService(unittest.TestCase):
         
         # Check the expansion
         self.assertIn(standard_prompt.content, expanded)
-        self.assertIn(standard_prompt.id, dependencies)
+        self.assertIn(standard_prompt.name, dependencies)
         self.assertEqual(len(warnings), 0)
         
     def test_expand_prompt_content(self):
@@ -241,7 +243,7 @@ class TestPromptService(unittest.TestCase):
         # Create a standard prompt
         standard_prompt_data = self.sample_prompts["standard"]
         standard_prompt = self.prompt_service.create_prompt(
-            id=standard_prompt_data["id"],
+            name=standard_prompt_data["id"],
             content=standard_prompt_data["content"],
             directory=self.prompt_dirs[0]
         )
@@ -249,7 +251,7 @@ class TestPromptService(unittest.TestCase):
         # Create a composite prompt that includes the standard one
         composite_prompt_data = self.sample_prompts["composite"]
         composite_prompt = self.prompt_service.create_prompt(
-            id=composite_prompt_data["id"],
+            name=composite_prompt_data["id"],
             content=composite_prompt_data["content"],
             directory=self.prompt_dirs[0]
         )
@@ -259,7 +261,7 @@ class TestPromptService(unittest.TestCase):
         
         # Check the expansion
         self.assertIn(standard_prompt.content, expanded)
-        self.assertIn(standard_prompt.id, dependencies_list)
+        self.assertIn(standard_prompt.name, dependencies_list)
         self.assertEqual(len(warnings_list), 0)
         self.assertIsInstance(dependencies_list, list, "Dependencies should be a list for API compatibility")
         
@@ -280,7 +282,7 @@ class TestPromptService(unittest.TestCase):
         
         # Check if prompt was loaded correctly
         self.assertIsNotNone(prompt)
-        self.assertEqual(prompt.id, prompt_id)
+        self.assertEqual(prompt.name, prompt_id)
         self.assertEqual(prompt.content, prompt_content)
         self.assertEqual(prompt.directory, self.prompt_dirs[0])
         
@@ -311,7 +313,7 @@ tags:
         
         # Check if prompt was loaded correctly
         self.assertIsNotNone(prompt)
-        self.assertEqual(prompt.id, prompt_id)
+        self.assertEqual(prompt.name, prompt_id)
         self.assertEqual(prompt.description, prompt_description)
         self.assertEqual(prompt.tags, prompt_tags)
         self.assertEqual(prompt.content, prompt_body_content)
@@ -326,7 +328,7 @@ tags:
         content = "Content to save with front matter."
     
         self.prompt_service.create_prompt(
-            id=prompt_id,
+            name=prompt_id,
             content=content,
             directory=self.prompt_dirs[0],
             description=description,
