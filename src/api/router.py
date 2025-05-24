@@ -419,74 +419,9 @@ async def complete_path(request: FilesystemPathRequest):
         is_directory=result.is_directory
     )
 
-# Catch-all route for individual prompts - MUST come LAST to avoid conflicts
-@router.get("/{prompt_id:path}", response_model=Dict)
-async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """
-    Get a specific prompt by ID.
-    
-    If multiple prompts have the same ID, you can specify a directory to disambiguate.
-    """
-    prompt = prompt_service.get_prompt(prompt_id, directory)
-    
-    # If not found and the ID contains spaces, try converting spaces to underscores
-    if not prompt and ' ' in prompt_id:
-        normalized_id = prompt_id.replace(' ', '_')
-        prompt = prompt_service.get_prompt(normalized_id, directory)
-    
-    if not prompt:
-        raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
-    
-    prompt_dict = prompt.dict() # Raw prompt data
-
-    # Prepare directory_info structure
-    dir_config = get_directory_by_path(prompt.directory) # This is from src.services.prompt_dirs
-    if dir_config: # If directory is found in configured list
-        directory_display_name = dir_config.get("name", os.path.basename(prompt.directory))
-        directory_actual_path = dir_config.get("path", prompt.directory) # Should ideally be prompt.directory
-    else: # Fallback for prompts whose directory might not be in current config (e.g. orphaned)
-        directory_display_name = os.path.basename(prompt.directory)
-        directory_actual_path = prompt.directory
-
-    prompt_dict["directory_info"] = {
-        "name": directory_display_name,
-        "path": directory_actual_path
-    }
-    
-    # Clean up old flat directory_name if present, as directory_info is now the source of truth for the editor
-    if "directory_name" in prompt_dict:
-        del prompt_dict["directory_name"]
-
-    # --- Add dependencies and warnings ---
-    try:
-        expanded_content, dependencies, warnings = prompt_service.expand_inclusions(
-            prompt.content, 
-            parent_directory=prompt.directory,
-            parent_id=prompt.id
-        )
-        # dependencies is a set of prompt IDs; convert to list of dicts for UI
-        prompt_dict["dependencies"] = [
-            {"id": dep_id, "is_missing": prompt_service.get_prompt(dep_id) is None}
-            for dep_id in dependencies
-        ]
-        prompt_dict["warnings"] = warnings
-    except Exception as e:
-        logger.error(f"Error expanding dependencies for prompt '{prompt_id}': {e}")
-        prompt_dict["dependencies"] = []
-        prompt_dict["warnings"] = [f"Error expanding dependencies: {e}"]
-
-    return prompt_dict
-
-@router.get("/{prompt_id}/referenced_by", response_model=List[Dict])
-async def get_prompt_references(prompt_id: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """Get all prompts that reference the given prompt_id."""
-    logger.info(f"Fetching references for prompt_id: {prompt_id}")
-    references = prompt_service.get_references_to_prompt(prompt_id)
-    if references is None: # Assuming the service might return None if the prompt itself doesn't exist
-        logger.warning(f"Prompt '{prompt_id}' not found when trying to get its references.")
-        raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found.")
-    return references
-
+# ========================================
+# SPECIFIC ROUTES - MUST come BEFORE catch-all routes
+# ========================================
 
 @router.post("/", response_model=Dict, status_code=201)
 async def create_new_prompt(
@@ -551,10 +486,20 @@ async def create_new_prompt(
         logger.opt(exception=True).error(f"Error creating prompt: {e}")
         raise HTTPException(status_code=500, detail="Internal server error while creating prompt")
 
-@router.put("/{prompt_id}", response_model=Dict)
+@router.get("/{prompt_id:path}/referenced_by", response_model=List[Dict])
+async def get_prompt_references(prompt_id: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """Get all prompts that reference the given prompt_id."""
+    logger.info(f"Fetching references for prompt_id: {prompt_id}")
+    references = prompt_service.get_references_to_prompt(prompt_id)
+    if references is None: # Prompt doesn't exist, return empty list instead of 404
+        logger.warning(f"Prompt '{prompt_id}' not found when trying to get its references. Returning empty list.")
+        return []
+    return references
+
+@router.put("/{prompt_id:path}", response_model=Dict)
 async def update_existing_prompt(prompt_id: str, update_data: PromptUpdate, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
     """Update an existing prompt's content, description, or tags."""
-    logger.info(f"Updating prompt: {prompt_id} with data: {update_data.dict(exclude_none=True)}")
+    logger.info(f"Updating prompt: {prompt_id} with data: {update_data.model_dump(exclude_none=True)}")
     
     prompt = prompt_service.get_prompt(prompt_id)
     if not prompt:
@@ -596,70 +541,71 @@ async def update_existing_prompt(prompt_id: str, update_data: PromptUpdate, prom
     prompt_dict["directory_name"] = get_directory_name(updated_prompt_obj.directory)
     return prompt_dict
 
-@router.delete("/{prompt_id}", response_model=Dict)
+@router.delete("/{prompt_id:path}", response_model=Dict)
 async def delete_existing_prompt(prompt_id: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
     """Delete an existing prompt."""
     if not prompt_service.delete_prompt(prompt_id):
         raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found or could not be deleted")
     return {"message": f"Prompt '{prompt_id}' deleted successfully"}
 
-@router.post("/rename", response_model=Dict)
-async def rename_prompt_endpoint(
-    rename_data: PromptRenameRequest,
-    prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)
-):
-    """Rename an existing prompt using the new schema."""
-    logger.info(f"Renaming prompt from '{rename_data.old_id}' to '{rename_data.new_name}'")
+# ========================================
+# CATCH-ALL ROUTE - MUST come LAST to avoid conflicts
+# ========================================
 
-    # Sanitize the new_name
-    original_new_name = rename_data.new_name
-    sanitized_new_name = original_new_name.replace(" ", "_")
-
-    if original_new_name != sanitized_new_name:
-        logger.info(f"Sanitizing new_name for rename: '{original_new_name}' -> '{sanitized_new_name}'")
-        rename_data.new_name = sanitized_new_name
+@router.get("/{prompt_id:path}", response_model=Dict)
+async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """
+    Get a specific prompt by ID.
     
-    # Get the old prompt to check if it exists
-    old_prompt_obj = prompt_service.get_prompt(rename_data.old_id)
-    if not old_prompt_obj:
-        raise HTTPException(status_code=404, detail=f"Prompt '{rename_data.old_id}' not found.")
-
-    # Generate the new ID from directory and new name
-    from src.models.unified_prompt import Prompt
-    new_id = Prompt.generate_id(old_prompt_obj.directory, rename_data.new_name)
+    If multiple prompts have the same ID, you can specify a directory to disambiguate.
+    """
+    prompt = prompt_service.get_prompt(prompt_id, directory)
     
-    # Check if a prompt with the new ID already exists
-    if new_id != old_prompt_obj.id:  # Only check if the ID would actually change
-        target_prompt_exists = prompt_service.get_prompt(new_id)
-        if target_prompt_exists:
-            detail_msg = f"Prompt with ID '{new_id}' already exists."
-            if original_new_name != rename_data.new_name:
-                detail_msg += f" (Original new name '{original_new_name}' was sanitized to '{rename_data.new_name}')"
-            raise HTTPException(status_code=409, detail=detail_msg) # 409 Conflict
-
-    success = prompt_service.rename_prompt(
-        old_identifier=rename_data.old_id,
-        new_name=rename_data.new_name,
-        content=rename_data.content,
-        description=rename_data.description,
-        tags=rename_data.tags
-    )
+    # If not found and the ID contains spaces, try converting spaces to underscores
+    if not prompt and ' ' in prompt_id:
+        normalized_id = prompt_id.replace(' ', '_')
+        prompt = prompt_service.get_prompt(normalized_id, directory)
     
-    if not success:
-        raise HTTPException(status_code=500, detail=f"Failed to rename prompt '{rename_data.old_id}'. Check server logs for details.")
-
-    # If successful, return the new prompt details
-    renamed_prompt = prompt_service.get_prompt(new_id)
-    if not renamed_prompt:
-        logger.error(f"Failed to retrieve prompt '{new_id}' after successful rename operation.")
-        raise HTTPException(status_code=500, detail="Error retrieving prompt after rename.")
-
-    prompt_dict = renamed_prompt.dict()
-    prompt_dict["directory_name"] = get_directory_name(renamed_prompt.directory)
+    if not prompt:
+        raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
     
-    # Include a message about sanitization if it occurred
-    if original_new_name != renamed_prompt.name:
-        prompt_dict["sanitized_message"] = f"Original new name '{original_new_name}' was sanitized to '{renamed_prompt.name}'."
+    prompt_dict = prompt.dict() # Raw prompt data
+
+    # Prepare directory_info structure
+    dir_config = get_directory_by_path(prompt.directory) # This is from src.services.prompt_dirs
+    if dir_config: # If directory is found in configured list
+        directory_display_name = dir_config.get("name", os.path.basename(prompt.directory))
+        directory_actual_path = dir_config.get("path", prompt.directory) # Should ideally be prompt.directory
+    else: # Fallback for prompts whose directory might not be in current config (e.g. orphaned)
+        directory_display_name = os.path.basename(prompt.directory)
+        directory_actual_path = prompt.directory
+
+    prompt_dict["directory_info"] = {
+        "name": directory_display_name,
+        "path": directory_actual_path
+    }
     
+    # Clean up old flat directory_name if present, as directory_info is now the source of truth for the editor
+    if "directory_name" in prompt_dict:
+        del prompt_dict["directory_name"]
+
+    # --- Add dependencies and warnings ---
+    try:
+        expanded_content, dependencies, warnings = prompt_service.expand_inclusions(
+            prompt.content, 
+            parent_directory=prompt.directory,
+            parent_id=prompt.id
+        )
+        # dependencies is a set of prompt IDs; convert to list of dicts for UI
+        prompt_dict["dependencies"] = [
+            {"id": dep_id, "is_missing": prompt_service.get_prompt(dep_id) is None}
+            for dep_id in dependencies
+        ]
+        prompt_dict["warnings"] = warnings
+    except Exception as e:
+        logger.error(f"Error expanding dependencies for prompt '{prompt_id}': {e}")
+        prompt_dict["dependencies"] = []
+        prompt_dict["warnings"] = [f"Error expanding dependencies: {e}"]
+
     return prompt_dict
 
