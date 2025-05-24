@@ -429,6 +429,11 @@ async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None, prom
     """
     prompt = prompt_service.get_prompt(prompt_id, directory)
     
+    # If not found and the ID contains spaces, try converting spaces to underscores
+    if not prompt and ' ' in prompt_id:
+        normalized_id = prompt_id.replace(' ', '_')
+        prompt = prompt_service.get_prompt(normalized_id, directory)
+    
     if not prompt:
         raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
     

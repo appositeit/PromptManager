@@ -189,7 +189,7 @@ async def startup_event():
 async def manage_prompts(request: Request):
     return templates.TemplateResponse("manage_prompts.html", {"request": request})
 
-@app.get("/prompts/{prompt_id}", response_class=HTMLResponse)
+@app.get("/prompts/{prompt_id:path}", response_class=HTMLResponse)
 async def prompt_editor(request: Request, prompt_id: str):
     path_param_id = prompt_id
     if not prompt_service_instance:
@@ -198,7 +198,20 @@ async def prompt_editor(request: Request, prompt_id: str):
             "title": "Service Error",
             "message": "Prompt service is not available."
         }, status_code=500)
+    
+    # Try to find the prompt directly first
     prompt_object = prompt_service_instance.get_prompt(path_param_id)
+    
+    # If not found and the ID contains spaces, try converting spaces to underscores
+    if not prompt_object and ' ' in path_param_id:
+        # Convert spaces to underscores and try again
+        normalized_id = path_param_id.replace(' ', '_')
+        prompt_object = prompt_service_instance.get_prompt(normalized_id)
+        if prompt_object:
+            # Redirect to the correct URL to normalize the URL structure
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url=f"/prompts/{normalized_id}", status_code=301)
+    
     if not prompt_object:
         return templates.TemplateResponse("error.html", {
             "request": request,
@@ -275,23 +288,22 @@ def create_app(config_path=None, fragment_dirs=None, template_dirs=None, port=80
 # Main entry point for running the server directly
 def main(args=None):
     import uvicorn
-    host = "0.0.0.0"
-    port = 8081
-    log_level = "info"
-    if args:
-        if args.host: 
-            host = args.host
-        if args.port: 
-            port = args.port
-        if args.log_level: 
-            log_level = args.log_level
+    import argparse
+    
+    if args is None:
+        parser = argparse.ArgumentParser(description='Prompt Manager Server')
+        parser.add_argument('--host', default='0.0.0.0', help='Host to bind to (default: 0.0.0.0)')
+        parser.add_argument('--port', type=int, default=8081, help='Port to bind to (default: 8081)')
+        parser.add_argument('--log-level', default='info', help='Log level (default: info)')
+        args = parser.parse_args()
+    
+    host = args.host
+    port = args.port
+    log_level = args.log_level
+    
     print(f"Starting Prompt Manager server on {host}:{port}")
     print(f"Log level: {log_level}")
-    uvicorn.run("src.server:app", host=host, port=port, log_level=log_level, reload=True)
+    uvicorn.run("src.server:app", host=host, port=port, log_level=log_level, reload=False)
 
 if __name__ == "__main__":
-    class Args:
-        host: Optional[str] = None
-        port: Optional[int] = None
-        log_level: Optional[str] = None
-    main(Args())
+    main()
