@@ -405,6 +405,7 @@ async def rename_prompt_endpoint(
     if original_new_name != renamed_prompt.name:
         prompt_dict["sanitized_message"] = f"Original new name '{original_new_name}' was sanitized to '{renamed_prompt.name}'."
     
+    return prompt_dict
 
 # --- Filesystem Path Completion Endpoint ---
 from src.services.filesystem_service import FilesystemService

@@ -26,7 +26,7 @@ def test_create_and_delete_new_prompt(page: Page):
     new_prompt_tags = "e2e,test,temporary"
 
     # --- Click "New Prompt" button ---
-    new_prompt_button = page.locator("button#new-prompt-btn")
+    new_prompt_button = page.locator("button#add-prompt-btn")
     expect(new_prompt_button).to_be_visible()
     new_prompt_button.click()
 
@@ -34,10 +34,10 @@ def test_create_and_delete_new_prompt(page: Page):
     modal = page.locator("#newPromptModal")
     expect(modal).to_be_visible()
 
-    # Prompt ID
-    prompt_id_input = modal.locator("#promptId")
-    expect(prompt_id_input).to_be_editable()
-    prompt_id_input.fill(new_prompt_id)
+    # Prompt Name
+    prompt_name_input = modal.locator("#promptName")
+    expect(prompt_name_input).to_be_editable()
+    prompt_name_input.fill(new_prompt_id)
 
     # Directory (select the first one)
     directory_select = modal.locator("#promptDirectory")
