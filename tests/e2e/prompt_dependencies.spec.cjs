@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 test.describe('Prompt Dependencies and Referenced By', () => {
   test('referenced_and_embedded prompt shows correct dependencies and referenced by', async ({ page }) => {
     // Go directly to the prompt editor page for the test prompt
-    await page.goto('http://localhost:8081/prompts/referenced_and_embedded');
+    await page.goto('http://localhost:8095/prompts/referenced_and_embedded');
 
     // Wait for the Dependencies card to load
     await expect(page.locator('div.card:has-text("Dependencies")')).toBeVisible();

@@ -3,7 +3,7 @@ import time
 from playwright.sync_api import Page, expect
 
 # Base URL of the running application
-BASE_URL = "http://localhost:8081"
+BASE_URL = "http://localhost:8095"
 MANAGE_PROMPTS_URL = f"{BASE_URL}/manage/prompts"
 
 @pytest.fixture(scope="function", autouse=True)

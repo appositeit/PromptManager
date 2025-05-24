@@ -616,7 +616,8 @@ class PromptService:
             Returns None if the target_prompt_id itself is not found (as a check).
         """
         # Check if the target prompt itself exists. If not, it cannot be referenced.
-        if not self.get_prompt(target_prompt_id):
+        target_prompt = self.get_prompt(target_prompt_id)
+        if not target_prompt:
             logger.warning(f"Target prompt '{target_prompt_id}' not found. Cannot find references to a non-existent prompt.")
             return None # Indicate target prompt not found
 
@@ -626,6 +627,9 @@ class PromptService:
         normalized_target_id = target_prompt_id
         if normalized_target_id.endswith('.md'):
             normalized_target_id = normalized_target_id[:-3]
+            
+        # Extract the simple name from the target prompt for matching
+        target_simple_name = target_prompt.name if hasattr(target_prompt, 'name') else target_prompt_id.split('/')[-1]
             
         for prompt in self.prompts.values():
             if prompt.id == normalized_target_id:
@@ -638,7 +642,11 @@ class PromptService:
                     parent_id=prompt.id
                 )
                 
-                if normalized_target_id in transitive_dependencies:
+                # Check if the target is included either by full ID or simple name
+                target_found = (normalized_target_id in transitive_dependencies or 
+                               target_simple_name in transitive_dependencies)
+                
+                if target_found:
                     # Convert prompt object to dict for the API response
                     # You might want a specific Pydantic model for this response item later
                     including_prompts_data.append({

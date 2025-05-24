@@ -9,7 +9,7 @@ module.exports = defineConfig({
   workers: process.env.CI ? 1 : undefined, // Opt for fewer workers on CI
   reporter: [['html', { open: 'never' }]], // Reporter to use, prevent auto-opening report
   use: {
-    baseURL: 'http://localhost:8081', // Base URL for actions like page.goto('/')
+    baseURL: 'http://localhost:8095', // Base URL for actions like page.goto('/')
     trace: 'on-first-retry', // Record trace only when retrying a failed test
   },
   projects: [
@@ -30,7 +30,7 @@ module.exports = defineConfig({
   // Optionally, configure a web server to start before tests
   // webServer: {
   //   command: 'npm run start', // Command to start your dev server
-  //   url: 'http://localhost:8081',
+  //   url: 'http://localhost:8095',
   //   reuseExistingServer: !process.env.CI,
   // },
 }); 

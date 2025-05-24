@@ -1,8 +1,8 @@
 from playwright.sync_api import Page, expect
 
 # Base URL of the running application
-# Make sure your Prompt Manager server is running on http://localhost:8081
-BASE_URL = "http://localhost:8081"
+# Make sure your Prompt Manager server is running on http://localhost:8095
+BASE_URL = "http://localhost:8095"
 MANAGE_PROMPTS_URL = f"{BASE_URL}/manage/prompts"
 
 def test_app_loads_and_has_initial_data(page: Page):
@@ -49,7 +49,7 @@ def test_app_loads_and_has_initial_data(page: Page):
         raise # Re-raise the exception to fail the test
 
 # To run this test:
-# 1. Make sure your Prompt Manager server is running on http://localhost:8081
+# 1. Make sure your Prompt Manager server is running on http://localhost:8095
 #    and is configured with some default/initial directories and prompts.
 # 2. Run pytest from your project root: pytest tests/e2e/test_app_loads.py
 #    Or, if you add it to a Makefile: make test-e2e 
