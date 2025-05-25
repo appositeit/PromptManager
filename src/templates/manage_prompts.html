@@ -1159,13 +1159,20 @@ Remember that you're part of a team - your specialized work contributes to solvi
     
     // Function to update the sort header icons and classes for prompts table
     function updateSortHeaders() {
+        // Get the prompts table (first table that's not the directories table)
+        const promptsTableBody = document.getElementById('prompts-table-body');
+        if (!promptsTableBody) return;
+        
+        const promptsTable = promptsTableBody.closest('table');
+        if (!promptsTable) return;
+        
         // Remove all sort classes from prompts table
-        document.querySelectorAll('#prompts-table-body').closest('table').querySelectorAll('.sortable').forEach(header => {
+        promptsTable.querySelectorAll('.sortable').forEach(header => {
             header.classList.remove('sort-active', 'sort-asc', 'sort-desc');
         });
         
         // Find the active header and update its classes
-        const activeHeader = document.querySelector(`#prompts-table-body`).closest('table').querySelector(`.sortable[data-sort="${currentSort.column}"]`);
+        const activeHeader = promptsTable.querySelector(`.sortable[data-sort="${currentSort.column}"]`);
         if (activeHeader) {
             activeHeader.classList.add('sort-active');
             activeHeader.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
