@@ -148,12 +148,12 @@
                     <div class="table-responsive">
                         <table class="table table-hover" id="directories-table">
                             <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Status</th>
-                                    <th>Path</th>
-                                    <th>Description</th>
-                                    <th>Actions</th>
+                                <tr class="sortable-headers">
+                                    <th data-sort="name" class="sortable">Name <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="status" class="sortable">Status <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="path" class="sortable">Path <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th data-sort="description" class="sortable">Description <i class="bi bi-sort-alpha-down sort-icon"></i></th>
+                                    <th class="actions-column">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="directories-table-body">
@@ -448,12 +448,21 @@
         background-color: #e0e0e0;
     }
 
-    /* Styles for the Actions column */
-    table th:nth-child(6), /* Actions */
+    /* Styles for the Actions columns */
+    table th:nth-child(6), /* Prompts table Actions */
     table td:nth-child(6) {
         width: 120px;
         min-width: 100px;
         max-width: 160px;
+    }
+    
+    /* Styles for Directories table Actions column */
+    #directories-table .actions-column,
+    #directories-table td:nth-child(5) {
+        width: 120px !important;
+        min-width: 120px !important;
+        max-width: 160px !important;
+        white-space: nowrap;
     }
 </style>
 <script>
@@ -470,6 +479,12 @@
     // Sort settings
     let currentSort = {
         column: 'directory',
+        direction: 'asc'
+    };
+    
+    // Directory sort settings
+    let currentDirectorySort = {
+        column: 'name',
         direction: 'asc'
     };
 
@@ -729,23 +744,40 @@ Remember that you're part of a team - your specialized work contributes to solvi
         sortableHeaders.forEach(header => {
             header.addEventListener('click', function() {
                 const column = this.dataset.sort;
+                const table = this.closest('table');
+                const isDirectoriesTable = table.id === 'directories-table';
                 
-                // Toggle direction if clicking on the same column
-                if (currentSort.column === column) {
-                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                if (isDirectoriesTable) {
+                    // Handle directory table sorting
+                    if (currentDirectorySort.column === column) {
+                        currentDirectorySort.direction = currentDirectorySort.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        currentDirectorySort.column = column;
+                        currentDirectorySort.direction = 'asc';
+                    }
+                    
+                    // Update visuals and re-sort
+                    updateDirectorySortHeaders();
+                    updateDirectoriesUI();
                 } else {
-                    currentSort.column = column;
-                    currentSort.direction = 'asc';
+                    // Handle prompts table sorting
+                    if (currentSort.column === column) {
+                        currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        currentSort.column = column;
+                        currentSort.direction = 'asc';
+                    }
+                    
+                    // Update visuals and re-sort
+                    updateSortHeaders();
+                    updatePromptsTable();
                 }
-                
-                // Update visuals and re-sort
-                updateSortHeaders();
-                updatePromptsTable();
             });
         });
         
         // Initialize sort headers
         updateSortHeaders();
+        updateDirectorySortHeaders();
         
         // Add keyboard navigation for the prompt table - enhanced to work with search box focus
         document.addEventListener('keydown', function(event) {
@@ -1125,15 +1157,15 @@ Remember that you're part of a team - your specialized work contributes to solvi
         });
     });
     
-    // Function to update the sort header icons and classes
+    // Function to update the sort header icons and classes for prompts table
     function updateSortHeaders() {
-        // Remove all sort classes
-        document.querySelectorAll('.sortable').forEach(header => {
+        // Remove all sort classes from prompts table
+        document.querySelectorAll('#prompts-table-body').closest('table').querySelectorAll('.sortable').forEach(header => {
             header.classList.remove('sort-active', 'sort-asc', 'sort-desc');
         });
         
         // Find the active header and update its classes
-        const activeHeader = document.querySelector(`.sortable[data-sort="${currentSort.column}"]`);
+        const activeHeader = document.querySelector(`#prompts-table-body`).closest('table').querySelector(`.sortable[data-sort="${currentSort.column}"]`);
         if (activeHeader) {
             activeHeader.classList.add('sort-active');
             activeHeader.classList.add(currentSort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
@@ -1143,6 +1175,28 @@ Remember that you're part of a team - your specialized work contributes to solvi
             if (icon) {
                 icon.classList.remove('bi-sort-alpha-down', 'bi-sort-alpha-up');
                 icon.classList.add(currentSort.direction === 'asc' ? 'bi-sort-alpha-down' : 'bi-sort-alpha-up');
+            }
+        }
+    }
+    
+    // Function to update the sort header icons and classes for directories table
+    function updateDirectorySortHeaders() {
+        // Remove all sort classes from directories table
+        document.querySelectorAll('#directories-table .sortable').forEach(header => {
+            header.classList.remove('sort-active', 'sort-asc', 'sort-desc');
+        });
+        
+        // Find the active header and update its classes
+        const activeHeader = document.querySelector(`#directories-table .sortable[data-sort="${currentDirectorySort.column}"]`);
+        if (activeHeader) {
+            activeHeader.classList.add('sort-active');
+            activeHeader.classList.add(currentDirectorySort.direction === 'asc' ? 'sort-asc' : 'sort-desc');
+            
+            // Update the icon class
+            const icon = activeHeader.querySelector('.sort-icon');
+            if (icon) {
+                icon.classList.remove('bi-sort-alpha-down', 'bi-sort-alpha-up');
+                icon.classList.add(currentDirectorySort.direction === 'asc' ? 'bi-sort-alpha-down' : 'bi-sort-alpha-up');
             }
         }
     }
@@ -1662,8 +1716,42 @@ Remember that you're part of a team - your specialized work contributes to solvi
             // Clear the table
             tableBody.innerHTML = '';
             
-            // Repopulate with current data
-            directories.forEach(dir => {
+            // Sort directories based on current sort settings
+            const sortedDirectories = stableSort([...directories], (a, b) => {
+                let aValue, bValue;
+                
+                // Get the values to compare based on the sort column
+                switch (currentDirectorySort.column) {
+                    case 'name':
+                        aValue = a.name || '';
+                        bValue = b.name || '';
+                        break;
+                    case 'status':
+                        aValue = a.enabled ? 'enabled' : 'disabled';
+                        bValue = b.enabled ? 'enabled' : 'disabled';
+                        break;
+                    case 'path':
+                        aValue = a.path || '';
+                        bValue = b.path || '';
+                        break;
+                    case 'description':
+                        aValue = a.description || '';
+                        bValue = b.description || '';
+                        break;
+                    default:
+                        aValue = a.name || '';
+                        bValue = b.name || '';
+                }
+                
+                // Perform string comparison
+                const result = String(aValue).localeCompare(String(bValue));
+                
+                // Reverse the result if descending
+                return currentDirectorySort.direction === 'desc' ? -result : result;
+            });
+            
+            // Repopulate with sorted data
+            sortedDirectories.forEach(dir => {
                 const row = document.createElement('tr');
                 
                 // Name cell
@@ -1739,6 +1827,9 @@ Remember that you're part of a team - your specialized work contributes to solvi
             
             // Update directory select in the New Prompt modal
             populateDirectorySelect('promptDirectory');
+            
+            // Update directory sort headers
+            updateDirectorySortHeaders();
             
             // ... inside updateDirectoriesUI, after rendering all rows ...
             const directoriesCountSpan = document.getElementById('directories-count');
