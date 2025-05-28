@@ -196,6 +196,42 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Markdown Cheat Sheet card -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">Markdown Quick Reference</h6>
+                    <button id="markdown-help-btn" class="btn btn-outline-info btn-sm" title="Detailed Markdown Help">
+                        <i class="bi bi-question-circle"></i>
+                    </button>
+                </div>
+                <div class="card-body p-2">
+                    <div class="markdown-cheat-sheet">
+                        <div class="row g-1">
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Headers:</small>
+                                <code class="small"># H1  ## H2  ### H3</code>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Text:</small>
+                                <code class="small">**bold** *italic* `code`</code>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Lists:</small>
+                                <code class="small">- item  1. numbered</code>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Links:</small>
+                                <code class="small">[text](url)</code>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Include Prompts:</small>
+                                <code class="small">[[prompt_name]]</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -242,6 +278,112 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Markdown Help Modal -->
+<div class="modal fade" id="markdownHelpModal" tabindex="-1" aria-labelledby="markdownHelpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="markdownHelpModalLabel">Markdown Reference Guide</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Headers</h6>
+                <div class="mb-3">
+                    <code># Heading 1</code><br>
+                    <code>## Heading 2</code><br>
+                    <code>### Heading 3</code><br>
+                    <code>#### Heading 4</code><br>
+                    <code>##### Heading 5</code><br>
+                    <code>###### Heading 6</code>
+                </div>
+
+                <h6>Text Formatting</h6>
+                <div class="mb-3">
+                    <code>**bold text**</code> → <strong>bold text</strong><br>
+                    <code>*italic text*</code> → <em>italic text</em><br>
+                    <code>~~strikethrough~~</code> → <s>strikethrough</s><br>
+                    <code>`inline code`</code> → <code>inline code</code><br>
+                    <code>***bold and italic***</code> → <strong><em>bold and italic</em></strong>
+                </div>
+
+                <h6>Lists</h6>
+                <div class="mb-3">
+                    <strong>Unordered lists:</strong><br>
+                    <code>- Item 1</code><br>
+                    <code>- Item 2</code><br>
+                    <code>  - Nested item</code><br><br>
+                    
+                    <strong>Ordered lists:</strong><br>
+                    <code>1. First item</code><br>
+                    <code>2. Second item</code><br>
+                    <code>   1. Nested item</code>
+                </div>
+
+                <h6>Links and Images</h6>
+                <div class="mb-3">
+                    <code>[Link text](https://example.com)</code><br>
+                    <code>[Link with title](https://example.com "Title")</code><br>
+                    <code>![Image alt text](image-url.jpg)</code><br>
+                    <code>&lt;https://example.com&gt;</code> → Auto-link
+                </div>
+
+                <h6>Code Blocks</h6>
+                <div class="mb-3">
+                    <strong>Inline code:</strong> <code>`code`</code><br><br>
+                    <strong>Code block:</strong><br>
+                    <pre><code>```javascript
+function example() {
+    return "Hello World!";
+}
+```</code></pre>
+                </div>
+
+                <h6>Blockquotes</h6>
+                <div class="mb-3">
+                    <code>&gt; This is a blockquote</code><br>
+                    <code>&gt; It can span multiple lines</code><br>
+                    <code>&gt;&gt; Nested blockquotes</code>
+                </div>
+
+                <h6>Tables</h6>
+                <div class="mb-3">
+                    <pre><code>| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Cell 4   | Cell 5   | Cell 6   |</code></pre>
+                </div>
+
+                <h6>Horizontal Rules</h6>
+                <div class="mb-3">
+                    <code>---</code> or <code>***</code> or <code>___</code>
+                </div>
+
+                <h6>Line Breaks</h6>
+                <div class="mb-3">
+                    End a line with two spaces for a line break<br>
+                    Or use a blank line for a paragraph break
+                </div>
+
+                <h6 class="text-primary">Prompt Manager Specific</h6>
+                <div class="mb-3">
+                    <strong>Include other prompts:</strong><br>
+                    <code>[[prompt_name]]</code> → Includes the content of another prompt<br>
+                    <small class="text-muted">Use Ctrl+Space for auto-completion of prompt names</small>
+                </div>
+
+                <h6>Escaping Characters</h6>
+                <div class="mb-3">
+                    Use backslash <code>\</code> to escape special characters:<br>
+                    <code>\* \_ \[ \] \( \) \# \+ \- \. \!</code>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -427,6 +569,74 @@
     /* Ensure the custom hint dropdown is above other elements */
     .CodeMirror-hints {
         z-index: 1051; /* Higher than Bootstrap modals (1050) */
+    }
+    
+    /* Markdown cheat sheet styling */
+    .markdown-cheat-sheet {
+        font-size: 0.75rem;
+    }
+    
+    .markdown-cheat-sheet code {
+        background-color: #f8f9fa;
+        padding: 1px 3px;
+        border-radius: 2px;
+        font-size: 0.7rem;
+        color: #495057;
+        border: 1px solid #e9ecef;
+    }
+    
+    .markdown-cheat-sheet .text-muted {
+        font-size: 0.65rem;
+        font-weight: 500;
+    }
+    
+    #markdown-help-btn {
+        padding: 0.125rem 0.25rem;
+        font-size: 0.7rem;
+        line-height: 1;
+    }
+    
+    /* Markdown help modal styling */
+    #markdownHelpModal .modal-body h6 {
+        color: #495057;
+        font-weight: 600;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+        padding-bottom: 0.25rem;
+    }
+    
+    #markdownHelpModal .modal-body h6:first-child {
+        margin-top: 0;
+    }
+    
+    #markdownHelpModal .modal-body h6.text-primary {
+        color: #0d6efd !important;
+        border-bottom-color: #0d6efd;
+    }
+    
+    #markdownHelpModal .modal-body code {
+        background-color: #f8f9fa;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-size: 0.875rem;
+        color: #495057;
+        border: 1px solid #e9ecef;
+    }
+    
+    #markdownHelpModal .modal-body pre {
+        background-color: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 0.375rem;
+        border: 1px solid #e9ecef;
+        font-size: 0.8rem;
+    }
+    
+    #markdownHelpModal .modal-body pre code {
+        background-color: transparent;
+        padding: 0;
+        border: none;
+        font-size: inherit;
     }
 </style>
 {% endblock %}
@@ -1117,6 +1327,15 @@
         if (expandedContentTab) {
             expandedContentTab.addEventListener('shown.bs.tab', function (event) {
                 updateExpandedPreview();
+            });
+        }
+        
+        // Markdown help modal
+        const markdownHelpBtn = document.getElementById('markdown-help-btn');
+        if (markdownHelpBtn) {
+            const markdownHelpModal = new bootstrap.Modal(document.getElementById('markdownHelpModal'));
+            markdownHelpBtn.addEventListener('click', function () {
+                markdownHelpModal.show();
             });
         }
         
