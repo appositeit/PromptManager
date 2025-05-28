@@ -16,7 +16,7 @@
     </a>
 </div>
 <div class="btn-group">
-    <button id="copy-btn" class="btn btn-outline-primary" title="Copy content to clipboard (Alt+C)">
+    <button id="copy-btn" class="btn btn-outline-primary" title="Copy content with inclusions resolved to clipboard (Alt+C)">
         <i class="bi bi-clipboard"></i> Copy
     </button>
     <button id="toggle-view-btn" class="btn btn-outline-primary" title="Toggle between raw and expanded view (Alt+T)">
@@ -49,7 +49,8 @@
         </thead>
         <tbody>
             <tr><td><code>Alt + S</code></td><td>Save prompt content and metadata</td></tr>
-            <tr><td><code>Alt + C</code></td><td>Copy prompt content (expanded if composite) to clipboard</td></tr>
+            <tr><td><code>Alt + C</code></td><td>Copy prompt content with inclusions resolved to clipboard</td></tr>
+            <tr><td><code>Alt + Shift + C</code></td><td>Copy rendered prompt content to clipboard</td></tr>
             <tr><td><code>Alt + T</code></td><td>Toggle between Raw and Expanded content views</td></tr>
             <tr><td><code>Alt + R</code></td><td>Open Search/Replace dialog (in Raw Content view)</td></tr>
             <tr><td><code>Alt + B</code></td><td>Go back to the prompt list</td></tr>
@@ -85,7 +86,8 @@
     <h6>Header Buttons:</h6>
     <ul>
         <li><strong>Back to List:</strong> Navigates back to the "Manage Prompts" page.</li>
-        <li><strong>Copy:</strong> Copies the prompt content. If the prompt is composite, the fully expanded content is copied. Otherwise, the raw content is copied.</li>
+        <li><strong>Copy:</strong> Copies the prompt content with all inclusions resolved but preserves the original markdown format.</li>
+        <li><strong>Copy Rendered:</strong> Copies the prompt content as rendered text (Alt+Shift+C).</li>
         <li><strong>Toggle View:</strong> Switches between the "Raw Content" and "Expanded Content" tabs.</li>
         <li><strong>Search/Replace:</strong> Opens a search and replace dialog for the "Raw Content" editor.</li>
         <li><strong>Rename:</strong> Allows you to change the ID (name) of the prompt. This will also update references in other prompts if possible.</li>
@@ -864,13 +866,11 @@
         .catch(error => console.error('Error deleting prompt:', error));
     }
 
-    function copyContent() {
-        const contentToCopy = (currentPromptData && currentPromptData.is_composite) ? document.getElementById('preview').innerText : editor.getValue();
-        
+    function copyToClipboard(content, successMessage = 'Content copied to clipboard!') {
         // Check if the Clipboard API is available
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(contentToCopy)
-                .then(() => showToast('Content copied to clipboard!', 'success'))
+            navigator.clipboard.writeText(content)
+                .then(() => showToast(successMessage, 'success'))
                 .catch(err => {
                     showToast('Failed to copy content.', 'error');
                     console.error('Error copying content: ', err);
@@ -879,7 +879,7 @@
             // Fallback method for older browsers or insecure contexts
             try {
                 const textArea = document.createElement('textarea');
-                textArea.value = contentToCopy;
+                textArea.value = content;
                 textArea.style.position = 'fixed';
                 textArea.style.left = '-999999px';
                 textArea.style.top = '-999999px';
@@ -888,7 +888,7 @@
                 textArea.select();
                 
                 if (document.execCommand('copy')) {
-                    showToast('Content copied to clipboard!', 'success');
+                    showToast(successMessage, 'success');
                 } else {
                     showToast('Failed to copy content. Please manually select and copy.', 'error');
                 }
@@ -898,6 +898,58 @@
                 showToast('Copy functionality not available. Please manually select and copy.', 'error');
                 console.error('Error with fallback copy method: ', err);
             }
+        }
+    }
+
+    function getExpandedMarkdown(callback) {
+        fetch(`/api/prompts/expand`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt_id: promptId })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`Failed to get expanded content: ${response.status} ${response.statusText}`);
+            return response.json();
+        })
+        .then(data => callback(null, data.expanded_content))
+        .catch(error => {
+            console.error("Error fetching expanded markdown:", error);
+            callback(error, null);
+        });
+    }
+
+    function copyContent() {
+        // New behavior: Always get expanded markdown (inclusions resolved but still markdown format)
+        getExpandedMarkdown((error, expandedContent) => {
+            if (error || !expandedContent) {
+                // Fallback to raw editor content if API call fails
+                console.warn('Failed to get expanded content, falling back to raw content:', error);
+                copyToClipboard(editor.getValue(), 'Content copied to clipboard (raw)!');
+            } else {
+                copyToClipboard(expandedContent, 'Content copied to clipboard (expanded)!');
+            }
+        });
+    }
+
+    function copyRenderedContent() {
+        // Alt+Shift+C behavior: Get rendered HTML content as text
+        const previewDiv = document.getElementById('preview');
+        if (previewDiv && previewDiv.innerText.trim()) {
+            copyToClipboard(previewDiv.innerText, 'Rendered content copied to clipboard!');
+        } else {
+            // Fallback: render current content to preview first, then copy
+            updateExpandedPreview();
+            setTimeout(() => {
+                const previewDiv = document.getElementById('preview');
+                if (previewDiv && previewDiv.innerText.trim()) {
+                    copyToClipboard(previewDiv.innerText, 'Rendered content copied to clipboard!');
+                } else {
+                    // Ultimate fallback to raw content
+                    copyToClipboard(editor.getValue(), 'Content copied to clipboard (raw)!');
+                }
+            }, 500); // Give time for preview to update
         }
     }
     
@@ -1078,7 +1130,13 @@
                         break;
                     case 'c':
                         event.preventDefault();
-                        copyBtn.click();
+                        if (event.shiftKey) {
+                            // Alt+Shift+C: Copy rendered content
+                            copyRenderedContent();
+                        } else {
+                            // Alt+C: Copy expanded markdown
+                            copyBtn.click();
+                        }
                         break;
                     case 't':
                         event.preventDefault();
