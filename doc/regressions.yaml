@@ -28,3 +28,15 @@ regressions:
     severity: "critical"
     impact: "Cannot verify code quality, regression protection disabled"
     detection_method: "Manual test execution via `make test`"
+  
+  - date: 2025-05-30
+    symptom: "Maximum recursion depth exceeded in FastAPI jsonable_encoder when mocking templates.TemplateResponse"
+    cause: "Mock objects create circular references that cause infinite recursion during JSON serialization"
+    broken_feature: "test-template-mocking"
+    break_commit: "unknown"
+    fix_commit: "pending"
+    ai_involved: true
+    pattern: ["recursion-error", "mock-circular-reference", "fastapi-serialization", "template-mocking"]
+    severity: "critical"
+    impact: "Server endpoints fail with recursion error when templates are mocked"
+    detection_method: "Manual test with template mocking"
