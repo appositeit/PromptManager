@@ -34,9 +34,11 @@ regressions:
     cause: "Mock objects create circular references that cause infinite recursion during JSON serialization"
     broken_feature: "test-template-mocking"
     break_commit: "unknown"
-    fix_commit: "pending"
+    fix_commit: "5d90eee, 31d6c7a"
     ai_involved: true
     pattern: ["recursion-error", "mock-circular-reference", "fastapi-serialization", "template-mocking"]
     severity: "critical"
     impact: "Server endpoints fail with recursion error when templates are mocked"
     detection_method: "Manual test with template mocking"
+    resolution: "Replaced template mocking with actual endpoint testing, fixed static files mocking"
+    status: "resolved"

@@ -475,16 +475,26 @@ class TestSessionViewsHelpers:
     
     def test_get_data_dir(self):
         """Test get_data_dir function"""
-        with patch('os.path.dirname'), \
-             patch('pathlib.Path') as mock_path:
+        mock_data_dir = Mock()
+        mock_data_dir.mkdir = Mock()
+        
+        with patch('src.api.session_views.Path') as mock_path_cls:
+            mock_path_instance = Mock()
+            mock_parent = Mock()
+            mock_grandparent = Mock()
             
-            mock_data_dir = Mock()
-            mock_data_dir.mkdir = Mock()
-            mock_path.return_value.parent.parent = mock_data_dir
+            # Mock the chain: base_dir.parent.parent / "data" / "sessions"
+            mock_path_instance.parent = mock_parent
+            mock_parent.parent = mock_grandparent
+            mock_grandparent.__truediv__ = Mock(return_value=Mock())
+            mock_grandparent.__truediv__.return_value.__truediv__ = Mock(return_value=mock_data_dir)
+            
+            mock_path_cls.return_value = mock_path_instance
             
             result = get_data_dir()
             
             mock_data_dir.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+            assert result == mock_data_dir
     
     def test_get_all_sessions_success(self):
         """Test get_all_sessions with successful file reading"""
@@ -526,7 +536,7 @@ class TestSessionViewsHelpers:
             mock_data_dir = Mock()
             mock_file = Mock()
             mock_file.exists.return_value = True
-            mock_data_dir.__truediv__.return_value = mock_file
+            mock_data_dir.__truediv__ = Mock(return_value=mock_file)
             mock_get_dir.return_value = mock_data_dir
             
             with patch('builtins.open', mock_open(read_data=json.dumps(mock_session))):
@@ -540,7 +550,7 @@ class TestSessionViewsHelpers:
             mock_data_dir = Mock()
             mock_file = Mock()
             mock_file.exists.return_value = False
-            mock_data_dir.__truediv__.return_value = mock_file
+            mock_data_dir.__truediv__ = Mock(return_value=mock_file)
             mock_get_dir.return_value = mock_data_dir
             
             result = get_session_view("nonexistent")
@@ -553,7 +563,7 @@ class TestSessionViewsHelpers:
             mock_data_dir = Mock()
             mock_file = Mock()
             mock_file.exists.return_value = True
-            mock_data_dir.__truediv__.return_value = mock_file
+            mock_data_dir.__truediv__ = Mock(return_value=mock_file)
             mock_get_dir.return_value = mock_data_dir
             
             with patch('builtins.open', side_effect=Exception("File error")):
@@ -609,7 +619,7 @@ class TestSessionViewsAPI:
             "workers": [{"name": "worker1"}]
         }
         
-        with patch('src.api.session_views.create_session_view') as mock_create:
+        with patch('src.api.session_views.create_session') as mock_create:
             mock_create.return_value = {"id": "new_session", **config_data}
             
             response = self.client.post("/api/sessions", json=config_data)
@@ -621,7 +631,7 @@ class TestSessionViewsAPI:
         """Test get session by ID success"""
         mock_session = {"id": "test_session", "name": "Test Session"}
         
-        with patch('src.api.session_views.get_session_view', return_value=mock_session):
+        with patch('src.api.session_views.get_session', return_value=mock_session):
             response = self.client.get("/api/sessions/test_session")
             
             assert response.status_code == 200
@@ -629,7 +639,7 @@ class TestSessionViewsAPI:
     
     def test_get_session_by_id_not_found(self):
         """Test get session by ID when not found"""
-        with patch('src.api.session_views.get_session_view', return_value=None):
+        with patch('src.api.session_views.get_session', return_value=None):
             response = self.client.get("/api/sessions/nonexistent")
             
             assert response.status_code == 404

@@ -210,20 +210,27 @@ def generate_response(message: str, session: dict) -> str:
     if any(word in message_lower for word in ["hello", "hi", "hey"]):
         return f"Hello! I'm the Architect AI for the \"{session['name']}\" session. How can I assist you today?"
     
-    if "help" in message_lower:
-        return "I'm here to help break down tasks and coordinate with specialized workers. What specific problem would you like assistance with?"
-    
     if any(word in message_lower for word in ["thank", "thanks"]):
         return "You're welcome! Let me know if you need any further assistance."
     
+    # Check for coding-related requests BEFORE generic help
     if any(word in message_lower for word in ["code", "programming", "software", "develop"]):
         workers = session.get("config", {}).get("workers", [])
-        code_workers = [w for w in workers if "code" in "".join(w.get("capabilities", []))]
+        # Fix: Check if any capability contains coding-related terms
+        code_workers = [w for w in workers if any(
+            coding_term in cap.lower() 
+            for cap in w.get("capabilities", []) 
+            for coding_term in ["coding", "programming", "software", "development"]
+        )]
         
         if code_workers:
             return f"I can help with your coding task. I'll collaborate with {code_workers[0]['name']} who specializes in programming. Could you provide more details about what you're trying to build?"
         else:
             return "I can help with your coding task. Would you like me to break it down into manageable steps or do you need assistance with a specific part?"
+    
+    # Generic help comes after specific domain checks
+    if "help" in message_lower:
+        return "I'm here to help break down tasks and coordinate with specialized workers. What specific problem would you like assistance with?"
     
     # Default response for other messages
     return f"I understand you're interested in: \"{message}\". Let me think about how to approach this...\n\nI can break this down into smaller tasks and coordinate the execution. Would you like me to create a step-by-step plan?"

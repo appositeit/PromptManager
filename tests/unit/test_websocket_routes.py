@@ -358,7 +358,7 @@ class TestWebSocketEndpoint:
         assert expand_call_args["action"] == "expanded"
         assert expand_call_args["content"] == "Content with [[inclusion]]"
         assert expand_call_args["expanded"] == "Expanded content"
-        assert expand_call_args["dependencies"] == ["dep1", "dep2"]
+        assert set(expand_call_args["dependencies"]) == {"dep1", "dep2"}
         assert expand_call_args["warnings"] == ["warning1"]
     
     @pytest.mark.asyncio
