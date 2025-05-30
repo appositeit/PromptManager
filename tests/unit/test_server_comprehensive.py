@@ -473,8 +473,10 @@ class TestCreateAppFunction:
             mock_instance = Mock()
             mock_service_class.return_value = mock_instance
             
+            # Mock BASE_DIR to existing directory and patch StaticFiles to avoid directory check
             with patch('src.server.logger'), \
-                 patch('src.server.BASE_DIR', Path("/test/base")):
+                 patch('src.server.BASE_DIR', Path("/tmp")), \
+                 patch('src.server.StaticFiles'):
                 
                 from src.server import create_app
                 
