@@ -126,19 +126,17 @@
             </div>
             
             <!-- Warnings card remains below the editor -->
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div class="card" id="warnings-card" style="display: none;">
-                        <div class="card-header bg-warning text-dark">
-                            <h5 class="card-title mb-0">
-                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                                Warnings
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div id="warnings">
-                                <!-- Warnings will be populated here -->
-                            </div>
+            <div class="mt-3">
+                <div class="card" id="warnings-card" style="display: none;">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Warnings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="warnings">
+                            <!-- Warnings will be populated here -->
                         </div>
                     </div>
                 </div>
@@ -392,16 +390,10 @@ function example() {
 
 {% block extra_css %}
 <style>
-    /* Make the editor take up maximum vertical space */
-    /* Revert Flexbox changes, go back to direct height on #editor */
-    /* .editor-container { ... } */
-    /* #editor-tabs { ... } */
-    /* .tab-content { ... } */
-    /* #raw-content, #expanded-content { ... } */
-
+    /* Smart responsive layout that adapts to content height */
     #editor {
-        height: calc(85vh - 90px); /* Original calculation */
-        min-height: 600px;
+        height: calc(100vh - 155px); /* Subtract tighter navbar, reduced padding, and tab height */
+        min-height: 400px;
     }
     
     .CodeMirror {
@@ -424,11 +416,11 @@ function example() {
     /* Preview styling for expanded view */
     #preview {
         background-color: #fff;
-        height: auto !important; /* Force auto height */
-        min-height: auto;
+        height: calc(100vh - 150px); /* Match editor height */
+        min-height: 400px;
         padding: 15px;
         width: 100%;
-        overflow: visible; /* Remove scrollbar */
+        overflow-y: auto; /* Allow scrolling within preview if needed */
         border: 1px solid #dee2e6;
         border-radius: 4px;
         font-size: 14px; /* Base font size, matches CodeMirror */
@@ -522,13 +514,11 @@ function example() {
         padding: 0.5rem 0.75rem;
     }
     
-    /* Sticky sidebar */
+    /* Smart sidebar: only show scrollbar when needed */
     @media (min-width: 768px) {
         .col-md-3 {
-            position: sticky;
-            top: 0;
-            height: calc(100vh - 70px);
-            overflow-y: auto;
+            max-height: calc(100vh - 90px); /* Account for tighter navbar and reduced padding */
+            overflow-y: auto; /* Only show scrollbar when content overflows */
         }
     }
     

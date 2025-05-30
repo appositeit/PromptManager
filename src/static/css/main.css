@@ -1,5 +1,11 @@
 /* Main Prompt Manager UI styles */
 
+/* Custom horizontal padding class for reduced spacing */
+.container-fluid.px-reduced {
+    padding-left: 7px !important;  /* 60% of default 12px */
+    padding-right: 7px !important;
+}
+
 :root {
     --primary-color: #0d47a1;
     --primary-light: #5472d3;
@@ -47,14 +53,14 @@ a:hover {
 .card {
     border: none;
     border-radius: 8px;
-    box-shadow: 0 1px 10px rgba(0, 0, 0, 0.05);
-    margin-bottom: 20px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+    margin-bottom: 10px;
 }
 
 .card-header {
     background-color: var(--surface-color);
     border-bottom: 1px solid var(--border-color);
-    padding: 15px 20px;
+    padding: 5px 10px;
 }
 
 .card-title {
@@ -63,13 +69,13 @@ a:hover {
 }
 
 .card-body {
-    padding: 20px;
+    padding: 5px;
 }
 
 .card-footer {
     background-color: var(--surface-color);
     border-top: 1px solid var(--border-color);
-    padding: 15px 20px;
+    padding: 5px 10px;
 }
 
 /* Forms */
@@ -105,7 +111,7 @@ a:hover {
 
 .prompt-preview {
     flex: 1;
-    padding: 20px;
+    padding: 5px;
     background-color: white;
     border-left: 1px solid var(--border-color);
     overflow-y: auto;
@@ -115,7 +121,7 @@ a:hover {
     width: 300px;
     background-color: var(--surface-color);
     border-right: 1px solid var(--border-color);
-    padding: 20px;
+    padding: 5px;
     overflow-y: auto;
     position: relative;
     transition: margin-left 0.3s ease;
