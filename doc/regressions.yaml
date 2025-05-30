@@ -42,3 +42,31 @@ regressions:
     detection_method: "Manual test with template mocking"
     resolution: "Replaced template mocking with actual endpoint testing, fixed static files mocking"
     status: "resolved"
+
+  - date: 2025-05-30
+    symptom: "Session management tests failing with function not found errors and incorrect response generation"
+    cause: "Multiple issues: patching aliased function names instead of real names, complex Path mocking, and logic bug in generate_response() conditional ordering"
+    broken_feature: "session-management-tests"
+    break_commit: "unknown"
+    fix_commit: "241ee6c"
+    ai_involved: true
+    pattern: ["import-alias-confusion", "path-mocking-complexity", "conditional-logic-ordering", "worker-capability-matching"]
+    severity: "major"
+    impact: "Session management functionality not properly tested, core response generation logic broken"
+    detection_method: "Unit test execution"
+    resolution: "Fixed patch names to real functions, simplified Path mocking, reordered conditional logic, fixed capability matching algorithm"
+    status: "resolved"
+
+  - date: 2025-05-30
+    symptom: "WebSocket test failing due to dependency list order mismatch"
+    cause: "Test assertion compared list order from set iteration, which is non-deterministic"
+    broken_feature: "websocket-expansion-test"
+    break_commit: "unknown"
+    fix_commit: "241ee6c"
+    ai_involved: true
+    pattern: ["set-iteration-non-determinism", "test-assertion-order-dependency"]
+    severity: "minor"
+    impact: "WebSocket expansion functionality test was flaky"
+    detection_method: "Unit test execution"
+    resolution: "Changed assertion from list comparison to set comparison"
+    status: "resolved"
