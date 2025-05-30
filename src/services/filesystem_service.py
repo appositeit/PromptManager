@@ -37,11 +37,18 @@ class FilesystemService:
         """Checks if the given path is within one of the allowed base paths."""
         abs_path_to_check = os.path.abspath(os.path.expanduser(path_to_check))
         for base_path in self.allowed_base_paths:
-            # Check if abs_path_to_check is the base_path, a sub-path of it,
-            # or an ancestor of it.
-            common = os.path.commonpath([abs_path_to_check, base_path])
-            if common == base_path or common == abs_path_to_check:
-                return True
+            # Check if abs_path_to_check is the base_path or a sub-path of it
+            # We should NOT allow access to ancestors of base_path
+            try:
+                # Use os.path.commonpath to check if path is under base_path
+                common = os.path.commonpath([abs_path_to_check, base_path])
+                # Path is allowed only if common path equals base_path and 
+                # the checked path starts with base_path
+                if common == base_path and abs_path_to_check.startswith(base_path):
+                    return True
+            except ValueError:
+                # Paths on different drives on Windows - not allowed
+                continue
         logger.warning(f"Path '{path_to_check}' (resolved to '{abs_path_to_check}') is outside allowed base paths.")
         return False
 
@@ -109,44 +116,39 @@ class FilesystemService:
             logger.debug(f"Found raw directory suggestions: {suggestions}")
 
             if len(suggestions) == 1:
-                # Single exact match or single completable item
+                # Single exact match - complete the path
                 single_suggestion = suggestions[0]
-                completed_path = os.path.join(os.path.dirname(expanded_partial_path) if not expanded_partial_path.endswith("/") and not prefix_to_match=="" else expanded_partial_path , single_suggestion)
-                if not partial_path.startswith("/") and not completed_path.startswith(os.path.expanduser("~")):
-                    # Handle relative paths better - this logic needs review
-                    pass # For now, keep as is if relative
-                is_directory_suggestion = completed_path.endswith("/")
-                suggestions = [] # Clear suggestions, it's a direct completion
-            elif len(suggestions) > 1:
-                # Multiple matches, find common prefix
-                # commonprefix needs them to be full paths from the typed prefix_to_match part
-                common_prefix = os.path.commonprefix(suggestions) # commonprefix on just names like 'doc/', 'down/'
-                
-                if common_prefix and common_prefix != prefix_to_match:
-                    # A real common prefix beyond what was typed exists
-                    completed_path = os.path.join(os.path.dirname(expanded_partial_path) if not expanded_partial_path.endswith("/") and not prefix_to_match=="" else expanded_partial_path, common_prefix)
-                    # Update suggestions to be relative to the new common_prefix
-                    new_suggestions = []
-                    for s in suggestions:
-                        if s.startswith(common_prefix):
-                            remaining_part = s[len(common_prefix):]
-                            if remaining_part: # Don't add empty string if it was an exact match to prefix
-                                new_suggestions.append(remaining_part)
-                    # Ensure new_suggestions are also sorted if they were re-calculated
-                    new_suggestions.sort()
-                    suggestions = new_suggestions
-                    is_directory_suggestion = True # Common prefix usually implies directory context for further tabbing
+                if expanded_partial_path.endswith("/"):
+                    completed_path = expanded_partial_path + single_suggestion
                 else:
-                    # No further common prefix, or common prefix is just what was typed.
-                    # completed_path remains partial_path (or the dir part if user ended with /)
-                    if expanded_partial_path.endswith("/"):
-                        completed_path = expanded_partial_path
+                    completed_path = os.path.join(os.path.dirname(expanded_partial_path), single_suggestion)
+                is_directory_suggestion = True
+                suggestions = []  # Clear suggestions since we have a completion
+            elif len(suggestions) > 1:
+                # Multiple matches - check for common prefix
+                if prefix_to_match:
+                    # User has typed some prefix - find common prefix beyond what they typed
+                    common_prefix = os.path.commonprefix(suggestions)
+                    if len(common_prefix) > len(prefix_to_match):
+                        # There's a longer common prefix - complete to it
+                        if expanded_partial_path.endswith("/"):
+                            completed_path = expanded_partial_path + common_prefix
+                        else:
+                            completed_path = os.path.join(os.path.dirname(expanded_partial_path), common_prefix)
+                        is_directory_suggestion = True
+                        # Return suggestions with the common prefix removed
+                        suggestions = [s[len(common_prefix):] for s in suggestions if len(s) > len(common_prefix)]
                     else:
-                        completed_path = os.path.join(os.path.dirname(expanded_partial_path), prefix_to_match) if prefix_to_match else os.path.dirname(expanded_partial_path) + "/"
-                    # Keep all original suggestions (but ensure they are just the next component)
-                    # suggestions = [s[len(prefix_to_match):] for s in suggestions] # this might be wrong
-                    # The suggestions should be the full names relative to dir_to_scan
-                    pass # Keep suggestions as they are, full names like 'docs/', 'downloads/'
+                        # No further common prefix - return partial matches
+                        completed_path = partial_path
+                        is_directory_suggestion = False
+                        # Return suggestions with the prefix removed
+                        suggestions = [s[len(prefix_to_match):] for s in suggestions]
+                else:
+                    # User wants directory listing - return all suggestions
+                    completed_path = expanded_partial_path
+                    is_directory_suggestion = expanded_partial_path.endswith("/")
+                    # Keep full suggestions as-is
 
         except FileNotFoundError:
             logger.debug(f"Directory '{dir_to_scan}' not found for completion.")

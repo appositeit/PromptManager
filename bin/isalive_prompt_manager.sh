@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script to check if the Prompt Manager server is alive
 
-PORT="8081"
+PORT="8095"
 TIMEOUT=10 # Default timeout in seconds
 
 # Parse command-line arguments
@@ -26,7 +26,7 @@ done
 shift $((OPTIND -1))
 
 # Prefer a dedicated health check endpoint if available, otherwise use /api/prompts/all
-HEALTH_ENDPOINT="http://localhost:$PORT/api/prompts/all"
+HEALTH_ENDPOINT="http://0.0.0.0:$PORT/api/prompts/all"
 
 echo "Checking server status at $HEALTH_ENDPOINT for up to $TIMEOUT seconds..."
 

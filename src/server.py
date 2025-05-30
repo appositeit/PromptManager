@@ -29,35 +29,31 @@ if str(PROJECT_ROOT) not in sys.path:
 # Print Python path for debugging
 print(f"Python path in server.py: {sys.path}")
 
-# Import PromptService first, as other components depend on its global instance
+# Global prompt service instance - initialized lazily
 prompt_service_instance: Optional[PromptServiceClass] = None
-try:
-    # Both attempts now correctly refer to PromptServiceClass if it were still split
-    # but since we alias at top, this try/except for class import isn't strictly needed for aliasing.
-    # It's more about ensuring the module itself can be found.
-    # from src.services.prompt_service import PromptService as PromptServiceClass # Redundant here
-    pass # PromptServiceClass is already imported
-except ImportError as e: # This means src.services.prompt_service module not found
-    print(f"CRITICAL: Could not import PromptService module: {e}")
-    # PromptServiceClass would be undefined here if not imported at top
 
-# Initialize PromptService globally
-if PromptServiceClass: # type: ignore [truthy-function] # Check if the class itself was imported
-    try:
-        prompt_service_instance = PromptServiceClass(base_directories=None, auto_load=True)
-        logger.info("Global PromptService instance initialized.")
+def _get_or_create_global_prompt_service() -> Optional[PromptServiceClass]:
+    """Get or create the global PromptService instance."""
+    global prompt_service_instance
+    
+    if prompt_service_instance is None:
         try:
-            import src.api.websocket_routes as ws_routes_module
-            ws_routes_module.websocket_prompt_service_store = prompt_service_instance
-            logger.info("Successfully set websocket_prompt_service_store in websocket_routes.")
-        except Exception as e_set_store:
-            logger.error(f"Failed to set websocket_prompt_service_store: {e_set_store}", exc_info=True)
-    except Exception as e_init:
-        logger.error(f"CRITICAL: Failed to initialize PromptService instance: {e_init}", exc_info=True)
-        prompt_service_instance = None # Ensure it's None if class was found but init failed
-else:
-    logger.error("CRITICAL: Global PromptService class (PromptServiceClass) could not be imported.")
-    prompt_service_instance = None # Ensure it's None if class itself was not imported
+            prompt_service_instance = PromptServiceClass(base_directories=None, auto_load=True)
+            logger.info("Global PromptService instance initialized.")
+            
+            # Set up websocket store
+            try:
+                import src.api.websocket_routes as ws_routes_module
+                ws_routes_module.websocket_prompt_service_store = prompt_service_instance
+                logger.info("Successfully set websocket_prompt_service_store in websocket_routes.")
+            except Exception as e_set_store:
+                logger.error(f"Failed to set websocket_prompt_service_store: {e_set_store}", exc_info=True)
+                
+        except Exception as e_init:
+            logger.error(f"CRITICAL: Failed to initialize PromptService instance: {e_init}", exc_info=True)
+            prompt_service_instance = None
+    
+    return prompt_service_instance
 
 # Now that prompt_service_instance is defined, we can import routers that might use it (via dependency injection)
 try:
@@ -104,7 +100,7 @@ app = FastAPI(
 
 # Dependency override for PromptService
 async def get_global_prompt_service() -> Optional[PromptServiceClass]: # Use Class here
-    return prompt_service_instance
+    return _get_or_create_global_prompt_service()
 
 # Import the dependency placeholder from the API router module
 api_prompt_service_dependency_placeholder: Optional[Callable[[], Coroutine[Any, Any, PromptServiceClass]]] = None
@@ -125,13 +121,11 @@ except ImportError as e:
 # except ImportError as e:
 #     logger.error(f"Failed to import ws_dependency_placeholder from src.api.websocket_routes: {e}")
 
-if api_prompt_service_dependency_placeholder and prompt_service_instance is not None:
+if api_prompt_service_dependency_placeholder:
     app.dependency_overrides[api_prompt_service_dependency_placeholder] = get_global_prompt_service
     logger.info("FastAPI dependency_overrides configured for PromptService (API Router).")
-elif not api_prompt_service_dependency_placeholder:
+else:
     logger.warning("API PromptService dependency placeholder not found. API override not configured.")
-else: # prompt_service_instance is None
-    logger.warning("Global prompt_service_instance is None. API override for PromptService not configured.")
 
 # WebSocket PromptService is now handled by direct injection into websocket_routes module.
 # The standard dependency override for WebSockets is removed due to persistent issues.
@@ -176,11 +170,12 @@ async def root(request: Request):
 @app.on_event("startup")
 async def startup_event():
     logger.info("Application startup event triggered.")
-    if prompt_service_instance:
-        logger.info(f"PromptService initialized with {len(prompt_service_instance.directories)} directorie(s) and {len(prompt_service_instance.prompts)} prompt(s) loaded.")
-        if not prompt_service_instance.directories:
+    service = _get_or_create_global_prompt_service()
+    if service:
+        logger.info(f"PromptService initialized with {len(service.directories)} directorie(s) and {len(service.prompts)} prompt(s) loaded.")
+        if not service.directories:
             logger.warning("Startup check: PromptService has no directories configured after __init__.")
-        if not prompt_service_instance.prompts and prompt_service_instance.directories:
+        if not service.prompts and service.directories:
              logger.warning("Startup check: PromptService has directories but no prompts loaded.")
     else:
         logger.error("Application startup: Global PromptService instance is NOT available!")
@@ -192,7 +187,8 @@ async def manage_prompts(request: Request):
 @app.get("/prompts/{prompt_id:path}", response_class=HTMLResponse)
 async def prompt_editor(request: Request, prompt_id: str):
     path_param_id = prompt_id
-    if not prompt_service_instance:
+    service = _get_or_create_global_prompt_service()
+    if not service:
         return templates.TemplateResponse("error.html", {
             "request": request,
             "title": "Service Error",
@@ -200,13 +196,13 @@ async def prompt_editor(request: Request, prompt_id: str):
         }, status_code=500)
     
     # Try to find the prompt directly first
-    prompt_object = prompt_service_instance.get_prompt(path_param_id)
+    prompt_object = service.get_prompt(path_param_id)
     
     # If not found and the ID contains spaces, try converting spaces to underscores
     if not prompt_object and ' ' in path_param_id:
         # Convert spaces to underscores and try again
         normalized_id = path_param_id.replace(' ', '_')
-        prompt_object = prompt_service_instance.get_prompt(normalized_id)
+        prompt_object = service.get_prompt(normalized_id)
         if prompt_object:
             # Redirect to the correct URL to normalize the URL structure
             from fastapi.responses import RedirectResponse
@@ -221,7 +217,7 @@ async def prompt_editor(request: Request, prompt_id: str):
     prompt_display_name = getattr(prompt_object, 'name', prompt_object.id)
     if prompt_object.id != path_param_id:
         logger.warning(f"Prompt ID mismatch: path param ID was '{path_param_id}', fetched '{prompt_object.id}'.")
-    expanded_content, dependencies, warnings = prompt_service_instance.expand_inclusions(
+    expanded_content, dependencies, warnings = service.expand_inclusions(
         prompt_object.content, parent_id=prompt_object.id
     )
     logger.debug(f"Rendering prompt_editor.html for '{path_param_id}'")

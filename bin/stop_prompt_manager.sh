@@ -3,7 +3,7 @@
 # Script to gracefully stop the Prompt Manager server
 # If it doesn't exit within the timeout, it will be forcefully killed
 
-PORT=8081
+PORT=8095
 TIMEOUT=5 # seconds
 SERVER_PID=""
 

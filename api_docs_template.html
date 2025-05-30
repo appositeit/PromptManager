@@ -1,0 +1,595 @@
+{% extends "layout.html" %}
+
+{% block title %}API Documentation{% endblock %}
+
+{% block page_title %}WanderLAN API Documentation{% endblock %}
+
+{% block styles %}
+<style>
+/* API Documentation Styles */
+.api-docs-container {
+    min-height: 100vh;
+}
+
+.api-sidebar {
+    background: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    height: calc(100vh - 120px);
+    overflow-y: auto;
+    position: sticky;
+    top: 120px;
+}
+
+.api-content {
+    padding: 20px;
+    height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+.module-section {
+    margin-bottom: 20px;
+}
+
+.module-header {
+    background: #e9ecef;
+    padding: 10px 15px;
+    font-weight: bold;
+    color: #495057;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+}
+
+.module-header:hover {
+    background: #dee2e6;
+}
+
+.module-header .toggle-icon {
+    margin-left: auto;
+    transition: transform 0.2s;
+}
+
+.module-header.collapsed .toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.endpoint-list {
+    padding-left: 15px;
+}
+
+.endpoint-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    margin-bottom: 2px;
+    display: flex;
+    align-items: center;
+}
+
+.endpoint-item:hover {
+    background: #e9ecef;
+}
+
+.endpoint-item.active {
+    background: #007bff;
+    color: white;
+}
+
+.method-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-right: 8px;
+    font-weight: bold;
+    min-width: 45px;
+    text-align: center;
+}
+
+.method-get {
+    background: #28a745;
+    color: white;
+}
+
+.method-post {
+    background: #007bff;
+    color: white;
+}
+
+.method-put {
+    background: #ffc107;
+    color: black;
+}
+
+.method-delete {
+    background: #dc3545;
+    color: white;
+}
+
+.endpoint-path {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+}
+
+.endpoint-details {
+    display: none;
+}
+
+.endpoint-details.active {
+    display: block;
+}
+
+.endpoint-header {
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.endpoint-title {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.endpoint-title h3 {
+    margin: 0;
+    margin-left: 10px;
+}
+
+.endpoint-description {
+    color: #6c757d;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.section-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.section-header {
+    background: #f8f9fa;
+    padding: 12px 20px;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: bold;
+    color: #495057;
+}
+
+.section-content {
+    padding: 20px;
+}
+
+.code-block {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 15px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+    overflow-x: auto;
+}
+
+.try-it-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.btn-test {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-test:hover {
+    background: #218838;
+}
+
+.btn-test:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+.response-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+.status-code {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.status-200 {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-400 {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-500 {
+    background: #f5c6cb;
+    color: #721c24;
+}
+
+.search-container {
+    padding: 15px;
+    background: white;
+    border-bottom: 1px solid #dee2e6;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.websocket-section {
+    background: #e7f3ff;
+    border: 1px solid #b8daff;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.websocket-event {
+    background: white;
+    border: 1px solid #b8daff;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.event-direction {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+}
+
+.direction-client-to-server {
+    background: #007bff;
+    color: white;
+}
+
+.direction-server-to-client {
+    background: #28a745;
+    color: white;
+}
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+
+.error-message {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.success-message {
+    background: #d4edda;
+    color: #155724;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.header-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.export-btn {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.export-btn:hover {
+    background: #545b62;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .api-sidebar {
+        position: relative;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .api-content {
+        height: auto;
+    }
+}
+
+.tab-container {
+    margin-bottom: 20px;
+}
+
+.tab-nav {
+    display: flex;
+    border-bottom: 1px solid #dee2e6;
+    margin-bottom: 15px;
+}
+
+.tab-nav button {
+    background: none;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+}
+
+.tab-nav button.active {
+    border-bottom-color: #007bff;
+    color: #007bff;
+}
+
+.tab-nav button:hover {
+    background: #f8f9fa;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid api-docs-container">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 api-sidebar">
+            <div class="search-container">
+                <input type="text" id="api-search" class="search-input" placeholder="Search APIs...">
+            </div>
+            
+            <div id="api-navigation">
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i> Loading APIs...
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="col-md-9 api-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2><i class="fas fa-code mr-2"></i>API Documentation</h2>
+                    <p class="text-muted">Interactive documentation for WanderLAN REST APIs and WebSocket events</p>
+                </div>
+                <div class="header-controls">
+                    <button class="export-btn" onclick="exportDocs('json')">
+                        <i class="fas fa-download mr-1"></i>JSON
+                    </button>
+                    <button class="export-btn" onclick="exportDocs('openapi')">
+                        <i class="fas fa-download mr-1"></i>OpenAPI
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Welcome/Overview -->
+            <div id="overview-section">
+                <div class="section-card">
+                    <div class="section-header">
+                        <i class="fas fa-info-circle mr-2"></i>Overview
+                    </div>
+                    <div class="section-content">
+                        <p>Welcome to the WanderLAN API documentation. This interactive interface allows you to:</p>
+                        <ul>
+                            <li><strong>Browse APIs</strong> - Explore all REST endpoints and WebSocket events</li>
+                            <li><strong>Test Endpoints</strong> - Try API calls directly from this interface</li>
+                            <li><strong>View Examples</strong> - See request/response examples for each endpoint</li>
+                            <li><strong>Export Documentation</strong> - Download API specs in various formats</li>
+                        </ul>
+                        
+                        <div class="tab-container">
+                            <div class="tab-nav">
+                                <button onclick="showTab('rest-tab')" class="active">REST APIs</button>
+                                <button onclick="showTab('websocket-tab')">WebSocket Events</button>
+                                <button onclick="showTab('modules-tab')">Modules</button>
+                            </div>
+                            
+                            <div id="rest-tab" class="tab-content active">
+                                <div id="api-stats" class="row">
+                                    <div class="col-md-4">
+                                        <div class="text-center">
+                                            <h4 class="text-primary" id="total-endpoints">-</h4>
+                                            <small class="text-muted">Total Endpoints</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-center">
+                                            <h4 class="text-success" id="total-modules">-</h4>
+                                            <small class="text-muted">Modules</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-center">
+                                            <h4 class="text-info" id="total-websocket-events">-</h4>
+                                            <small class="text-muted">WebSocket Events</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="websocket-tab" class="tab-content">
+                                <div id="websocket-events-overview">
+                                    <div class="loading">
+                                        <i class="fas fa-spinner fa-spin"></i> Loading WebSocket events...
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="modules-tab" class="tab-content">
+                                <div id="modules-overview">
+                                    <div class="loading">
+                                        <i class="fas fa-spinner fa-spin"></i> Loading modules...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Endpoint Details (Hidden by default) -->
+            <div id="endpoint-details" class="endpoint-details">
+                <!-- Endpoint details will be populated here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let apiDocumentation = null;
+let websocketEvents = null;
+let currentEndpoint = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadApiDocumentation();
+    setupSearch();
+});
+
+function loadApiDocumentation() {
+    fetch('/api/discover')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                apiDocumentation = data.documentation;
+                renderNavigationSidebar();
+                updateStats();
+                loadWebSocketEvents();
+                loadModules();
+            } else {
+                showError('Failed to load API documentation: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading API documentation:', error);
+            showError('Failed to load API documentation');
+        });
+}
+
+function loadWebSocketEvents() {
+    fetch('/api/websocket-events')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                websocketEvents = data.websocket_events;
+                renderWebSocketEvents();
+            }
+        });
+}
+
+function loadModules() {
+    fetch('/api/modules')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderModulesOverview(data.modules);
+            }
+        });
+}
+
+function renderNavigationSidebar() {
+    const navigation = document.getElementById('api-navigation');
+    let html = '';
+    
+    for (const [moduleName, endpoints] of Object.entries(apiDocumentation.endpoints)) {
+        html += `
+            <div class="module-section">
+                <div class="module-header" onclick="toggleModule('${moduleName}')">
+                    <span>${moduleName}</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="endpoint-list" id="module-${moduleName}">
+        `;
+        
+        endpoints.forEach(endpoint => {
+            endpoint.methods.forEach(method => {
+                const endpointId = `${method}-${endpoint.path}`.replace(/[^a-zA-Z0-9]/g, '-');
+                html += `
+                    <div class="endpoint-item" onclick="showEndpoint('${endpoint.path}', '${method}')" id="nav-${endpointId}">
+                        <span class="method-badge method-${method.toLowerCase()}">${method}</span>
+                        <span class="endpoint-path">${endpoint.path}</span>
+                    </div>
+                `;
+            });
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    navigation.innerHTML = html;
+}
+
+function toggleModule(moduleName

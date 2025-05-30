@@ -1,31 +1,30 @@
-# Prompt Manager - Regression Tracking
-# This file tracks all regressions (unintentional loss of functionality) in the project
-# Each entry documents the symptom, cause, commits involved, and whether AI was involved
+# Regression Tracking Log
+# 
+# This file tracks all regressions (unintentional loss of functionality) 
+# discovered in the Prompt Manager project.
+#
+# Format:
+# - date: YYYY-MM-DD
+#   symptom: "Brief description of the problem"
+#   cause: "Root cause analysis"
+#   broken_feature: "feature/branch that introduced the issue" 
+#   break_commit: "commit hash that broke it"
+#   fix_commit: "commit hash that fixed it"
+#   ai_involved: true/false
+#   pattern: ["tag1", "tag2", "tag3"]
+#   severity: "critical"|"major"|"minor"
+#   impact: "Description of impact"
+#   detection_method: "How was this discovered"
 
 regressions:
   - date: 2025-05-30
-    symptom: "All unit tests failing with 'ModuleNotFoundError: No module named src'"
-    cause: "Taskfile.yml test:py:unit task missing PYTHONPATH=. while test:py:cov has it"
-    broken_feature: "unit test execution"
-    break_commit: "e2226e9a"
-    fix_commit: "472490b"
+    symptom: "30 unit tests failing including server configuration tests with AttributeError on string object"
+    cause: "Multiple test issues: incorrect mock usage, server running during tests, missing fixtures, and API connectivity problems"
+    broken_feature: "test-suite-comprehensive"
+    break_commit: "unknown"
+    fix_commit: "pending"
     ai_involved: true
-    pattern: ["missing-pythonpath", "test-configuration", "taskfile-inconsistency"]
+    pattern: ["test-failure", "mock-configuration", "server-dependencies", "test-isolation"]
     severity: "critical"
-    impact: "Prevents all unit tests from running, blocking development workflow"
-    detection_method: "manual test execution"
-    notes: "Inconsistency in Taskfile.yml where test:py:cov correctly sets PYTHONPATH=. but test:py:unit doesn't. Fixed by adding PYTHONPATH=. to all test tasks."
-
-issues:
-  - date: 2025-05-30
-    symptom: "Copy functionality tests failing with 'connect ECONNREFUSED 127.0.0.1:8095'"
-    cause: "Integration tests misplaced in tests/unit/ directory, require running server"
-    broken_feature: "test categorization"
-    break_commit: "unknown"  # These may have been incorrectly categorized from the start
-    fix_commit: null
-    ai_involved: true
-    pattern: ["test-categorization", "integration-tests-as-unit-tests", "server-dependency"]
-    severity: "medium"
-    impact: "Tests fail when run in unit test context, but are actually integration tests"
-    detection_method: "test execution after PYTHONPATH fix"
-    notes: "Tests in tests/unit/test_copy_functionality_js.py use Playwright and require server on port 8095. Should be moved to tests/integration/ or tests/e2e/."
+    impact: "Cannot verify code quality, regression protection disabled"
+    detection_method: "Manual test execution via `make test`"

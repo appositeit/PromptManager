@@ -1,0 +1,4 @@
+[tool.mypy]
+mypy_path = "src"
+# disallow_untyped_defs = true
+# exclude = ['src/archive/'] 

@@ -1,0 +1,30 @@
+[Unit]
+Description=Prompt Manager - AI Prompt Management System
+Documentation=https://github.com/apposite/prompt_manager
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=jem
+Group=jem
+WorkingDirectory=/mnt/data/jem/development/prompt_manager
+ExecStart=/mnt/data/jem/development/prompt_manager/bin/start_prompt_manager.sh -p 8095
+ExecStop=/mnt/data/jem/development/prompt_manager/bin/stop_prompt_manager.sh
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ReadWritePaths=/mnt/data/jem/development/prompt_manager
+
+# Process settings
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

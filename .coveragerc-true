@@ -1,0 +1,35 @@
+# Coverage configuration for true coverage measurement
+# This config optimizes for measuring actual code execution during integration tests
+
+[run]
+source = src
+omit = 
+    src/__main__.py
+    src/server.py
+    src/api/fragments_router_redirect.py
+    src/api/mcp_router.py
+    src/api/session_*.py
+    */tests/*
+    */test_*
+    */__pycache__/*
+    */.*
+
+[report]
+# Files to include in coverage report
+include = src/*
+
+# Show missing line numbers
+show_missing = True
+
+# Fail if coverage is below this percentage (disabled for now)
+# fail_under = 80
+
+# Skip covered files in report
+skip_covered = False
+
+# Skip empty files
+skip_empty = True
+
+[html]
+directory = cov_html_true
+title = True Coverage Report (Unit + Integration)

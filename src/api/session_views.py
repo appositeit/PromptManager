@@ -256,6 +256,13 @@ async def list_sessions():
     return get_all_sessions()
 
 
+@router.get("/sessions/active", response_model=List[Dict])
+async def get_active_sessions():
+    """Get active sessions."""
+    sessions = get_all_sessions()
+    return [s for s in sessions if s.get("status") in ["initialized", "running"]]
+
+
 @router.post("/sessions", response_model=Dict)
 async def create_new_session(config: SessionConfig):
     """Create a new session."""
@@ -331,10 +338,3 @@ async def create_worker_message(session_id: str, worker_id: int, message_request
 async def get_worker(session_id: str, worker_id: int):
     """Get worker data."""
     return get_worker_data(session_id, worker_id)
-
-
-@router.get("/sessions/active", response_model=List[Dict])
-async def get_active_sessions():
-    """Get active sessions."""
-    sessions = get_all_sessions()
-    return [s for s in sessions if s.get("status") in ["initialized", "running"]]

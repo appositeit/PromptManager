@@ -1,0 +1,41 @@
+name: prompt_manager
+purpose_tags: []
+description: ''
+status: experimental
+languages:
+- javascript
+- python
+- c++
+primary_language: javascript
+framework: []
+requires_python: null
+github_repos: []
+related_projects: []
+external_services: []
+maintainers: []
+last_updated: '2025-05-24'
+development_status: prototype
+test_coverage: null
+deployment_type: null
+hosting_requirements: []
+environment_variables: []
+documentation_url: null
+api_docs: null
+example_usage: null
+complexity_score: null
+maintenance_status: active
+known_limitations: []
+git_info:
+  source: git
+  first_commit: 1747973299
+  last_commit: 1747973299
+  recent_commits:
+  - e8159e4 Update README with enhanced workflow and keyboard shortcut details
+  - 9aa180e Add well-documented example systemd service file for Prompt Manager deployment
+  - 0ee2df7 Update .gitignore for full project coverage, add Apache 2.0 LICENSE, NOTICE,
+    and update README for GitHub release
+  - '039d794 fix: restore RoleMCPConfig model and import to resolve server startup
+    and test issues'
+  - c84d5b7 Implement prompt rename functionality
+  current_branch: main
+analysis_complete: true

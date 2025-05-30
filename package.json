@@ -1,19 +1,17 @@
 {
-  "name": "prompt_manager",
+  "name": "prompt-manager-test",
   "version": "1.0.0",
-  "description": "A standalone system for managing AI prompts with composable elements.",
-  "main": "index.js",
-  "directories": {
-    "doc": "doc",
-    "test": "tests"
-  },
+  "type": "module",
+  "description": "Test for Prompt Manager MCP Server",
+  "main": "test-prompt-manager.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test-prompt-manager.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.8.0"
+  },
   "devDependencies": {
-    "jscpd": "^4.0.5"
+    "@playwright/test": "^1.52.0",
+    "eslint": "^9.27.0"
   }
 }

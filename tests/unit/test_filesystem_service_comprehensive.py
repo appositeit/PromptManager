@@ -193,18 +193,30 @@ class TestFilesystemServicePathCompletion:
     def test_get_path_completions_empty_path(self):
         """Test path completion with empty path"""
         with patch('os.getcwd', return_value=self.test_dir):
-            # Mock current directory to test directory
-            service = FilesystemService(allowed_base_paths=[self.test_dir])
-            result = service.get_path_completions("")
-            
-            # Should list contents of current directory
-            expected_suggestions = ["desktop/", "development/", "documents/", "downloads/"]
-            assert sorted(result.suggestions) == expected_suggestions
+            with patch('os.listdir', return_value=["desktop", "development", "documents", "downloads"]):
+                with patch('os.path.isdir', return_value=True):
+                    # Mock current directory to test directory
+                    service = FilesystemService(allowed_base_paths=[self.test_dir])
+                    result = service.get_path_completions("")
+                    
+                    # Should list contents of current directory
+                    expected_suggestions = ["desktop/", "development/", "documents/", "downloads/"]
+                    assert sorted(result.suggestions) == expected_suggestions
     
     def test_get_path_completions_with_tilde(self):
         """Test path completion with tilde expansion"""
-        # Mock expanduser to return our test directory
-        with patch('os.path.expanduser', return_value=self.test_dir):
+        # Mock expanduser to return our test directory for both initialization and method calls
+        with patch('os.path.expanduser') as mock_expanduser:
+            # Configure the mock to return appropriate values
+            def side_effect(path):
+                if path == "~":
+                    return self.test_dir
+                elif path.startswith("~/"):
+                    return path.replace("~", self.test_dir, 1)
+                return path
+            
+            mock_expanduser.side_effect = side_effect
+            
             service = FilesystemService(allowed_base_paths=[self.test_dir])
             result = service.get_path_completions("~/d")
             
@@ -326,18 +338,20 @@ class TestFilesystemServiceEdgeCases:
         """Test path completion falls back to first allowed base path"""
         allowed_path = tempfile.mkdtemp()
         try:
-            service = FilesystemService(allowed_base_paths=[allowed_path])
-            
-            # Create some test directories
+            # Create some test directories in the allowed path
             os.makedirs(os.path.join(allowed_path, "testdir"), exist_ok=True)
             
-            with patch.object(service, '_is_path_allowed', side_effect=[False, True]):
-                with patch('os.listdir', return_value=["testdir"]):
-                    with patch('os.path.isdir', return_value=True):
-                        result = service.get_path_completions("relative")
-                        
-                        # Should use the allowed base path as fallback
-                        assert "testdir/" in result.suggestions
+            service = FilesystemService(allowed_base_paths=[allowed_path])
+            
+            # Test the case where user provides an empty string and current dir is not allowed
+            # This should fall back to the first allowed base path
+            with patch('os.getcwd', return_value="/some/disallowed/path"):
+                result = service.get_path_completions("")
+                
+                # Should use the allowed base path as fallback and complete to testdir/
+                # Since there's only one match, it should complete the path and clear suggestions
+                assert result.completed_path.endswith("testdir/")
+                assert result.is_directory is True
         finally:
             shutil.rmtree(allowed_path, ignore_errors=True)
 
