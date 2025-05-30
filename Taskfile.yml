@@ -137,7 +137,7 @@ tasks:
             *) VENV_DIR="venv" ;;
         esac
         echo "Running Python unit tests..."
-        "$VENV_DIR/bin/pytest" tests/unit/
+        PYTHONPATH=. "$VENV_DIR/bin/pytest" tests/unit/
     sources:
       - "src/**/*.py"
       - "tests/unit/**/*.py"
@@ -154,7 +154,7 @@ tasks:
             *) VENV_DIR="venv" ;;
         esac
         echo "Running Python API/integration tests..."
-        "$VENV_DIR/bin/pytest" tests/integration/
+        PYTHONPATH=. "$VENV_DIR/bin/pytest" tests/integration/
     sources:
       - "src/**/*.py"
       - "tests/integration/**/*.py"
@@ -171,7 +171,7 @@ tasks:
             *) VENV_DIR="venv" ;;
         esac
         echo "Running route regression tests..."
-        "$VENV_DIR/bin/pytest" tests/integration/test_api_routes.py tests/integration/test_route_discovery.py -v
+        PYTHONPATH=. "$VENV_DIR/bin/pytest" tests/integration/test_api_routes.py tests/integration/test_route_discovery.py -v
     sources:
       - "src/api/**/*.py"
       - "src/server.py"
@@ -190,7 +190,7 @@ tasks:
             *) VENV_DIR="venv" ;;
         esac
         echo "Running workflow end-to-end tests..."
-        "$VENV_DIR/bin/pytest" tests/integration/test_workflow_e2e.py -v
+        PYTHONPATH=. "$VENV_DIR/bin/pytest" tests/integration/test_workflow_e2e.py -v
     sources:
       - "src/**/*.py"
       - "tests/integration/test_workflow_e2e.py"
@@ -247,7 +247,7 @@ tasks:
             *) VENV_DIR="venv" ;;
         esac
         echo "Running table sorting unit tests..."
-        "$VENV_DIR/bin/pytest" tests/unit/test_table_sorting_logic.py -v
+        PYTHONPATH=. "$VENV_DIR/bin/pytest" tests/unit/test_table_sorting_logic.py -v
     sources:
       - "tests/unit/test_table_sorting_logic.py"
       - "src/templates/manage_prompts.html"
@@ -265,7 +265,7 @@ tasks:
         esac
         echo "Running table sorting E2E tests..."
         echo "NOTE: Make sure the server is running on localhost:8095 before running this test"
-        "$VENV_DIR/bin/pytest" tests/e2e/test_table_sorting.py -v
+        PYTHONPATH=. "$VENV_DIR/bin/pytest" tests/e2e/test_table_sorting.py -v
     sources:
       - "tests/e2e/test_table_sorting.py"
       - "src/templates/manage_prompts.html"

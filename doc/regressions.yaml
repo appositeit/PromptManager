@@ -1,0 +1,17 @@
+# Prompt Manager - Regression Tracking
+# This file tracks all regressions (unintentional loss of functionality) in the project
+# Each entry documents the symptom, cause, commits involved, and whether AI was involved
+
+regressions:
+  - date: 2025-05-30
+    symptom: "All unit tests failing with 'ModuleNotFoundError: No module named src'"
+    cause: "Taskfile.yml test:py:unit task missing PYTHONPATH=. while test:py:cov has it"
+    broken_feature: "unit test execution"
+    break_commit: "e2226e9a"
+    fix_commit: null  # To be filled when fixed
+    ai_involved: true
+    pattern: ["missing-pythonpath", "test-configuration", "taskfile-inconsistency"]
+    severity: "critical"
+    impact: "Prevents all unit tests from running, blocking development workflow"
+    detection_method: "manual test execution"
+    notes: "Inconsistency in Taskfile.yml where test:py:cov correctly sets PYTHONPATH=. but test:py:unit doesn't"
