@@ -158,17 +158,22 @@ class TestPromptServiceComposites(unittest.TestCase):
         # Note: The exact count might vary depending on the test environment and what prompts are loaded
         self.assertGreaterEqual(len(composite_prompts), 5)  # At minimum, all templates and the nested fragment
         
-        # Check that specific prompts are in the results
+        # Check that specific prompts are in the results using full-path IDs
         prompt_ids = [p.id for p in composite_prompts]
-        self.assertIn("fragments/nested_fragment", prompt_ids)
-        self.assertIn("templates/template1", prompt_ids)
-        self.assertIn("templates/template2", prompt_ids)
-        self.assertIn("templates/complex_template", prompt_ids)
+        nested_fragment_id = os.path.join(self.prompt_dirs[0], "nested_fragment")
+        template1_id = os.path.join(self.prompt_dirs[1], "template1")
+        template2_id = os.path.join(self.prompt_dirs[1], "template2")
+        complex_template_id = os.path.join(self.prompt_dirs[1], "complex_template")
+        
+        self.assertIn(nested_fragment_id, prompt_ids)
+        self.assertIn(template1_id, prompt_ids)
+        self.assertIn(template2_id, prompt_ids)
+        self.assertIn(complex_template_id, prompt_ids)
         
         # Test filtering by directory
         fragments_dir_composites = self.prompt_service.get_composite_prompts(self.prompt_dirs[0])
         self.assertGreaterEqual(len(fragments_dir_composites), 1)  # At least the nested fragment
-        self.assertTrue(any(p.id == "fragments/nested_fragment" for p in fragments_dir_composites))
+        self.assertTrue(any(p.id == nested_fragment_id for p in fragments_dir_composites))
         
         templates_dir_composites = self.prompt_service.get_composite_prompts(self.prompt_dirs[1])
         # Should have at least the 5 templates we created, but might have more
@@ -285,11 +290,17 @@ class TestPromptServiceComposites(unittest.TestCase):
         including_fragment1 = self.prompt_service.find_prompts_by_inclusion("fragment1")
         ids_including_fragment1 = {p.id for p in including_fragment1}
         
-        self.assertIn("fragments/nested_fragment", ids_including_fragment1)
-        self.assertIn("templates/template1", ids_including_fragment1)
-        self.assertIn("templates/template2", ids_including_fragment1)
-        self.assertIn("templates/complex_template", ids_including_fragment1) # complex_template -> nested_fragment -> fragment1
-                                                                             # So, complex_template should also be listed.
+        # With the new full-path ID system, check for the full paths
+        nested_fragment_id = os.path.join(self.prompt_dirs[0], "nested_fragment")
+        template1_id = os.path.join(self.prompt_dirs[1], "template1")
+        template2_id = os.path.join(self.prompt_dirs[1], "template2")
+        complex_template_id = os.path.join(self.prompt_dirs[1], "complex_template")
+        
+        self.assertIn(nested_fragment_id, ids_including_fragment1)
+        self.assertIn(template1_id, ids_including_fragment1)
+        self.assertIn(template2_id, ids_including_fragment1)
+        self.assertIn(complex_template_id, ids_including_fragment1) # complex_template -> nested_fragment -> fragment1
+                                                                   # So, complex_template should also be listed.
 
     def test_reload_with_changed_content(self):
         """Test that reloading a prompt correctly updates its composite status and content."""

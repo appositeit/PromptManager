@@ -41,14 +41,23 @@ class TestAPIRouterUnits:
     @pytest.mark.asyncio
     async def test_get_all_prompts_success(self, mock_prompt_service, sample_prompt):
         """Test successful retrieval of all prompts."""
-        # Setup
-        mock_prompt_service.prompts = {"test/sample_prompt": sample_prompt}
+        # Setup - mock the get_all_prompts method to return prompt data
+        mock_prompt_data = {
+            "id": "test/sample_prompt",
+            "name": "sample_prompt",
+            "content": "Test content",
+            "description": "Test description",
+            "tags": ["test", "sample"],
+            "directory": "/tmp/test"
+        }
+        mock_prompt_service.get_all_prompts.return_value = [mock_prompt_data]
         
         with patch('src.api.router.get_directory_name', return_value="Test Directory"):
             # Execute
             result = await get_all_prompts(mock_prompt_service)
             
             # Verify
+            mock_prompt_service.get_all_prompts.assert_called_once_with(include_content=True, include_display_names=True)
             assert len(result) == 1
             assert result[0]["id"] == "test/sample_prompt"
             assert result[0]["name"] == "sample_prompt"
@@ -59,13 +68,14 @@ class TestAPIRouterUnits:
     @pytest.mark.asyncio
     async def test_get_all_prompts_empty(self, mock_prompt_service):
         """Test retrieval when no prompts exist."""
-        # Setup
-        mock_prompt_service.prompts = {}
+        # Setup - mock the get_all_prompts method to return empty list
+        mock_prompt_service.get_all_prompts.return_value = []
         
         # Execute
         result = await get_all_prompts(mock_prompt_service)
         
         # Verify
+        mock_prompt_service.get_all_prompts.assert_called_once_with(include_content=True, include_display_names=True)
         assert result == []
 
     @pytest.mark.asyncio
