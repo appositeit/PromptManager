@@ -77,8 +77,8 @@ class DefaultPromptsCreate(BaseModel):
 
 # Model for prompt expansion request
 class PromptExpandRequest(BaseModel):
-    prompt_id: str
-    directory: Optional[str] = None # To disambiguate if prompts have same simple ID in different dirs
+    prompt_id: str  # Can be full path ID or display name
+    directory: Optional[str] = None # To disambiguate if prompts have same display name in different dirs
 
 # Model for prompt expansion response
 class PromptExpandResponse(BaseModel):
@@ -121,28 +121,17 @@ def get_directory_name(directory_path: str) -> str:
 
 @router.get("/all", response_model=List[Dict])
 async def get_all_prompts(prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """Get all prompts (metadata only)."""
-    prompts = list(prompt_service.prompts.values())
-    result = []
+    """Get all prompts with smart display names."""
+    # Use the service method that includes display name calculation
+    prompts = prompt_service.get_all_prompts(include_content=True, include_display_names=True)
     
-    for prompt in prompts:
-        prompt_dict = {
-            "id": prompt.id,
-            "name": getattr(prompt, 'name', prompt.id),
-            "description": prompt.description,
-            "tags": prompt.tags,
-            "directory": prompt.directory,
-            "directory_name": get_directory_name(prompt.directory),
-            "unique_id": prompt.unique_id,
-            "content": prompt.content,
-            "updated_at": prompt.updated_at.isoformat() if getattr(prompt, 'updated_at', None) else None,
-            "created_at": prompt.created_at.isoformat() if getattr(prompt, 'created_at', None) else None,
-        }
-        result.append(prompt_dict)
+    # Add directory name for each prompt
+    for prompt_dict in prompts:
+        prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"])
     
-    logger.info(f"Returning {len(result)} prompts (metadata only)") # Updated log message
+    logger.info(f"Returning {len(prompts)} prompts with display names")
     
-    return result
+    return prompts
 
 @router.get("/search_suggestions", response_model=List[Dict])
 async def get_prompt_suggestions(
@@ -370,7 +359,7 @@ async def rename_prompt_endpoint(
 
     # Generate the new ID from directory and new name
     from src.models.unified_prompt import Prompt
-    new_id = Prompt.generate_id(old_prompt_obj.directory, rename_data.new_name)
+    new_id = Prompt.generate_id_from_directory_and_name(old_prompt_obj.directory, rename_data.new_name)
     
     # Check if a prompt with the new ID already exists
     if new_id != old_prompt_obj.id:  # Only check if the ID would actually change
@@ -443,7 +432,7 @@ async def create_new_prompt(
     
     # Generate the full ID from directory and name
     from src.models.unified_prompt import Prompt
-    prompt_id = Prompt.generate_id(prompt_data.directory, prompt_data.name)
+    prompt_id = Prompt.generate_id_from_directory_and_name(prompt_data.directory, prompt_data.name)
     
     # Check if the prompt with this ID already exists
     if prompt_service.get_prompt(prompt_id):
@@ -556,9 +545,9 @@ async def delete_existing_prompt(prompt_id: str, prompt_service: PromptServiceCl
 @router.get("/{prompt_id:path}", response_model=Dict)
 async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
     """
-    Get a specific prompt by ID.
+    Get a specific prompt by ID (full path) or display name.
     
-    If multiple prompts have the same ID, you can specify a directory to disambiguate.
+    If multiple prompts have the same display name, you can specify a directory to disambiguate.
     """
     prompt = prompt_service.get_prompt(prompt_id, directory)
     
@@ -571,6 +560,10 @@ async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None, prom
         raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
     
     prompt_dict = prompt.model_dump() # Raw prompt data
+
+    # Calculate and add display name
+    prompt_service.calculate_and_cache_display_names()
+    prompt_dict["display_name"] = prompt.display_name
 
     # Prepare directory_info structure
     dir_config = get_directory_by_path(prompt.directory) # This is from src.services.prompt_dirs
