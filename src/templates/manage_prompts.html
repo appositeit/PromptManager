@@ -199,7 +199,12 @@
                     <div class="mb-3">
                         <label for="promptIdPreview" class="form-label">Generated ID</label>
                         <input type="text" class="form-control" id="promptIdPreview" readonly>
-                        <div class="form-text">Unique identifier (generated from directory + name)</div>
+                        <div class="form-text">Full path unique identifier</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptDisplayNamePreview" class="form-label">Display Name Preview</label>
+                        <input type="text" class="form-control" id="promptDisplayNamePreview" readonly>
+                        <div class="form-text">How this prompt will appear in lists (calculated after creation)</div>
                     </div>
                     <div class="mb-3">
                         <label for="promptDescription" class="form-label">Description</label>
@@ -862,13 +867,24 @@ Remember that you're part of a team - your specialized work contributes to solvi
             const directory = promptDirectorySelect.value;
             
             if (name && directory) {
-                // Extract directory name from path (last component)
+                // Show the full path ID
+                const fullPathId = `${directory}/${name}`;
+                promptIdPreview.value = fullPathId;
+                
+                // For display name preview, show a simple approximation
+                // (The actual display name will be calculated by the server based on all prompts)
                 const dirPath = directory.split('/');
                 const dirName = dirPath[dirPath.length - 1] || 'root';
-                const previewId = `${dirName}/${name}`;
-                promptIdPreview.value = previewId;
+                const displayNamePreview = document.getElementById('promptDisplayNamePreview');
+                if (displayNamePreview) {
+                    displayNamePreview.value = `${dirName}:${name} (approximate)`;
+                }
             } else {
                 promptIdPreview.value = '';
+                const displayNamePreview = document.getElementById('promptDisplayNamePreview');
+                if (displayNamePreview) {
+                    displayNamePreview.value = '';
+                }
             }
         }
         
@@ -1332,8 +1348,10 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 filteredPrompts = filteredPrompts.filter(prompt => 
                     prompt.id.toLowerCase().includes(searchLower) ||
                     (prompt.name && prompt.name.toLowerCase().includes(searchLower)) ||
+                    (prompt.display_name && prompt.display_name.toLowerCase().includes(searchLower)) ||
                     (prompt.description && prompt.description.toLowerCase().includes(searchLower)) ||
-                    (prompt.directory && prompt.directory.toLowerCase().includes(searchLower))
+                    (prompt.directory && prompt.directory.toLowerCase().includes(searchLower)) ||
+                    (prompt.directory_name && prompt.directory_name.toLowerCase().includes(searchLower))
                 );
             }
             
@@ -1366,13 +1384,13 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 // Get the values to compare based on the sort column
                 switch (currentSort.column) {
                     case 'directory':
-                        aValue = a.directory || '';
-                        bValue = b.directory || '';
+                        aValue = a.directory_name || a.directory || '';
+                        bValue = b.directory_name || b.directory || '';
                         break;
                     case 'id':
-                        // Sort by name if available, fallback to ID
-                        aValue = a.name || a.id;
-                        bValue = b.name || b.id;
+                        // Sort by display name if available, fallback to name, then ID
+                        aValue = a.display_name || a.name || a.id;
+                        bValue = b.display_name || b.name || b.id;
                         break;
                     case 'description':
                         aValue = a.description || '';
@@ -1427,19 +1445,19 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 row.dataset.promptId = prompt.unique_id; // Add dataset for unique_id
                 row.classList.add('prompt-row');         // Add class for easy selection
                 
-                // Directory cell
+                // Directory cell - use directory_name for better UX
                 const dirCell = document.createElement('td');
-                dirCell.textContent = prompt.directory || '';
-                dirCell.title = prompt.directory || '';
+                dirCell.textContent = prompt.directory_name || prompt.directory || '';
+                dirCell.title = prompt.directory || ''; // Full path in tooltip
                 
-                // Name cell (was ID cell)
+                // Name cell - use display name for better UX
                 const nameCell = document.createElement('td');
                 const nameLink = document.createElement('a');
-                // Use the ID for the URL but show the name
+                // Use the ID for the URL but show the display name
                 nameLink.href = `/prompts/${encodeURIComponent(prompt.id)}`;
-                nameLink.textContent = prompt.name || prompt.id; // Show name if available, fallback to ID
+                nameLink.textContent = prompt.display_name || prompt.name || prompt.id; // Show display name if available
                 // Add a title showing the full ID for clarity
-                nameLink.title = `${prompt.name || prompt.id} (ID: ${prompt.id})`;
+                nameLink.title = `${prompt.display_name || prompt.name || prompt.id} (Full ID: ${prompt.id})`;
                 nameCell.appendChild(nameLink);
                 
                 // Description cell
@@ -1486,9 +1504,9 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 // Use the full ID for deletion
                 const deleteId = prompt.id;
                 deleteBtn.dataset.promptId = deleteId;
-                deleteBtn.dataset.promptName = prompt.name || prompt.id; // For display purposes
+                deleteBtn.dataset.promptName = prompt.display_name || prompt.name || prompt.id; // For display purposes
                 deleteBtn.addEventListener('click', function() {
-                    showDeleteConfirmation(deleteId, prompt.name || prompt.id);
+                    showDeleteConfirmation(deleteId, prompt.display_name || prompt.name || prompt.id);
                 });
                 
                 actionsCell.appendChild(editBtn);

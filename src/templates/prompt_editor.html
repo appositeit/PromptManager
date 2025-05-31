@@ -777,8 +777,10 @@ function example() {
             lastUpdatedSpan.textContent = currentPromptData.last_updated ? dayjs(currentPromptData.last_updated).fromNow() : '-';
         }
         if (promptDirectorySpan && currentPromptData.directory_info) {
-            // Always display the full path for the directory
-            promptDirectorySpan.textContent = currentPromptData.directory_info.path || '-';
+            // Use directory_name for better UX, but show full path in title
+            const directoryName = currentPromptData.directory_name || currentPromptData.directory_info.name || currentPromptData.directory_info.path || '-';
+            promptDirectorySpan.textContent = directoryName;
+            promptDirectorySpan.title = currentPromptData.directory_info.path || directoryName; // Full path in tooltip
         }
     }
 
@@ -1198,7 +1200,7 @@ function example() {
         }
     }
 
-    // Define our custom hint function
+    // Define our custom hint function with display name support
     window.promptHint = function(cm, options) {
         return new Promise(function(accept) {
             const cursor = cm.getCursor();
@@ -1240,13 +1242,24 @@ function example() {
                 .then(res => res.json())
                 .then(function(data) {
                     if (data && data.length > 0) {
-                        // Sort the suggestions alphabetically
-                        const sortedData = [...data].sort((a, b) => a.id.localeCompare(b.id));
+                        // Sort the suggestions by display name for better UX
+                        const sortedData = [...data].sort((a, b) => {
+                            const displayA = a.display_name || a.id;
+                            const displayB = b.display_name || b.id;
+                            return displayA.localeCompare(displayB);
+                        });
                         
                         const hints = sortedData.map(item => {
+                            const displayName = item.display_name || item.id;
+                            const fullId = item.id;
+                            
                             return {
-                                text: item.id + ']]', // Text to insert
-                                displayText: item.id // Text to display in the hint list
+                                text: fullId + ']]', // Insert the full ID
+                                displayText: displayName !== fullId ? `${displayName} (${fullId})` : displayName, // Show display name with ID if different
+                                hint: function(cm, data, completion) {
+                                    // Custom completion handler - insert the full ID
+                                    cm.replaceRange(completion.text, data.from, data.to, "complete");
+                                }
                             };
                         });
                         
