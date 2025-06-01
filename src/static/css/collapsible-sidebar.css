@@ -35,13 +35,15 @@
     padding: 0.25rem;
     flex-grow: 1;
     min-height: 200px; /* Minimum height */
+    max-height: 300px; /* Add explicit max-height to trigger scrollbar */
 }
 
 /* When Directory Prompts is at bottom and expandable */
 @media (min-width: 768px) {
     .directory-prompts-card .directory-prompts-list {
-        max-height: none; /* Remove max-height restriction */
+        max-height: calc(100vh - 600px); /* Calculate based on viewport minus estimated other content */
         height: 100%; /* Fill available space */
+        min-height: 250px; /* Ensure minimum usable height */
     }
 }
 
