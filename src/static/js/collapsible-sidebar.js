@@ -278,11 +278,14 @@ class CollapsibleSidebar {
         item.dataset.promptName = prompt.display_name || prompt.id;
 
         const displayName = prompt.display_name || prompt.id;
-        const showId = displayName !== prompt.id;
+        
+        // Extract just the filename part (after the last slash) for cleaner display
+        const fileName = prompt.id.split('/').pop();
+        const showFileName = displayName !== fileName && fileName !== prompt.id;
 
         item.innerHTML = `
             <span class="directory-prompt-name" title="${prompt.id}">${displayName}</span>
-            ${showId ? `<span class="directory-prompt-id">${prompt.id}</span>` : ''}
+            ${showFileName ? `<span class="directory-prompt-id">${fileName}</span>` : ''}
         `;
 
         // Add click handler for navigation
