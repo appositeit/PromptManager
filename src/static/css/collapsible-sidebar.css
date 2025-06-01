@@ -31,9 +31,18 @@
 
 /* Directory prompts specific styling */
 .directory-prompts-list {
-    max-height: 200px;
     overflow-y: auto;
     padding: 0.25rem;
+    flex-grow: 1;
+    min-height: 200px; /* Minimum height */
+}
+
+/* When Directory Prompts is at bottom and expandable */
+@media (min-width: 768px) {
+    .directory-prompts-card .directory-prompts-list {
+        max-height: none; /* Remove max-height restriction */
+        height: 100%; /* Fill available space */
+    }
 }
 
 .directory-prompt-item {

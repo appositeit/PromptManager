@@ -17,8 +17,8 @@
     <a href="/manage/prompts" class="btn btn-outline-secondary" id="back-btn" title="Back to Prompt List (Alt+B)">
         <i class="bi bi-arrow-left"></i> Back to List
     </a>
-    <button class="btn btn-primary" id="new-prompt-btn" title="Create a new prompt (Alt+N)" data-bs-toggle="modal" data-bs-target="#newPromptModal">
-        <i class="bi bi-plus-circle-fill"></i> New Prompt
+    <button class="btn btn-outline-primary" id="new-prompt-btn" title="Create a new prompt (Alt+N)" data-bs-toggle="modal" data-bs-target="#newPromptModal">
+        <i class="bi bi-plus-circle"></i> New Prompt
     </button>
 </div>
 <div class="btn-group">
@@ -181,26 +181,6 @@
                 </div>
             </div>
             
-            <!-- Directory Prompts card -->
-            <div class="card mb-3 sidebar-card" data-card-id="directoryPrompts">
-                <div class="card-header collapsible-header" tabindex="0" role="button" aria-expanded="true">
-                    <h5 class="card-title mb-0">Directory Prompts</h5>
-                    <i class="bi bi-chevron-down collapse-chevron"></i>
-                </div>
-                <div class="collapse show collapsible-content">
-                    <div class="card-body p-0">
-                        <div class="small text-muted p-2 border-bottom">
-                            Other prompts in this directory. Click to navigate, drag to insert.
-                        </div>
-                        <div id="directory-prompts-list" class="directory-prompts-list">
-                            <div class="text-center p-2">
-                                <div class="spinner-border spinner-border-sm"></div> Loading...
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
             <!-- Dependencies card -->
             <div class="card mb-3 sidebar-card" data-card-id="dependencies">
                 <div class="card-header collapsible-header" tabindex="0" role="button" aria-expanded="true">
@@ -266,6 +246,26 @@
                                     <small class="text-muted d-block mb-1">Include Prompts:</small>
                                     <code class="small">[[prompt_name]]</code>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Directory Prompts card - Last card with flex-grow to fill space -->
+            <div class="card sidebar-card directory-prompts-card" data-card-id="directoryPrompts">
+                <div class="card-header collapsible-header" tabindex="0" role="button" aria-expanded="true">
+                    <h5 class="card-title mb-0">Directory Prompts</h5>
+                    <i class="bi bi-chevron-down collapse-chevron"></i>
+                </div>
+                <div class="collapse show collapsible-content">
+                    <div class="card-body p-0 d-flex flex-column">
+                        <div class="small text-muted p-2 border-bottom">
+                            Other prompts in this directory. Click to navigate, drag to insert.
+                        </div>
+                        <div id="directory-prompts-list" class="directory-prompts-list flex-grow-1">
+                            <div class="text-center p-2">
+                                <div class="spinner-border spinner-border-sm"></div> Loading...
                             </div>
                         </div>
                     </div>
@@ -558,11 +558,33 @@ function example() {
         padding: 0.5rem 0.75rem;
     }
     
-    /* Smart sidebar: only show scrollbar when needed */
+    /* Smart sidebar: flexbox layout for proper sizing */
     @media (min-width: 768px) {
         .col-md-3 {
-            max-height: calc(100vh - 90px); /* Account for tighter navbar and reduced padding */
-            overflow-y: auto; /* Only show scrollbar when content overflows */
+            height: calc(100vh - 90px); /* Account for tighter navbar and reduced padding */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* Directory Prompts card fills remaining space */
+        .directory-prompts-card {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 300px; /* Minimum height */
+            margin-bottom: 0; /* Remove bottom margin since it's the last card */
+        }
+        
+        .directory-prompts-card .collapsible-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .directory-prompts-card .card-body {
+            flex-grow: 1;
+            min-height: 0; /* Important for flex child overflow */
         }
     }
     
