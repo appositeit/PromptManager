@@ -576,22 +576,17 @@ function example() {
             margin-bottom: 0; /* Remove bottom margin since it's the last card */
         }
         
-        .directory-prompts-card .collapsible-content {
+        .directory-prompts-card .collapsible-content.show {
             flex-grow: 1;
-            display: flex;
+            display: flex !important;
             flex-direction: column;
         }
         
         .directory-prompts-card .card-body {
             flex-grow: 1;
             min-height: 0; /* Important for flex child overflow */
-            overflow: hidden; /* Ensure overflow is handled by child elements */
-        }
-        
-        .directory-prompts-card .directory-prompts-list {
-            overflow-y: auto !important; /* Force scrollbar when needed */
-            max-height: calc(100vh - 650px) !important; /* Constrain height to force scrollbar */
-            min-height: 150px !important; /* Minimum usable height */
+            display: flex;
+            flex-direction: column;
         }
     }
     
