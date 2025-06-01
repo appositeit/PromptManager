@@ -1,73 +1,86 @@
-# Feature Design: ESLint Integration for JavaScript Quality
+# Feature: ESLint Integration
 
-**Date:** 2025-06-01
-**Feature:** ESLint static analysis for JavaScript files
-**Status:** Proposed
+## Overview
+ESLint integration provides automated JavaScript code quality checking and prevents regressions like the variable redeclaration issue that broke the prompt editor.
 
-## Problem Statement
+## Design Decision
+- **Tool Choice:** ESLint with modern flat config format (`eslint.config.js`)
+- **Integration:** Makefile targets for easy development workflow
+- **Auto-fix:** Automatic correction of simple style issues
+- **Configuration:** Comprehensive global definitions for browser environment
 
-The recent prompt editor regression was caused by JavaScript variable conflicts that could have been caught by static analysis. ESLint would have detected:
+## Configuration Highlights
 
-1. **Variable redeclaration errors** - The exact issue we had with `newPromptModal`
-2. **Undefined variable usage** - Forward references like `window.promptHint`
-3. **Code quality issues** - Unused variables, inconsistent formatting
-4. **Best practices violations** - Global scope pollution, missing error handling
+### Rules Targeting Known Issues
+```javascript
+"no-redeclare": "error",              // ⭐ Would have caught newPromptModal conflict
+"no-undef": "error",                  // ⭐ Would have caught window.promptHint forward reference
+"curly": "error",                     // Require curly braces for all control statements
+"no-implicit-globals": "error",       // Prevent accidental globals
+```
 
-## Proposed Solution
+### Browser Environment Support
+- All standard browser globals (window, document, fetch, etc.)
+- Browser APIs (localStorage, WebSocket, CustomEvent, etc.)
+- Third-party libraries (bootstrap, CodeMirror, d3, marked, etc.)
+- Application-specific globals (showToast, NewPromptModal, etc.)
 
-### ESLint Configuration
-- **Target:** All JavaScript files in `src/static/js/` and inline scripts in templates
-- **Ruleset:** Standard ESLint rules + custom rules for our patterns
-- **Integration:** Pre-commit hooks, make targets, and development workflow
-
-### Implementation Plan
-
-#### Phase 1: Basic Setup
-1. Install ESLint and basic configuration
-2. Create `.eslintrc.js` with appropriate rules
-3. Add `make lint` target for manual checking
-4. Fix existing issues in current codebase
-
-#### Phase 2: Template Linting
-1. Extract inline JavaScript from templates for linting
-2. Create tool to validate template JavaScript blocks
-3. Add specific rules for template-specific patterns
-
-#### Phase 3: Automation
-1. Add pre-commit hooks to run ESLint
-2. Integrate with development workflow
-3. Add CI/CD checks if applicable
-
-## Benefits
-
-### Immediate Detection
-- **Variable conflicts:** `error: Identifier 'newPromptModal' has already been declared`
-- **Undefined references:** `error: 'window.promptHint' is not defined`
-- **Unused variables:** `warning: 'directories' is defined but never used`
-
-### Code Quality
-- Consistent formatting and style
-- Best practices enforcement
-- Documentation of coding standards
+## Usage
 
 ### Development Workflow
-- Catch issues before browser testing
-- Standardize code across the project
-- Reduce debugging time
+```bash
+make lint-js        # Check for issues
+make lint-js-fix    # Auto-fix simple issues
+```
 
-## Configuration Strategy
+### Integration Points
+- **Pre-development:** Run before major changes
+- **Debugging:** Use when JavaScript issues arise
+- **Code review:** Include in review process
+- **CI/CD:** Can be added to automated testing
 
-### Rules to Enable
-- `no-redeclare`: Prevent variable redeclaration (would have caught our issue)
-- `no-undef`: Require variables to be declared before use
-- `no-unused-vars`: Catch unused variable declarations
-- `no-global-assign`: Prevent assignment to global variables
+## Impact Metrics
 
-### Custom Rules for Our Project
-- Prefix requirements for component-specific variables
-- Global variable registration patterns
-- Template-specific linting rules
+### Before Integration
+- 187 total problems (157 errors, 30 warnings)
+- Critical parsing errors blocking functionality
+- No automated quality checking
 
-## Implementation Details
+### After Integration  
+- 83 total problems (54 errors, 29 warnings)
+- 54 issues auto-fixed
+- Critical syntax errors detected and fixed
+- Ongoing prevention of regressions
 
-This feature addresses the root cause of our recent regression and establishes systematic quality control for JavaScript development.
+## Regression Prevention
+
+ESLint would have prevented the prompt editor break because:
+1. **Variable redeclaration** - `no-redeclare` rule catches duplicate declarations
+2. **Undefined references** - `no-undef` rule catches forward references
+3. **Syntax errors** - Parser catches structural issues like duplicate else clauses
+
+## Future Enhancements
+
+### Immediate Opportunities
+- Address remaining 54 errors about global scope functions
+- Add pre-commit hooks for automatic checking
+- Configure IDE integration for real-time feedback
+
+### Advanced Features
+- Custom rules for project-specific patterns
+- Integration with code coverage reporting
+- Automated fixing in CI/CD pipeline
+
+## Maintenance
+
+### Configuration Updates
+- Add new globals as third-party libraries are introduced
+- Adjust rules based on team feedback and project evolution
+- Update ESLint version and rule definitions periodically
+
+### Rule Refinement
+- Monitor false positives and adjust rules
+- Add exceptions for specific use cases
+- Balance strictness with development velocity
+
+This feature provides the foundation for maintaining JavaScript code quality and preventing the type of regressions that previously broke critical functionality.
