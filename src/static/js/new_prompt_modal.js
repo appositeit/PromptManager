@@ -246,30 +246,33 @@ class NewPromptModal {
 }
 
 // Global instance - will be initialized when needed
-let newPromptModal = null;
+window.newPromptModal = null;
 
 // Helper function to show new prompt modal
-function showNewPromptModal(context = 'manage_prompts', currentDirectory = null) {
-    if (!newPromptModal) {
-        newPromptModal = new NewPromptModal(context, currentDirectory);
+window.showNewPromptModal = function(context = 'manage_prompts', currentDirectory = null) {
+    if (!window.newPromptModal) {
+        window.newPromptModal = new NewPromptModal(context, currentDirectory);
     } else {
         // Update context and current directory if different
-        newPromptModal.context = context;
-        newPromptModal.currentDirectory = currentDirectory;
+        window.newPromptModal.context = context;
+        window.newPromptModal.currentDirectory = currentDirectory;
         
         // Update directory selection if needed
-        if (context === 'prompt_editor' && currentDirectory && newPromptModal.promptDirectorySelect) {
-            newPromptModal.promptDirectorySelect.value = currentDirectory;
-            newPromptModal.updateIdPreview();
+        if (context === 'prompt_editor' && currentDirectory && window.newPromptModal.promptDirectorySelect) {
+            window.newPromptModal.promptDirectorySelect.value = currentDirectory;
+            window.newPromptModal.updateIdPreview();
         }
     }
     
-    newPromptModal.show();
-}
+    window.newPromptModal.show();
+};
 
 // Helper function to populate directories
-function populateNewPromptDirectories(directories) {
-    if (newPromptModal) {
-        newPromptModal.populateDirectorySelect(directories);
+window.populateNewPromptDirectories = function(directories) {
+    if (window.newPromptModal) {
+        window.newPromptModal.populateDirectorySelect(directories);
     }
-}
+};
+
+// Make the class available globally
+window.NewPromptModal = NewPromptModal;

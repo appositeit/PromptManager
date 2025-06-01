@@ -2,12 +2,13 @@
  * Task management functionality for the Coordinator system
  */
 
-/**
- * Initialize task management functionality
- * @param {string} sessionId - The session ID
- * @returns {object} Task manager interface
- */
-function initTaskManager(sessionId) {
+window.TaskManager = (function() {
+    /**
+     * Initialize task management functionality
+     * @param {string} sessionId - The session ID
+     * @returns {object} Task manager interface
+     */
+    function initTaskManager(sessionId) {
     // UI Elements
     const taskCreateBtn = document.getElementById('create-task-btn');
     const taskListContainer = document.getElementById('tasks-container');
@@ -883,7 +884,7 @@ function initTaskManager(sessionId) {
         
         try {
             return dayjs(datetimeStr).format('MMM D, YYYY HH:mm:ss');
-        } catch (e) {
+        } catch (_e) {
             return datetimeStr;
         }
     }
@@ -969,7 +970,7 @@ function initTaskManager(sessionId) {
     if (typeof createSessionWebSocket === 'function') {
         const ws = createSessionWebSocket(sessionId);
         
-        ws.on('onTasks', function({ tasks: updatedTasks }) {
+        ws.on('onTasks', function({ tasks: _updatedTasks }) {
             // Refresh task list
             loadTasks();
         });
@@ -985,3 +986,12 @@ function initTaskManager(sessionId) {
         selectTask
     };
 }
+
+    // Public API
+    return {
+        initTaskManager
+    };
+})();
+
+// Expose function globally for backward compatibility
+window.initTaskManager = window.TaskManager.initTaskManager;

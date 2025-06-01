@@ -70,15 +70,22 @@ export default [
     },
     {
         // Specific rules for files that define globals
-        files: ["src/static/js/utils.js", "src/static/js/new_prompt_modal.js"],
+        files: ["src/static/js/utils.js", "src/static/js/new_prompt_modal.js", "src/static/js/components/toast-manager.js", "src/static/js/search-replace.js", "src/static/js/visualization/*.js", "src/static/js/websocket_client.js"],
         languageOptions: {
             globals: {
                 // Allow these files to define globals
                 showToast: "writable",
                 showNewPromptModal: "writable", 
                 NewPromptModal: "writable",
-                newPromptModal: "writable"  // Allow the global instance
+                newPromptModal: "writable",  // Allow the global instance
+                SearchReplace: "writable",
+                TaskGraphVisualizer: "writable",
+                TaskTimelineVisualizer: "writable",
+                VisualizationWebSocketClient: "writable"
             }
+        },
+        rules: {
+            "no-redeclare": "off"  // Allow redeclaration in files that define globals
         }
     }
 ];

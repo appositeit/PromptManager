@@ -5,12 +5,13 @@
  * viewing storage information, managing artifacts, and viewing logs.
  */
 
-/**
- * Initialize session storage management.
- * 
- * @param {string} sessionId - The session ID
- */
-function initSessionStorage(sessionId) {
+window.SessionStorage = (function() {
+    /**
+     * Initialize session storage management.
+     * 
+     * @param {string} sessionId - The session ID
+     */
+    function initSessionStorage(sessionId) {
     // Load storage info
     loadStorageInfo(sessionId);
     
@@ -34,12 +35,12 @@ function initSessionStorage(sessionId) {
     });
 }
 
-/**
- * Load storage information for a session.
- * 
- * @param {string} sessionId - The session ID
- */
-async function loadStorageInfo(sessionId) {
+    /**
+     * Load storage information for a session.
+     * 
+     * @param {string} sessionId - The session ID
+     */
+    async function loadStorageInfo(sessionId) {
     try {
         const token = localStorage.getItem('authToken');
         
@@ -85,13 +86,13 @@ async function loadStorageInfo(sessionId) {
     }
 }
 
-/**
- * Update the storage info UI.
- * 
- * @param {string} sessionId - The session ID
- * @param {Object} storageInfo - The storage info data
- */
-function updateStorageInfoUI(sessionId, storageInfo) {
+    /**
+     * Update the storage info UI.
+     * 
+     * @param {string} sessionId - The session ID
+     * @param {Object} storageInfo - The storage info data
+     */
+    function updateStorageInfoUI(sessionId, storageInfo) {
     const container = document.getElementById('storage-info-container');
     
     // Create storage info display
@@ -115,7 +116,7 @@ function updateStorageInfoUI(sessionId, storageInfo) {
     for (const [dirType, dirInfo] of Object.entries(storageInfo)) {
         if (dirType === 'config_settings') {continue;}
         
-        const exists = dirInfo.exists;
+        // const exists = dirInfo.exists; // Not currently used
         const path = dirInfo.path;
         const size = dirInfo.size_formatted || '0 B';
         const fileCount = dirInfo.file_count || 0;
@@ -215,12 +216,12 @@ function updateStorageInfoUI(sessionId, storageInfo) {
     });
 }
 
-/**
- * Load artifacts for a session.
- * 
- * @param {string} sessionId - The session ID
- */
-async function loadArtifacts(sessionId) {
+    /**
+     * Load artifacts for a session.
+     * 
+     * @param {string} sessionId - The session ID
+     */
+    async function loadArtifacts(sessionId) {
     try {
         const token = localStorage.getItem('authToken');
         
@@ -267,13 +268,13 @@ async function loadArtifacts(sessionId) {
     }
 }
 
-/**
- * Update the artifacts UI.
- * 
- * @param {string} sessionId - The session ID
- * @param {Array} artifacts - The artifacts data
- */
-function updateArtifactsUI(sessionId, artifacts) {
+    /**
+     * Update the artifacts UI.
+     * 
+     * @param {string} sessionId - The session ID
+     * @param {Array} artifacts - The artifacts data
+     */
+    function updateArtifactsUI(sessionId, artifacts) {
     const container = document.getElementById('storage-content-container');
     
     // Create artifacts display
@@ -410,13 +411,13 @@ function updateArtifactsUI(sessionId, artifacts) {
     });
 }
 
-/**
- * Load logs for a session.
- * 
- * @param {string} sessionId - The session ID
- * @param {string} logType - The type of log
- */
-async function loadLogs(sessionId, logType) {
+    /**
+     * Load logs for a session.
+     * 
+     * @param {string} sessionId - The session ID
+     * @param {string} logType - The type of log
+     */
+    async function loadLogs(sessionId, logType) {
     try {
         const token = localStorage.getItem('authToken');
         
@@ -463,13 +464,13 @@ async function loadLogs(sessionId, logType) {
     }
 }
 
-/**
- * Update the logs UI.
- * 
- * @param {string} sessionId - The session ID
- * @param {Object} logs - The logs data
- */
-function updateLogsUI(sessionId, logs) {
+    /**
+     * Update the logs UI.
+     * 
+     * @param {string} sessionId - The session ID
+     * @param {Object} logs - The logs data
+     */
+    function updateLogsUI(sessionId, logs) {
     const container = document.getElementById('storage-content-container');
     
     // Create logs display
@@ -478,13 +479,13 @@ function updateLogsUI(sessionId, logs) {
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Session Logs (${logs.log_type})</h5>
                 <div class="btn-group btn-group-sm" role="group">
-                    <button class="btn btn-outline-primary" onclick="loadLogs('${sessionId}', 'session')">
+                    <button class="btn btn-outline-primary log-type-btn" data-log-type="session">
                         Session
                     </button>
-                    <button class="btn btn-outline-primary" onclick="loadLogs('${sessionId}', 'messages')">
+                    <button class="btn btn-outline-primary log-type-btn" data-log-type="messages">
                         Messages
                     </button>
-                    <button class="btn btn-outline-primary" onclick="loadLogs('${sessionId}', 'artifacts')">
+                    <button class="btn btn-outline-primary log-type-btn" data-log-type="artifacts">
                         Artifacts
                     </button>
                 </div>
@@ -537,14 +538,22 @@ function updateLogsUI(sessionId, logs) {
     `;
     
     container.innerHTML = html;
+    
+    // Add event listeners for log type buttons
+    document.querySelectorAll('.log-type-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            const logType = button.getAttribute('data-log-type');
+            loadLogs(sessionId, logType);
+        });
+    });
 }
 
-/**
- * Show the upload artifact modal.
- * 
- * @param {string} sessionId - The session ID
- */
-function showUploadArtifactModal(sessionId) {
+    /**
+     * Show the upload artifact modal.
+     * 
+     * @param {string} sessionId - The session ID
+     */
+    function showUploadArtifactModal(_sessionId) {
     // Get the modal
     const modal = new bootstrap.Modal(document.getElementById('upload-artifact-modal'));
     
@@ -555,12 +564,12 @@ function showUploadArtifactModal(sessionId) {
     modal.show();
 }
 
-/**
- * Upload an artifact.
- * 
- * @param {string} sessionId - The session ID
- */
-async function uploadArtifact(sessionId) {
+    /**
+     * Upload an artifact.
+     * 
+     * @param {string} sessionId - The session ID
+     */
+    async function uploadArtifact(sessionId) {
     try {
         const token = localStorage.getItem('authToken');
         
@@ -604,7 +613,7 @@ async function uploadArtifact(sessionId) {
             throw new Error(`Failed to upload artifact: ${response.status} ${response.statusText}`);
         }
         
-        const result = await response.json();
+        // const result = await response.json(); // Response not currently used
         
         // Show success message
         showNotification('success', 'Artifact uploaded successfully');
@@ -626,13 +635,13 @@ async function uploadArtifact(sessionId) {
     }
 }
 
-/**
- * Delete an artifact.
- * 
- * @param {string} sessionId - The session ID
- * @param {string} artifactId - The artifact ID
- */
-async function deleteArtifact(sessionId, artifactId) {
+    /**
+     * Delete an artifact.
+     * 
+     * @param {string} sessionId - The session ID
+     * @param {string} artifactId - The artifact ID
+     */
+    async function deleteArtifact(sessionId, artifactId) {
     if (!confirm(`Are you sure you want to delete the artifact "${artifactId}"?`)) {
         return;
     }
@@ -668,3 +677,30 @@ async function deleteArtifact(sessionId, artifactId) {
         showNotification('error', `Error deleting artifact: ${error.message}`);
     }
 }
+    
+    // Public API
+    return {
+        initSessionStorage,
+        loadStorageInfo,
+        updateStorageInfoUI,
+        loadArtifacts,
+        updateArtifactsUI,
+        loadLogs,
+        updateLogsUI,
+        showUploadArtifactModal,
+        uploadArtifact,
+        deleteArtifact
+    };
+})();
+
+// Expose functions globally for backward compatibility
+window.initSessionStorage = window.SessionStorage.initSessionStorage;
+window.loadStorageInfo = window.SessionStorage.loadStorageInfo;
+window.updateStorageInfoUI = window.SessionStorage.updateStorageInfoUI;
+window.loadArtifacts = window.SessionStorage.loadArtifacts;
+window.updateArtifactsUI = window.SessionStorage.updateArtifactsUI;
+window.loadLogs = window.SessionStorage.loadLogs;
+window.updateLogsUI = window.SessionStorage.updateLogsUI;
+window.showUploadArtifactModal = window.SessionStorage.showUploadArtifactModal;
+window.uploadArtifact = window.SessionStorage.uploadArtifact;
+window.deleteArtifact = window.SessionStorage.deleteArtifact;

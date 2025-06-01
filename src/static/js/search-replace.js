@@ -610,9 +610,5 @@ class SearchReplace {
     }
 }
 
-// Export the SearchReplace class
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-    module.exports = SearchReplace;
-} else {
-    window.SearchReplace = SearchReplace;
-}
+// Make SearchReplace class available globally
+window.SearchReplace = SearchReplace;

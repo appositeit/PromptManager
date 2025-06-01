@@ -2,12 +2,13 @@
  * WebSocket functionality for real-time session updates
  */
 
-/**
- * Create a session WebSocket manager
- * @param {string} sessionId - The ID of the session
- * @returns {object} WebSocket manager for session
- */
-function createSessionWebSocket(sessionId) {
+window.SessionWebSocket = (function() {
+    /**
+     * Create a session WebSocket manager
+     * @param {string} sessionId - The ID of the session
+     * @returns {object} WebSocket manager for session
+     */
+    function createSessionWebSocket(sessionId) {
     // Determine WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/sessions/${sessionId}`;
@@ -265,11 +266,11 @@ function createSessionWebSocket(sessionId) {
     };
 }
 
-/**
- * Initialize the session interface and connect to WebSocket
- * @param {string} sessionId - The ID of the session
- */
-function initSessionInterface(sessionId) {
+    /**
+     * Initialize the session interface and connect to WebSocket
+     * @param {string} sessionId - The ID of the session
+     */
+    function initSessionInterface(sessionId) {
     const messagesContainer = document.getElementById('messages');
     const messageForm = document.getElementById('messageForm');
     const messageInput = document.getElementById('messageInput');
@@ -534,7 +535,7 @@ function initSessionInterface(sessionId) {
                 hour: '2-digit', 
                 minute: '2-digit'
             });
-        } catch (e) {
+        } catch (_e) {
             return datetimeStr;
         }
     }
@@ -577,7 +578,7 @@ function initSessionInterface(sessionId) {
             }
             return response.json();
         })
-        .then(data => {
+        .then(() => {
             // Clear input
             messageInput.value = '';
             
@@ -712,3 +713,14 @@ function initSessionInterface(sessionId) {
         sendMessage
     };
 }
+
+    // Public API
+    return {
+        createSessionWebSocket,
+        initSessionInterface
+    };
+})();
+
+// Expose functions globally for backward compatibility
+window.createSessionWebSocket = window.SessionWebSocket.createSessionWebSocket;
+window.initSessionInterface = window.SessionWebSocket.initSessionInterface;

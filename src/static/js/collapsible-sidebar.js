@@ -28,7 +28,7 @@ class CollapsibleSidebar {
                 referencedBy: true,
                 markdownCheat: true
             };
-        } catch (error) {
+        } catch {
             // Error loading sidebar state, use defaults
             return {
                 metadata: true,
@@ -46,7 +46,7 @@ class CollapsibleSidebar {
     saveSidebarState() {
         try {
             window.sessionStorage.setItem('sidebarState', JSON.stringify(this.sidebarState));
-        } catch (error) {
+        } catch {
             // Error saving sidebar state, continue without saving
         }
     }
@@ -190,7 +190,9 @@ class CollapsibleSidebar {
      * Load prompt data directly from API to get directory
      */
     async loadPromptDataAndDirectory() {
-        if (!this.currentPromptId) return;
+        if (!this.currentPromptId) {
+            return;
+        }
         
         try {
             const response = await fetch(`/api/prompts/${encodeURIComponent(this.currentPromptId)}`);
@@ -201,7 +203,7 @@ class CollapsibleSidebar {
             } else {
                 // Failed to load prompt data for directory
             }
-        } catch (error) {
+        } catch {
             // Error loading prompt data, directory prompts will not be available
         }
     }
@@ -236,7 +238,7 @@ class CollapsibleSidebar {
             
             this.renderDirectoryPrompts();
             
-        } catch (error) {
+        } catch {
             // Simplified error handling to prevent recursion issues
             container.innerHTML = '<div class="text-danger p-2">Error loading prompts</div>';
             if (window.showToast) {
