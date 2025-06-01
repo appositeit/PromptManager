@@ -1,4 +1,383 @@
- class="text-muted">Use Ctrl+Space for auto-completion of prompt names</small>
+{% extends "base.html" %}
+{% from "macros/prompt_modal.html" import new_prompt_modal %}
+
+{% block title %}Prompt Editor: {{ template_safe_prompt_id }}{% endblock %}
+
+{% block extra_js_head %}
+<script src="/static/js/utils.js"></script>
+<script src="/static/js/new_prompt_modal.js"></script>
+<script src="/static/js/search-replace.js"></script>
+{% endblock %}
+
+{% block header_title %}{{ template_safe_prompt_id }}{% endblock %}
+
+{% block header_actions %}
+<div class="btn-group me-2">
+    <a href="/manage/prompts" class="btn btn-outline-secondary" id="back-btn" title="Back to Prompt List (Alt+B)">
+        <i class="bi bi-arrow-left"></i> Back to List
+    </a>
+    <button class="btn btn-primary" id="new-prompt-btn" title="Create a new prompt (Alt+N)" data-bs-toggle="modal" data-bs-target="#newPromptModal">
+        <i class="bi bi-plus-circle-fill"></i> New Prompt
+    </button>
+</div>
+<div class="btn-group">
+    <button id="copy-btn" class="btn btn-outline-primary" title="Copy content with inclusions resolved to clipboard (Alt+C)">
+        <i class="bi bi-clipboard"></i> Copy
+    </button>
+    <button id="toggle-view-btn" class="btn btn-outline-primary" title="Toggle between raw and expanded view (Alt+T)">
+        <i class="bi bi-eye"></i> Toggle View
+    </button>
+    <button id="search-replace-btn" class="btn btn-outline-primary" title="Search and Replace (Alt+R)">
+        <i class="bi bi-search"></i> Search/Replace
+    </button>
+    <button id="rename-btn" class="btn btn-outline-primary" title="Rename this prompt (Alt+M)">
+        <i class="bi bi-pencil-square"></i> Rename
+    </button>
+    <button id="save-btn" class="btn btn-outline-success min-width-100" title="Save changes (Alt+S)">
+        <i class="bi bi-save"></i> Save
+    </button>
+    <button id="delete-btn" class="btn btn-outline-danger" title="Delete this prompt">
+        <i class="bi bi-trash"></i> Delete
+    </button>
+</div>
+{{ super() }} {# This will include the help button from base.html #}
+{% endblock %}
+
+{% block modal_help_content %}
+    <h4>Prompt Editor Help ({{ template_safe_prompt_id }})</h4>
+    <p>This page allows you to edit the content, metadata, and view dependencies of a prompt.</p>
+
+    <h5>Keyboard Shortcuts</h5>
+    <table class="table table-sm table-bordered">
+        <thead>
+            <tr><th>Shortcut</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>Alt + N</code></td><td>Create a new prompt</td></tr>
+            <tr><td><code>Alt + S</code></td><td>Save prompt content and metadata</td></tr>
+            <tr><td><code>Alt + C</code></td><td>Copy prompt content with inclusions resolved to clipboard</td></tr>
+            <tr><td><code>Alt + Shift + C</code></td><td>Copy rendered prompt content to clipboard</td></tr>
+            <tr><td><code>Alt + T</code></td><td>Toggle between Raw and Expanded content views</td></tr>
+            <tr><td><code>Alt + R</code></td><td>Open Search/Replace dialog (in Raw Content view)</td></tr>
+            <tr><td><code>Alt + B</code></td><td>Go back to the prompt list</td></tr>
+            <tr><td><code>Alt + M</code></td><td>Open Rename prompt dialog</td></tr>
+            <tr><td><code>Ctrl + Space</code></td><td>(In editor) Show auto-complete for prompt inclusions e.g., <code>[[another_prompt]]</code></td></tr>
+            <tr><td><code>Alt + H</code> or click <i class="bi bi-question-circle"></i></td><td>Show this help dialog</td></tr>
+        </tbody>
+    </table>
+
+    <h5>Functionality</h5>
+    <h6>Main Editor Area:</h6>
+    <ul>
+        <li><strong>Raw Content Tab:</strong> Edit the direct content of the prompt. Use <code>[[prompt_name]]</code> to include other prompts (case-sensitive).</li>
+        <li><strong>Expanded Content Tab:</strong> View the prompt with all inclusions fully expanded (read-only). This is how the prompt will be seen by models/tools that consume it.</li>
+        <li>The editor auto-saves content and metadata changes shortly after you stop typing. The "Save" button provides immediate manual saving.</li>
+    </ul>
+
+    <h6>Sidebar:</h6>
+    <ul>
+        <li><strong>Metadata Card:</strong>
+            <ul>
+                <li><strong>Type Badge:</strong> Automatically updates to 'Standard' or 'Composite' based on whether <code>[[...]]</code> inclusions are present in the raw content.</li>
+                <li><strong>Last Updated:</strong> Timestamp of the last save.</li>
+                <li><strong>Directory:</strong> The directory this prompt belongs to.</li>
+                <li><strong>Description:</strong> A brief, editable description for the prompt.</li>
+                <li><strong>Tags:</strong> Comma-separated tags for categorizing and searching.</li>
+            </ul>
+        </li>
+        <li><strong>Dependencies Card:</strong> Lists all other prompts directly included by this prompt (i.e., prompts referenced as <code>[[dependency_name]]</code>). Click to navigate to the dependency.</li>
+        <li><strong>Referenced By Card:</strong> Lists all other prompts that include this prompt. Click to navigate to the referencing prompt.</li>
+    </ul>
+
+    <h6>Header Buttons:</h6>
+    <ul>
+        <li><strong>Back to List:</strong> Navigates back to the "Manage Prompts" page.</li>
+        <li><strong>Copy:</strong> Copies the prompt content with all inclusions resolved but preserves the original markdown format.</li>
+        <li><strong>Copy Rendered:</strong> Copies the prompt content as rendered text (Alt+Shift+C).</li>
+        <li><strong>Toggle View:</strong> Switches between the "Raw Content" and "Expanded Content" tabs.</li>
+        <li><strong>Search/Replace:</strong> Opens a search and replace dialog for the "Raw Content" editor.</li>
+        <li><strong>Rename:</strong> Allows you to change the ID (name) of the prompt. This will also update references in other prompts if possible.</li>
+        <li><strong>Save:</strong> Manually saves any pending changes to content or metadata. The button provides feedback during the save process.</li>
+        <li><strong>Delete:</strong> Deletes the prompt (with confirmation).</li>
+    </ul>
+{% endblock %}
+
+{% block content %}
+<!-- Hidden element to store prompt ID for JavaScript -->
+<span id="prompt-id" class="d-none">{{ template_safe_prompt_id }}</span>
+<span id="prompt-true-unique-id" class="d-none">{{ actual_unique_id }}</span>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Main editor column - takes up more space -->
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-body">
+                    <div class="editor-container">
+                        <div id="editor-tabs" class="nav nav-tabs">
+                            <button class="nav-link active" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw-content" title="View and edit original content with inclusion references">Raw Content</button>
+                            <button class="nav-link" id="expanded-tab" data-bs-toggle="tab" data-bs-target="#expanded-content" title="View content with all inclusions expanded">Expanded Content</button>
+                        </div>
+                        
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="raw-content">
+                                <div id="editor"></div>
+                            </div>
+                            <div class="tab-pane fade" id="expanded-content">
+                                <div id="preview" class="markdown-preview"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Warnings card remains below the editor -->
+            <div class="mt-3">
+                <div class="card" id="warnings-card" style="display: none;">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Warnings
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="warnings">
+                            <!-- Warnings will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar with metadata and references - takes up less space -->
+        <div class="col-md-3">
+            <!-- Description and Tags card -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Metadata</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <div class="d-flex align-items-center">
+                            <span class="badge rounded-pill me-2" id="is-composite-badge">Standard</span>
+                            <span class="ms-auto small text-muted">Last updated: <span id="last-updated">-</span></span>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <span class="small text-muted">Directory: <span id="prompt-directory" class="fw-semibold">-</span></span>
+                    </div>
+                    <div class="mb-3">
+                        <label for="prompt-description" class="form-label">Description</label>
+                        <input type="text" class="form-control form-control-sm" id="prompt-description">
+                    </div>
+                    <div class="mb-3">
+                        <label for="prompt-tags" class="form-label">Tags</label>
+                        <input type="text" class="form-control form-control-sm" id="prompt-tags" placeholder="tag1, tag2, tag3">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dependencies card -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Dependencies</h5>
+                </div>
+                <div class="card-body">
+                    <div id="dependencies">
+                        <p class="text-muted">No dependencies found.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Referenced By card -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Referenced By</h5>
+                </div>
+                <div class="card-body">
+                    <div id="referenced-by">
+                        <p class="text-muted">Loading references...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Markdown Cheat Sheet card -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">Markdown Quick Reference</h6>
+                    <button id="markdown-help-btn" class="btn btn-outline-info btn-sm" title="Detailed Markdown Help">
+                        <i class="bi bi-question-circle"></i>
+                    </button>
+                </div>
+                <div class="card-body p-2">
+                    <div class="markdown-cheat-sheet">
+                        <div class="row g-1">
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Headers:</small>
+                                <code class="small"># H1  ## H2  ### H3</code>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Text:</small>
+                                <code class="small">**bold** *italic* `code`</code>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Lists:</small>
+                                <code class="small">- item  1. numbered</code>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Links:</small>
+                                <code class="small">[text](url)</code>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted d-block mb-1">Include Prompts:</small>
+                                <code class="small">[[prompt_name]]</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rename Prompt Modal -->
+<div class="modal fade" id="renamePromptModal" tabindex="-1" aria-labelledby="renamePromptModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="renamePromptModalLabel">Rename Prompt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="new-prompt-id" class="form-label">New Name</label>
+                    <input type="text" class="form-control" id="new-prompt-id" required>
+                    <div class="form-text">Enter a new name for this prompt (no spaces or special characters)</div>
+                </div>
+                <div class="alert alert-warning" id="rename-warning" style="display: none;">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <span id="rename-warning-text"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirm-rename-btn">Rename</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Prompt Confirmation Modal -->
+<div class="modal fade" id="deletePromptModal" tabindex="-1" aria-labelledby="deletePromptModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deletePromptModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this prompt?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Markdown Help Modal -->
+<div class="modal fade" id="markdownHelpModal" tabindex="-1" aria-labelledby="markdownHelpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="markdownHelpModalLabel">Markdown Reference Guide</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6>Headers</h6>
+                <div class="mb-3">
+                    <code># Heading 1</code><br>
+                    <code>## Heading 2</code><br>
+                    <code>### Heading 3</code><br>
+                    <code>#### Heading 4</code><br>
+                    <code>##### Heading 5</code><br>
+                    <code>###### Heading 6</code>
+                </div>
+
+                <h6>Text Formatting</h6>
+                <div class="mb-3">
+                    <code>**bold text**</code> → <strong>bold text</strong><br>
+                    <code>*italic text*</code> → <em>italic text</em><br>
+                    <code>~~strikethrough~~</code> → <s>strikethrough</s><br>
+                    <code>`inline code`</code> → <code>inline code</code><br>
+                    <code>***bold and italic***</code> → <strong><em>bold and italic</em></strong>
+                </div>
+
+                <h6>Lists</h6>
+                <div class="mb-3">
+                    <strong>Unordered lists:</strong><br>
+                    <code>- Item 1</code><br>
+                    <code>- Item 2</code><br>
+                    <code>  - Nested item</code><br><br>
+                    
+                    <strong>Ordered lists:</strong><br>
+                    <code>1. First item</code><br>
+                    <code>2. Second item</code><br>
+                    <code>   1. Nested item</code>
+                </div>
+
+                <h6>Links and Images</h6>
+                <div class="mb-3">
+                    <code>[Link text](https://example.com)</code><br>
+                    <code>[Link with title](https://example.com "Title")</code><br>
+                    <code>![Image alt text](image-url.jpg)</code><br>
+                    <code>&lt;https://example.com&gt;</code> → Auto-link
+                </div>
+
+                <h6>Code Blocks</h6>
+                <div class="mb-3">
+                    <strong>Inline code:</strong> <code>`code`</code><br><br>
+                    <strong>Code block:</strong><br>
+                    <pre><code>```javascript
+function example() {
+    return "Hello World!";
+}
+```</code></pre>
+                </div>
+
+                <h6>Blockquotes</h6>
+                <div class="mb-3">
+                    <code>&gt; This is a blockquote</code><br>
+                    <code>&gt; It can span multiple lines</code><br>
+                    <code>&gt;&gt; Nested blockquotes</code>
+                </div>
+
+                <h6>Tables</h6>
+                <div class="mb-3">
+                    <pre><code>| Header 1 | Header 2 | Header 3 |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Cell 4   | Cell 5   | Cell 6   |</code></pre>
+                </div>
+
+                <h6>Horizontal Rules</h6>
+                <div class="mb-3">
+                    <code>---</code> or <code>***</code> or <code>___</code>
+                </div>
+
+                <h6>Line Breaks</h6>
+                <div class="mb-3">
+                    End a line with two spaces for a line break<br>
+                    Or use a blank line for a paragraph break
+                </div>
+
+                <h6 class="text-primary">Prompt Manager Specific</h6>
+                <div class="mb-3">
+                    <strong>Include other prompts:</strong><br>
+                    <code>[[prompt_name]]</code> → Includes the content of another prompt<br>
+                    <small class="text-muted">Use Ctrl+Space for auto-completion of prompt names</small>
                 </div>
 
                 <h6>Escaping Characters</h6>
@@ -13,6 +392,8 @@
         </div>
     </div>
 </div>
+
+{{ new_prompt_modal('prompt_editor') }}
 {% endblock %}
 
 {% block extra_css %}
@@ -428,11 +809,10 @@
             lastUpdatedSpan.textContent = currentPromptData.last_updated ? dayjs(currentPromptData.last_updated).fromNow() : '-';
         }
         if (promptDirectorySpan && currentPromptData.directory_info) {
-            // Show full path in Directory field, with short name in tooltip
-            const directoryPath = currentPromptData.directory_info.path || '-';
-            const directoryName = currentPromptData.directory_info.name || currentPromptData.directory_name || currentPromptData.directory_info.path || '-';
-            promptDirectorySpan.textContent = directoryPath;
-            promptDirectorySpan.title = directoryName; // Short name in tooltip
+            // Use directory_name for better UX, but show full path in title
+            const directoryName = currentPromptData.directory_name || currentPromptData.directory_info.name || currentPromptData.directory_info.path || '-';
+            promptDirectorySpan.textContent = directoryName;
+            promptDirectorySpan.title = currentPromptData.directory_info.path || directoryName; // Full path in tooltip
         }
     }
 
@@ -639,9 +1019,7 @@
 
     function showRenameModal() {
         const newPromptIdInput = document.getElementById('new-prompt-id');
-        // Extract just the name part from the full ID path
-        const currentName = promptId.split('/').pop().replace('.md', '');
-        newPromptIdInput.value = currentName; // Pre-fill with current name only
+        newPromptIdInput.value = promptId; // Pre-fill with current ID
         const renameModal = new bootstrap.Modal(document.getElementById('renamePromptModal'));
         const renameWarning = document.getElementById('rename-warning');
         const renameWarningText = document.getElementById('rename-warning-text');
@@ -678,7 +1056,7 @@
         fetch(`/api/prompts/rename`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ old_id: promptId, new_name: newPromptId })
+            body: JSON.stringify({ old_id: promptId, new_id: newPromptId })
         })
         .then(response => {
             if (!response.ok) {
@@ -693,9 +1071,8 @@
         })
         .then(data => {
             showToast(data.message || 'Prompt renamed successfully!', 'success');
-            // Redirect to the new prompt ID (use the ID from the response)
-            const newPromptFullId = data.id || newPromptId;
-            window.location.href = `/prompts/${encodeURIComponent(newPromptFullId)}`;
+            // Redirect to the new prompt ID
+            window.location.href = `/prompts/${newPromptId}`;
         })
         .catch(error => {
             console.error('Error renaming prompt:', error);
@@ -983,9 +1360,6 @@
 
         const deleteBtn = document.getElementById('delete-btn');
         if (deleteBtn) deleteBtn.addEventListener('click', showDeleteModal);
-        
-        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
-        if (confirmDeleteBtn) confirmDeleteBtn.addEventListener('click', performDelete);
         
         const searchReplaceBtn = document.getElementById('search-replace-btn');
         if (searchReplaceBtn) {
