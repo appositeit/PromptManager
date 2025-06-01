@@ -140,11 +140,11 @@ class NewPromptModal {
     }
     
     clearForm() {
-        if (this.promptNameInput) this.promptNameInput.value = '';
-        if (this.promptIdPreview) this.promptIdPreview.value = '';
-        if (this.promptDisplayNamePreview) this.promptDisplayNamePreview.value = '';
-        if (this.promptDescriptionInput) this.promptDescriptionInput.value = '';
-        if (this.promptTagsInput) this.promptTagsInput.value = '';
+        if (this.promptNameInput) {this.promptNameInput.value = '';}
+        if (this.promptIdPreview) {this.promptIdPreview.value = '';}
+        if (this.promptDisplayNamePreview) {this.promptDisplayNamePreview.value = '';}
+        if (this.promptDescriptionInput) {this.promptDescriptionInput.value = '';}
+        if (this.promptTagsInput) {this.promptTagsInput.value = '';}
     }
     
     createPrompt(openInNewTab = false) {

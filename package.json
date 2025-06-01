@@ -13,5 +13,20 @@
   "devDependencies": {
     "@playwright/test": "^1.52.0",
     "eslint": "^9.27.0"
-  }
+  },
+  "directories": {
+    "doc": "doc",
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/appositeit/PromptManager.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/appositeit/PromptManager/issues"
+  },
+  "homepage": "https://github.com/appositeit/PromptManager#readme"
 }

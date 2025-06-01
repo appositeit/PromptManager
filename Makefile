@@ -51,6 +51,8 @@ help:
 	@echo ""
 	@echo "  clean               - Remove __pycache__ directories and .pytest_cache"
 	@echo "  lint                - Run linter (placeholder)"
+	@echo "  lint-js             - Run ESLint on JavaScript files"
+	@echo "  lint-js-fix         - Run ESLint with auto-fix on JavaScript files"
 	@echo "  lint-cpd            - Run jscpd to detect code duplication"
 	@echo ""
 
@@ -193,8 +195,19 @@ lint:
 	@echo "No linter configured yet. Consider adding flake8 or pylint."
 	@echo "Run 'make lint-cpd' to check for code duplication."
 
+# JavaScript Linting  
+.PHONY: lint-js
+lint-js:
+	@echo "Running ESLint on JavaScript files..."
+	npx eslint src/static/js/
+
+.PHONY: lint-js-fix
+lint-js-fix:
+	@echo "Running ESLint with auto-fix on JavaScript files..."
+	npx eslint src/static/js/ --fix
+
 # Code Duplication Check
 .PHONY: lint-cpd
 lint-cpd:
 	@echo "Running jscpd to detect code duplication (generating HTML report in logs/jscpd-report and console output)..."
-	npx jscpd --reporters=html,console --output=./logs/jscpd-report --ignore "**/.venv/**,**/venv/**,**/node_modules/**,**/.mypy_cache/**,**/.pytest_cache/**,**/.ruff_cache/**,**/archive/**,**/*.lock,**/data/**,**/logs/**,**/dist/**,**/build/**,**/cov_html/**,**/tests/**" . 
+	npx jscpd --reporters=html,console --output=./logs/jscpd-report --ignore "**/.venv/**,**/venv/**,**/node_modules/**,**/.mypy_cache/**,**/.pytest_cache/**,**/.ruff_cache/**,**/archive/**,**/*.lock,**/data/**,**/logs/**,**/dist/**,**/build/**,**/cov_html/**,**/tests/**" .

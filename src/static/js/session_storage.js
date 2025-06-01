@@ -113,7 +113,7 @@ function updateStorageInfoUI(sessionId, storageInfo) {
     
     // Add directory info
     for (const [dirType, dirInfo] of Object.entries(storageInfo)) {
-        if (dirType === 'config_settings') continue;
+        if (dirType === 'config_settings') {continue;}
         
         const exists = dirInfo.exists;
         const path = dirInfo.path;
@@ -345,7 +345,7 @@ function updateArtifactsUI(sessionId, artifacts) {
             }
             
             // Format size
-            let size = artifact.size;
+            const size = artifact.size;
             let sizeStr = '';
             
             if (size < 1024) {

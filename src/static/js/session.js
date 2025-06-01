@@ -44,7 +44,7 @@ function loadSessionFormData() {
  */
 function loadAvailablePrompts() {
     const promptSelect = document.getElementById('sessionPrompt');
-    if (!promptSelect) return;
+    if (!promptSelect) {return;}
     
     // Clear existing options (except the first one)
     const firstOption = promptSelect.querySelector('option:first-child');
@@ -71,8 +71,6 @@ function loadAvailablePrompts() {
             prompts.forEach(prompt => {
                 if (prompt.is_composite) {
                     promptsByType.composite.push(prompt);
-                } else {
-                    promptsByType.standard.push(prompt);
                 } else {
                     promptsByType.standard.push(prompt);
                 }
@@ -199,7 +197,7 @@ function createSession() {
     }
     
     // Get MCP servers if available
-    let mcpServers = [];
+    const mcpServers = [];
     const mcpServerElements = document.querySelectorAll('input[name="mcp-server"]:checked');
     mcpServerElements.forEach(element => {
         mcpServers.push(element.value);
@@ -500,7 +498,7 @@ function loadActiveSessions() {
  */
 function updateSidebarSessions(sessions) {
     const container = document.getElementById('active-sessions');
-    if (!container) return;
+    if (!container) {return;}
     
     if (sessions.length === 0) {
         container.innerHTML = '<div class="text-muted sidebar-no-sessions">No active sessions</div>';
@@ -531,7 +529,7 @@ function updateSidebarSessions(sessions) {
  */
 function updateDashboardSessions(sessions) {
     const container = document.getElementById('dashboard-active-sessions');
-    if (!container) return;
+    if (!container) {return;}
     
     if (sessions.length === 0) {
         container.innerHTML = '<p class="text-muted mb-0">No active sessions.</p>';

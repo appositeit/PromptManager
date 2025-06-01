@@ -225,7 +225,7 @@ class TaskGraphVisualizer {
      * @param {Object} data - Task graph data
      */
     update(data) {
-        if (!data) return;
+        if (!data) {return;}
         
         // Extract nodes and links from the data
         const { nodes, links } = this.processData(data);
@@ -316,7 +316,7 @@ class TaskGraphVisualizer {
      * Update the force simulation with new data.
      */
     updateSimulation() {
-        if (!this.simulation) return;
+        if (!this.simulation) {return;}
         
         this.simulation.nodes(this.nodes);
         this.simulation.force("link").links(this.links);
@@ -470,7 +470,7 @@ class TaskGraphVisualizer {
      * Handle start of node drag.
      */
     dragstarted(event, d) {
-        if (!event.active) this.simulation.alphaTarget(0.3).restart();
+        if (!event.active) {this.simulation.alphaTarget(0.3).restart();}
         d.fx = d.x;
         d.fy = d.y;
     }
@@ -487,7 +487,7 @@ class TaskGraphVisualizer {
      * Handle end of node drag.
      */
     dragended(event, d) {
-        if (!event.active) this.simulation.alphaTarget(0);
+        if (!event.active) {this.simulation.alphaTarget(0);}
         d.fx = null;
         d.fy = null;
     }
@@ -596,7 +596,7 @@ class TaskTimelineVisualizer {
      * @param {Object} data - Timeline data
      */
     update(data) {
-        if (!data || !data.tasks) return;
+        if (!data || !data.tasks) {return;}
         
         // Process the data
         this.tasks = this.processData(data.tasks);

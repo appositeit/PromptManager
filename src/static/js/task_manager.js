@@ -61,7 +61,7 @@ function initTaskManager(sessionId) {
      * Render the task list
      */
     function renderTaskList() {
-        if (!taskListContainer) return;
+        if (!taskListContainer) {return;}
         
         // Clear no tasks message if it exists
         const noTasksMsg = document.getElementById('no-tasks-message');
@@ -137,7 +137,7 @@ function initTaskManager(sessionId) {
      * @param {string} statusClass - Status CSS class
      */
     function renderTaskItem(task, statusClass) {
-        if (!taskListContainer) return;
+        if (!taskListContainer) {return;}
         
         // Check if task item already exists
         let taskEl = document.getElementById(`task-item-${task.id}`);
@@ -233,7 +233,7 @@ function initTaskManager(sessionId) {
      * @param {object} task - Task data
      */
     function renderTaskDetail(task) {
-        if (!taskDetailContainer) return;
+        if (!taskDetailContainer) {return;}
         
         // Show the detail container
         taskDetailContainer.style.display = 'block';
@@ -437,7 +437,7 @@ function initTaskManager(sessionId) {
      * Clear the task detail view
      */
     function clearTaskDetail() {
-        if (!taskDetailContainer) return;
+        if (!taskDetailContainer) {return;}
         
         // Hide the detail container
         taskDetailContainer.style.display = 'none';
@@ -627,7 +627,7 @@ function initTaskManager(sessionId) {
         try {
             // Show confirmation
             const confirmed = confirm('Are you sure you want to execute this task?');
-            if (!confirmed) return;
+            if (!confirmed) {return;}
             
             // Show loading state
             const executeBtn = document.querySelector(`.task-execute-btn[data-task-id="${taskId}"]`);
@@ -675,7 +675,7 @@ function initTaskManager(sessionId) {
         try {
             // Show confirmation
             const confirmed = confirm('Are you sure you want to cancel this task?');
-            if (!confirmed) return;
+            if (!confirmed) {return;}
             
             const response = await fetch(`/api/sessions/${sessionId}/tasks/${taskId}`, {
                 method: 'PATCH',
@@ -709,7 +709,7 @@ function initTaskManager(sessionId) {
         try {
             // Show confirmation
             const confirmed = confirm('Are you sure you want to pause this task?');
-            if (!confirmed) return;
+            if (!confirmed) {return;}
             
             const response = await fetch(`/api/sessions/${sessionId}/tasks/${taskId}`, {
                 method: 'PATCH',
@@ -743,7 +743,7 @@ function initTaskManager(sessionId) {
         try {
             // Show confirmation
             const confirmed = confirm('Are you sure you want to re-run this task?');
-            if (!confirmed) return;
+            if (!confirmed) {return;}
             
             // First reset the task status
             const resetResponse = await fetch(`/api/sessions/${sessionId}/tasks/${taskId}`, {
@@ -795,7 +795,7 @@ function initTaskManager(sessionId) {
         try {
             // Show confirmation
             const confirmed = confirm('Are you sure you want to archive this task? This will hide it from the active tasks list.');
-            if (!confirmed) return;
+            if (!confirmed) {return;}
             
             const response = await fetch(`/api/sessions/${sessionId}/tasks/${taskId}`, {
                 method: 'PATCH',
@@ -833,7 +833,7 @@ function initTaskManager(sessionId) {
      * @returns {string} Formatted HTML
      */
     function formatContent(content) {
-        if (!content) return '';
+        if (!content) {return '';}
         
         // Convert code blocks
         content = content.replace(/```([a-z]*)\n([\s\S]*?)\n```/g, '<pre><code class="language-$1">$2</code></pre>');
@@ -859,7 +859,7 @@ function initTaskManager(sessionId) {
      * @returns {string} Formatted agent name
      */
     function formatAgentName(agentId) {
-        if (!agentId) return 'Unknown';
+        if (!agentId) {return 'Unknown';}
         
         switch (agentId) {
             case 'architect': return 'Architect';
@@ -879,7 +879,7 @@ function initTaskManager(sessionId) {
      * @returns {string} Formatted datetime
      */
     function formatDateTime(datetimeStr) {
-        if (!datetimeStr) return '';
+        if (!datetimeStr) {return '';}
         
         try {
             return dayjs(datetimeStr).format('MMM D, YYYY HH:mm:ss');

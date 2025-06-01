@@ -115,7 +115,7 @@ function formatDateWithFormat(dateString, format = 'YYYY-MM-DD HH:mm:ss') {
  * @returns {string} Escaped string
  */
 function escapeHtml(str) {
-    if (!str) return '';
+    if (!str) {return '';}
     
     return str
         .replace(/&/g, '&amp;')
@@ -155,7 +155,7 @@ function stableSort(array, compareFunction) {
  * @returns {string} HTML representation of the markdown
  */
 function markdownToHtml(markdown) {
-    if (!markdown) return '';
+    if (!markdown) {return '';}
     
     // Simple markdown to HTML conversion
     return markdown

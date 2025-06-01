@@ -104,7 +104,7 @@ class TaskGraphVisualizer {
      * @param {Array} data.tasks - Array of task objects
      */
     update(data) {
-        if (!data) return;
+        if (!data) {return;}
         
         // Process agents
         const agents = (data.agents || []).map(agent => ({
@@ -249,7 +249,7 @@ class TaskGraphVisualizer {
     setupDragListeners() {
         return d3.drag()
             .on('start', (event, d) => {
-                if (!event.active) this.simulation.alphaTarget(0.3).restart();
+                if (!event.active) {this.simulation.alphaTarget(0.3).restart();}
                 d.fx = d.x;
                 d.fy = d.y;
             })
@@ -258,7 +258,7 @@ class TaskGraphVisualizer {
                 d.fy = event.y;
             })
             .on('end', (event, d) => {
-                if (!event.active) this.simulation.alphaTarget(0);
+                if (!event.active) {this.simulation.alphaTarget(0);}
                 d.fx = null;
                 d.fy = null;
             });
@@ -436,7 +436,7 @@ class TaskTimelineVisualizer {
      * @param {Array} data.tasks - Array of task objects
      */
     update(data) {
-        if (!data) return;
+        if (!data) {return;}
         
         // Process agents
         this.agents = (data.agents || []).map(agent => ({
