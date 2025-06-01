@@ -335,6 +335,13 @@ class CollapsibleSidebar {
 
         const editorElement = window.editor.display.wrapper;
         
+        if (!editorElement) {
+            console.error('CollapsibleSidebar: Editor wrapper element not found');
+            return;
+        }
+
+        console.log('CollapsibleSidebar: Successfully set up drag target on editor');
+        
         editorElement.addEventListener('dragover', (e) => {
             // Only allow drop if Raw Content tab is active
             const rawTab = document.getElementById('raw-content');
@@ -391,6 +398,12 @@ class CollapsibleSidebar {
         } else {
             this.setupEditorDragTarget();
         }
+
+        // Listen for editor creation (custom event that could be dispatched when editor is ready)
+        document.addEventListener('editorReady', () => {
+            this.editorRetryCount = 0; // Reset retry count
+            this.setupEditorDragTarget();
+        });
 
         // Listen for prompt data updates to refresh directory prompts
         document.addEventListener('promptDataUpdated', () => {

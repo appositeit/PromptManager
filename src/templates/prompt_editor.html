@@ -1086,6 +1086,9 @@ function example() {
             saveTimeout = setTimeout(() => savePromptData(false), 1500); // Auto-save after 1.5s of inactivity
             detectPromptType(); // Check if it became composite/standard
         });
+
+        // Dispatch custom event to notify that editor is ready
+        document.dispatchEvent(new CustomEvent('editorReady', { detail: { editor: editor } }));
     }
     
     function getExpandedContent(callback) {
