@@ -188,11 +188,23 @@ clean:
 	rm -rf cov_html
 	rm -f .coverage
 
-# Lint (Placeholder)
+# Root directory cleanliness check
+.PHONY: check-root-clean
+check-root-clean:
+	@echo "Checking root directory cleanliness..."
+	@if find . -maxdepth 1 -type f \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.md" \) ! \( -name "README.md" -o -name "CONTRIBUTING.md" -o -name "eslint.config.js" -o -name ".eslintrc.js" -o -name "api_docs_template.html" -o -name "debug_routes.py" \) | grep -q .; then \
+		echo "❌ ERROR: Inappropriate files found in root directory:"; \
+		find . -maxdepth 1 -type f \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.md" \) ! \( -name "README.md" -o -name "CONTRIBUTING.md" -o -name "eslint.config.js" -o -name ".eslintrc.js" -o -name "api_docs_template.html" -o -name "debug_routes.py" \); \
+		echo "🚫 Move these files to appropriate subdirectories!"; \
+		exit 1; \
+	else \
+		echo "✅ Root directory is clean"; \
+	fi
+
+# Lint (includes root directory check)
 .PHONY: lint
-lint:
-	@echo "Linting (placeholder)..."
-	@echo "No linter configured yet. Consider adding flake8 or pylint."
+lint: check-root-clean lint-js
+	@echo "Linting completed successfully."
 	@echo "Run 'make lint-cpd' to check for code duplication."
 
 # JavaScript Linting  
