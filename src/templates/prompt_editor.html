@@ -869,10 +869,10 @@ function example() {
             lastUpdatedSpan.textContent = currentPromptData.last_updated ? dayjs(currentPromptData.last_updated).fromNow() : '-';
         }
         if (promptDirectorySpan && currentPromptData.directory_info) {
-            // Use directory_name for better UX, but show full path in title
-            const directoryName = currentPromptData.directory_name || currentPromptData.directory_info.name || currentPromptData.directory_info.path || '-';
-            promptDirectorySpan.textContent = directoryName;
-            promptDirectorySpan.title = currentPromptData.directory_info.path || directoryName; // Full path in tooltip
+            // Show full directory path in both display and tooltip
+            const fullDirectoryPath = currentPromptData.directory_info.path || currentPromptData.directory || '-';
+            promptDirectorySpan.textContent = fullDirectoryPath;
+            promptDirectorySpan.title = fullDirectoryPath; // Full path in tooltip
         }
     }
 
