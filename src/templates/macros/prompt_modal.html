@@ -1,0 +1,59 @@
+{% macro new_prompt_modal(context='manage_prompts') %}
+<!-- New Prompt Modal -->
+<div class="modal fade" id="newPromptModal" tabindex="-1" aria-labelledby="newPromptModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newPromptModalLabel">Create New Prompt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newPromptForm">
+                    <div class="mb-3">
+                        <label for="promptName" class="form-label" title="Enter the display name for your prompt (Alt+N to open this dialog)">Prompt Name</label>
+                        <input type="text" class="form-control" id="promptName" required title="Enter the display name for your prompt (Alt+N to open this dialog)">
+                        <div class="form-text">Display name for the prompt (will be used as filename)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptDirectory" class="form-label" title="Select the directory where this prompt will be stored">Directory</label>
+                        <select class="form-select" id="promptDirectory" required title="Select the directory where this prompt will be stored">
+                            <!-- Directories will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptIdPreview" class="form-label" title="Full path unique identifier (generated automatically)">Generated ID</label>
+                        <input type="text" class="form-control" id="promptIdPreview" readonly title="Full path unique identifier (generated automatically)">
+                        <div class="form-text">Full path unique identifier</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptDisplayNamePreview" class="form-label" title="How this prompt will appear in lists (calculated after creation)">Display Name Preview</label>
+                        <input type="text" class="form-control" id="promptDisplayNamePreview" readonly title="How this prompt will appear in lists (calculated after creation)">
+                        <div class="form-text">How this prompt will appear in lists (calculated after creation)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptDescription" class="form-label" title="Optional description for the prompt">Description</label>
+                        <input type="text" class="form-control" id="promptDescription" title="Optional description for the prompt">
+                    </div>
+                    <div class="mb-3">
+                        <label for="promptTags" class="form-label" title="Comma-separated list of tags for categorization">Tags</label>
+                        <input type="text" class="form-control" id="promptTags" title="Comma-separated list of tags for categorization">
+                        <div class="form-text">Comma-separated list of tags</div>
+                    </div>
+                    <!-- Content textarea removed as requested -->
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" title="Cancel (Esc)">Cancel</button>
+                {% if context == 'prompt_editor' %}
+                <button type="button" class="btn btn-info" id="createPromptInNewTabBtn" title="Create prompt and open in new tab (Ctrl+Shift+Enter)">
+                    <i class="bi bi-plus-circle"></i> Create in New Tab
+                </button>
+                {% endif %}
+                <button type="button" class="btn btn-primary" id="createPromptBtn" title="Create prompt (Enter or Ctrl+Enter)">
+                    <i class="bi bi-plus-circle"></i> Create
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}

@@ -106,9 +106,15 @@ class FilesystemCompletionResponse(BaseModel):
     is_directory: bool
 
 # Helper functions
-def get_directory_name(directory_path: str) -> str:
+def get_directory_name(directory_path: str, prompt_service: PromptServiceClass = None) -> str:
     """Get directory name from path."""
-    # Try to get from directory service if available
+    # Try to get from prompt service directories if available
+    if prompt_service:
+        for dir_obj in prompt_service.directories:
+            if dir_obj.path == directory_path:
+                return dir_obj.name
+    
+    # Try to get from directory service (legacy fallback)
     dir_info = get_directory_by_path(directory_path)
     if dir_info:
         return dir_info.get("name", os.path.basename(directory_path))
@@ -127,7 +133,7 @@ async def get_all_prompts(prompt_service: PromptServiceClass = Depends(get_promp
     
     # Add directory name for each prompt
     for prompt_dict in prompts:
-        prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"])
+        prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"], prompt_service)
     
     logger.info(f"Returning {len(prompts)} prompts with display names")
     
@@ -388,7 +394,7 @@ async def rename_prompt_endpoint(
         raise HTTPException(status_code=500, detail="Error retrieving prompt after rename.")
 
     prompt_dict = renamed_prompt.model_dump()
-    prompt_dict["directory_name"] = get_directory_name(renamed_prompt.directory)
+    prompt_dict["directory_name"] = get_directory_name(renamed_prompt.directory, prompt_service)
     
     # Include a message about sanitization if it occurred
     if original_new_name != renamed_prompt.name:
@@ -461,7 +467,7 @@ async def create_new_prompt(
         )
         
         prompt_dict = new_prompt.model_dump()
-        prompt_dict["directory_name"] = get_directory_name(new_prompt.directory)
+        prompt_dict["directory_name"] = get_directory_name(new_prompt.directory, prompt_service)
         
         # Include sanitization message if needed
         if original_name != new_prompt.name:
@@ -528,7 +534,7 @@ async def update_existing_prompt(prompt_id: str, update_data: PromptUpdate, prom
         raise HTTPException(status_code=500, detail=f"Error retrieving prompt '{prompt_id}' after update.")
 
     prompt_dict = updated_prompt_obj.model_dump()
-    prompt_dict["directory_name"] = get_directory_name(updated_prompt_obj.directory)
+    prompt_dict["directory_name"] = get_directory_name(updated_prompt_obj.directory, prompt_service)
     return prompt_dict
 
 @router.delete("/{prompt_id:path}", response_model=Dict)
