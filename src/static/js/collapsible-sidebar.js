@@ -29,7 +29,7 @@ class CollapsibleSidebar {
                 markdownCheat: true
             };
         } catch (error) {
-            console.warn('Failed to load sidebar state from sessionStorage:', error);
+            // Error loading sidebar state, use defaults
             return {
                 metadata: true,
                 directoryPrompts: true,
@@ -47,7 +47,7 @@ class CollapsibleSidebar {
         try {
             window.sessionStorage.setItem('sidebarState', JSON.stringify(this.sidebarState));
         } catch (error) {
-            console.warn('Failed to save sidebar state to sessionStorage:', error);
+            // Error saving sidebar state, continue without saving
         }
     }
 
@@ -147,29 +147,63 @@ class CollapsibleSidebar {
         // Get current prompt context
         this.currentPromptId = document.getElementById('prompt-true-unique-id')?.textContent?.trim();
         
-        // Extract directory from currentPromptData if available
+        // Extract directory from currentPromptData if available, otherwise try to get it from the API
         if (window.currentPromptData && window.currentPromptData.directory) {
             this.currentDirectory = window.currentPromptData.directory;
             this.loadDirectoryPrompts();
+        } else if (this.currentPromptId) {
+            // Fallback: get directory by loading prompt data directly
+            this.loadPromptDataAndDirectory();
         } else {
-            // Wait for currentPromptData to be available
-            this.waitForCurrentPromptData();
+            // Wait for prompt ID to be available
+            this.waitForPromptData();
         }
     }
 
     /**
-     * Wait for currentPromptData to be available
+     * Wait for prompt data to be available
      */
-    waitForCurrentPromptData() {
+    waitForPromptData() {
         const checkData = () => {
+            // Check if currentPromptData is available
             if (window.currentPromptData && window.currentPromptData.directory) {
                 this.currentDirectory = window.currentPromptData.directory;
+                this.currentPromptId = this.currentPromptId || window.currentPromptData.id;
                 this.loadDirectoryPrompts();
-            } else {
-                setTimeout(checkData, 100);
+                return;
             }
+            
+            // Fallback: check if we have prompt ID and can load data
+            this.currentPromptId = document.getElementById('prompt-true-unique-id')?.textContent?.trim();
+            if (this.currentPromptId) {
+                this.loadPromptDataAndDirectory();
+                return;
+            }
+            
+            // Keep waiting
+            setTimeout(checkData, 100);
         };
         checkData();
+    }
+
+    /**
+     * Load prompt data directly from API to get directory
+     */
+    async loadPromptDataAndDirectory() {
+        if (!this.currentPromptId) return;
+        
+        try {
+            const response = await fetch(`/api/prompts/${encodeURIComponent(this.currentPromptId)}`);
+            if (response.ok) {
+                const data = await response.json();
+                this.currentDirectory = data.directory;
+                this.loadDirectoryPrompts();
+            } else {
+                // Failed to load prompt data for directory
+            }
+        } catch (error) {
+            // Error loading prompt data, directory prompts will not be available
+        }
     }
 
     /**
@@ -177,13 +211,11 @@ class CollapsibleSidebar {
      */
     async loadDirectoryPrompts() {
         if (!this.currentDirectory) {
-            console.warn('No current directory available for loading directory prompts');
             return;
         }
 
         const container = document.getElementById('directory-prompts-list');
         if (!container) {
-            console.warn('Directory prompts container not found');
             return;
         }
 
@@ -205,7 +237,7 @@ class CollapsibleSidebar {
             this.renderDirectoryPrompts();
             
         } catch (error) {
-            console.error('Error loading directory prompts:', error);
+            // Simplified error handling to prevent recursion issues
             container.innerHTML = '<div class="text-danger p-2">Error loading prompts</div>';
             if (window.showToast) {
                 window.showToast('Failed to load directory prompts', 'error');
@@ -328,7 +360,7 @@ class CollapsibleSidebar {
             } else if (retryCount < 80) { // Then try every 500ms for 15 more seconds
                 setTimeout(() => this.setupEditorDragTarget(), 500);
             } else {
-                console.warn('CollapsibleSidebar: Editor not available after waiting, drag-and-drop disabled');
+                // Editor not available after waiting, give up on drag-and-drop
             }
             return;
         }
@@ -336,11 +368,8 @@ class CollapsibleSidebar {
         const editorElement = window.editor.display.wrapper;
         
         if (!editorElement) {
-            console.error('CollapsibleSidebar: Editor wrapper element not found');
             return;
         }
-
-        console.log('CollapsibleSidebar: Successfully set up drag target on editor');
         
         editorElement.addEventListener('dragover', (e) => {
             // Only allow drop if Raw Content tab is active
