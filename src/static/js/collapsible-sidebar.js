@@ -318,9 +318,18 @@ class CollapsibleSidebar {
      * Set up drag target on the editor
      */
     setupEditorDragTarget() {
-        if (!window.editor) {
-            // Wait for editor to be available
-            setTimeout(() => this.setupEditorDragTarget(), 100);
+        if (!window.editor || !window.editor.display || !window.editor.display.wrapper) {
+            // Wait for editor to be available - check more frequently initially, then back off
+            const retryCount = this.editorRetryCount || 0;
+            this.editorRetryCount = retryCount + 1;
+            
+            if (retryCount < 50) { // Try for 5 seconds (50 * 100ms)
+                setTimeout(() => this.setupEditorDragTarget(), 100);
+            } else if (retryCount < 80) { // Then try every 500ms for 15 more seconds
+                setTimeout(() => this.setupEditorDragTarget(), 500);
+            } else {
+                console.warn('CollapsibleSidebar: Editor not available after waiting, drag-and-drop disabled');
+            }
             return;
         }
 

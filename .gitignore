@@ -29,9 +29,14 @@ logs/
 *.err
 mcp_server/logs/
 
-# Coverage
+# Artifacts directory (all transient files)
+artifacts/
+
+# Coverage (legacy - kept for backward compatibility)
 .coverage
 htmlcov/
+cov_html/
+cov_html_*/
 coverage.xml
 
 # Test & cache
