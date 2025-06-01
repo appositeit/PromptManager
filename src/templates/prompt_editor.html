@@ -105,7 +105,7 @@
 {% block content %}
 <!-- Hidden element to store prompt ID for JavaScript -->
 <span id="prompt-id" class="d-none">{{ template_safe_prompt_id }}</span>
-<span id="prompt-true-unique-id" class="d-none">{{ actual_unique_id }}</span>
+<span id="prompt-true-unique-id" class="d-none">{{ prompt.id }}</span>
 
 <div class="container-fluid">
     <div class="row">
@@ -643,7 +643,7 @@ function example() {
 <script>
     let editor;
     let currentPromptData = null;
-    let newPromptModal = null;
+    let editorNewPromptModal = null;
     let directories = [];
     const promptId = document.getElementById('prompt-true-unique-id').textContent;
     const saveButton = document.getElementById('save-btn');
@@ -786,8 +786,8 @@ function example() {
             .then(data => {
                 directories = data;
                 // Populate new prompt modal if it exists
-                if (newPromptModal) {
-                    newPromptModal.populateDirectorySelect(directories);
+                if (editorNewPromptModal) {
+                    editorNewPromptModal.populateDirectorySelect(directories);
                 }
                 return directories;
             })
@@ -917,6 +917,84 @@ function example() {
             expandedContentTab.setAttribute('title', 'View content with markdown rendering and inclusions expanded');
         }
     }
+
+    // Define our custom hint function with display name support
+    // This must be defined before initializeEditor() is called
+    window.promptHint = function(cm, options) {
+        return new Promise(function(accept) {
+            const cursor = cm.getCursor();
+            const token = cm.getTokenAt(cursor);
+            let searchTerm = '';
+            let fromPos = null;
+
+            // Check if we are inside a [[ ]] block
+            if (token.string.startsWith('[[')) {
+                searchTerm = token.string.substring(2);
+                fromPos = CodeMirror.Pos(cursor.line, token.start + 2); // Start after '[['
+            } else if (cm.getLine(cursor.line).substring(0, cursor.ch).includes('[[')) {
+                // More robust check if cursor is after '[[' but not necessarily at start of token
+                const lineContent = cm.getLine(cursor.line);
+                const lastOpenBracket = lineContent.lastIndexOf('[[', cursor.ch - 1);
+                if (lastOpenBracket !== -1) {
+                    const potentialSearchTerm = lineContent.substring(lastOpenBracket + 2, cursor.ch);
+                    if (!potentialSearchTerm.includes(']]')) { // Ensure we are not after a closing bracket
+                        searchTerm = potentialSearchTerm;
+                        fromPos = CodeMirror.Pos(cursor.line, lastOpenBracket + 2);
+                    }
+                }
+            }
+
+            console.log(`[PromptHint] Search term determined: '${searchTerm}'`); // Log for search term
+
+            // If empty search term, we should still show all completions 
+            // (this happens right after typing '[[')
+            const isEmptySearch = searchTerm.trim() === '';
+            console.log(`[PromptHint] Search term is ${isEmptySearch ? 'empty' : `'${searchTerm}'`}`);
+            
+            // We build the request URL differently based on whether we have a search term or not
+            const fetchUrl = isEmptySearch 
+                ? `/api/prompts/search_suggestions?exclude=${encodeURIComponent(promptId)}`
+                : `/api/prompts/search_suggestions?query=${encodeURIComponent(searchTerm)}&exclude=${encodeURIComponent(promptId)}`;
+
+            // Fetch suggestions from the API
+            fetch(fetchUrl)
+                .then(res => res.json())
+                .then(function(data) {
+                    if (data && data.length > 0) {
+                        // Sort the suggestions by display name for better UX
+                        const sortedData = [...data].sort((a, b) => {
+                            const displayA = a.display_name || a.id;
+                            const displayB = b.display_name || b.id;
+                            return displayA.localeCompare(displayB);
+                        });
+                        
+                        const hints = sortedData.map(item => {
+                            const displayName = item.display_name || item.id;
+                            const fullId = item.id;
+                            
+                            return {
+                                text: fullId + ']]', // Insert the full ID
+                                displayText: displayName !== fullId ? `${displayName} (${fullId})` : displayName, // Show display name with ID if different
+                                hint: function(cm, data, completion) {
+                                    // Custom completion handler - insert the full ID
+                                    cm.replaceRange(completion.text, data.from, data.to, "complete");
+                                }
+                            };
+                        });
+                        
+                        // Determine the 'from' and 'to' positions for replacement
+                        const from = fromPos;
+                        const to = cursor;
+
+                        return accept({list: hints, from: from, to: to});
+                    }
+                    return accept(null);
+                })
+                .catch(function() {
+                    return accept(null);
+                });
+        });
+    };
 
     function initializeEditor() {
         editor = CodeMirror(document.getElementById('editor'), {
@@ -1232,86 +1310,8 @@ function example() {
         }
     }
 
-    // Define our custom hint function with display name support
-    window.promptHint = function(cm, options) {
-        return new Promise(function(accept) {
-            const cursor = cm.getCursor();
-            const token = cm.getTokenAt(cursor);
-            let searchTerm = '';
-            let fromPos = null;
-
-            // Check if we are inside a [[ ]] block
-            if (token.string.startsWith('[[')) {
-                searchTerm = token.string.substring(2);
-                fromPos = CodeMirror.Pos(cursor.line, token.start + 2); // Start after '[['
-            } else if (cm.getLine(cursor.line).substring(0, cursor.ch).includes('[[')) {
-                // More robust check if cursor is after '[[' but not necessarily at start of token
-                const lineContent = cm.getLine(cursor.line);
-                const lastOpenBracket = lineContent.lastIndexOf('[[', cursor.ch - 1);
-                if (lastOpenBracket !== -1) {
-                    const potentialSearchTerm = lineContent.substring(lastOpenBracket + 2, cursor.ch);
-                    if (!potentialSearchTerm.includes(']]')) { // Ensure we are not after a closing bracket
-                        searchTerm = potentialSearchTerm;
-                        fromPos = CodeMirror.Pos(cursor.line, lastOpenBracket + 2);
-                    }
-                }
-            }
-
-            console.log(`[PromptHint] Search term determined: '${searchTerm}'`); // Log for search term
-
-            // If empty search term, we should still show all completions 
-            // (this happens right after typing '[[')
-            const isEmptySearch = searchTerm.trim() === '';
-            console.log(`[PromptHint] Search term is ${isEmptySearch ? 'empty' : `'${searchTerm}'`}`);
-            
-            // We build the request URL differently based on whether we have a search term or not
-            const fetchUrl = isEmptySearch 
-                ? `/api/prompts/search_suggestions?exclude=${encodeURIComponent(promptId)}`
-                : `/api/prompts/search_suggestions?query=${encodeURIComponent(searchTerm)}&exclude=${encodeURIComponent(promptId)}`;
-
-            // Fetch suggestions from the API
-            fetch(fetchUrl)
-                .then(res => res.json())
-                .then(function(data) {
-                    if (data && data.length > 0) {
-                        // Sort the suggestions by display name for better UX
-                        const sortedData = [...data].sort((a, b) => {
-                            const displayA = a.display_name || a.id;
-                            const displayB = b.display_name || b.id;
-                            return displayA.localeCompare(displayB);
-                        });
-                        
-                        const hints = sortedData.map(item => {
-                            const displayName = item.display_name || item.id;
-                            const fullId = item.id;
-                            
-                            return {
-                                text: fullId + ']]', // Insert the full ID
-                                displayText: displayName !== fullId ? `${displayName} (${fullId})` : displayName, // Show display name with ID if different
-                                hint: function(cm, data, completion) {
-                                    // Custom completion handler - insert the full ID
-                                    cm.replaceRange(completion.text, data.from, data.to, "complete");
-                                }
-                            };
-                        });
-                        
-                        // Determine the 'from' and 'to' positions for replacement
-                        const from = fromPos;
-                        const to = cursor;
-
-                        return accept({list: hints, from: from, to: to});
-                    }
-                    return accept(null);
-                })
-                .catch(function() {
-                    return accept(null);
-                });
-        });
-    };
-
-
-    // Initial load
-    document.addEventListener('DOMContentLoaded', function() {
+    // Initial load - handle both cases where DOM is already loaded or still loading
+    function initializePromptEditor() {
         initializeEditor();
         const searchReplace = new SearchReplace(editor); // Instantiate SearchReplace
         
@@ -1324,8 +1324,8 @@ function example() {
             
             // Initialize new prompt modal with current directory context
             const currentDirectory = currentPromptData ? currentPromptData.directory : null;
-            newPromptModal = new NewPromptModal('prompt_editor', currentDirectory);
-            newPromptModal.populateDirectorySelect(directories);
+            editorNewPromptModal = new NewPromptModal('prompt_editor', currentDirectory);
+            editorNewPromptModal.populateDirectorySelect(directories);
         }).catch(error => {
             console.error('Error during initialization:', error);
         });
@@ -1433,7 +1433,14 @@ function example() {
                 }
             }
         });
+    }
 
-    });
+    // Execute initialization immediately if DOM is already loaded, otherwise wait for DOMContentLoaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializePromptEditor);
+    } else {
+        // DOM is already loaded, execute immediately
+        initializePromptEditor();
+    }
 </script>
 {% endblock %}

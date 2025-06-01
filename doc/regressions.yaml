@@ -1,72 +1,21 @@
 # Regression Tracking Log
-# 
-# This file tracks all regressions (unintentional loss of functionality) 
-# discovered in the Prompt Manager project.
-#
-# Format:
-# - date: YYYY-MM-DD
-#   symptom: "Brief description of the problem"
-#   cause: "Root cause analysis"
-#   broken_feature: "feature/branch that introduced the issue" 
-#   break_commit: "commit hash that broke it"
-#   fix_commit: "commit hash that fixed it"
-#   ai_involved: true/false
-#   pattern: ["tag1", "tag2", "tag3"]
-#   severity: "critical"|"major"|"minor"
-#   impact: "Description of impact"
-#   detection_method: "How was this discovered"
+# All regressions (unintentional loss of functionality) must be recorded here
 
 regressions:
-  - date: 2025-05-30
-    symptom: "30 unit tests failing including server configuration tests with AttributeError on string object"
-    cause: "Multiple test issues: incorrect mock usage, server running during tests, missing fixtures, and API connectivity problems"
-    broken_feature: "test-suite-comprehensive"
-    break_commit: "unknown"
-    fix_commit: "pending"
+  - date: 2025-06-01
+    symptom: "Prompt editor page loads but CodeMirror editor area is completely empty, preventing all editing functionality"
+    cause: "JavaScript variable name conflict - global 'newPromptModal' in new_prompt_modal.js conflicted with local declaration in prompt_editor.html template"
+    broken_feature: "feat/new-prompt-on-prompt-editor"
+    break_commit: "Not tracked - change made via edit_block during AI session"
+    fix_commit: "Not tracked - change made via edit_block during AI session" 
     ai_involved: true
-    pattern: ["test-failure", "mock-configuration", "server-dependencies", "test-isolation"]
-    severity: "critical"
-    impact: "Cannot verify code quality, regression protection disabled"
-    detection_method: "Manual test execution via `make test`"
-  
-  - date: 2025-05-30
-    symptom: "Maximum recursion depth exceeded in FastAPI jsonable_encoder when mocking templates.TemplateResponse"
-    cause: "Mock objects create circular references that cause infinite recursion during JSON serialization"
-    broken_feature: "test-template-mocking"
-    break_commit: "unknown"
-    fix_commit: "5d90eee, 31d6c7a"
+    pattern: ["variable-conflict", "global-scope-pollution", "javascript-error", "missing-error-handling"]
+    
+  - date: 2025-06-01
+    symptom: "JavaScript functions undefined, DOMContentLoaded event handler not executing"
+    cause: "Forward reference to window.promptHint function before it was defined, plus DOM timing issues"
+    broken_feature: "feat/new-prompt-on-prompt-editor"
+    break_commit: "Not tracked - change made via edit_block during AI session"
+    fix_commit: "Not tracked - change made via edit_block during AI session"
     ai_involved: true
-    pattern: ["recursion-error", "mock-circular-reference", "fastapi-serialization", "template-mocking"]
-    severity: "critical"
-    impact: "Server endpoints fail with recursion error when templates are mocked"
-    detection_method: "Manual test with template mocking"
-    resolution: "Replaced template mocking with actual endpoint testing, fixed static files mocking"
-    status: "resolved"
-
-  - date: 2025-05-30
-    symptom: "Session management tests failing with function not found errors and incorrect response generation"
-    cause: "Multiple issues: patching aliased function names instead of real names, complex Path mocking, and logic bug in generate_response() conditional ordering"
-    broken_feature: "session-management-tests"
-    break_commit: "unknown"
-    fix_commit: "241ee6c"
-    ai_involved: true
-    pattern: ["import-alias-confusion", "path-mocking-complexity", "conditional-logic-ordering", "worker-capability-matching"]
-    severity: "major"
-    impact: "Session management functionality not properly tested, core response generation logic broken"
-    detection_method: "Unit test execution"
-    resolution: "Fixed patch names to real functions, simplified Path mocking, reordered conditional logic, fixed capability matching algorithm"
-    status: "resolved"
-
-  - date: 2025-05-30
-    symptom: "WebSocket test failing due to dependency list order mismatch"
-    cause: "Test assertion compared list order from set iteration, which is non-deterministic"
-    broken_feature: "websocket-expansion-test"
-    break_commit: "unknown"
-    fix_commit: "241ee6c"
-    ai_involved: true
-    pattern: ["set-iteration-non-determinism", "test-assertion-order-dependency"]
-    severity: "minor"
-    impact: "WebSocket expansion functionality test was flaky"
-    detection_method: "Unit test execution"
-    resolution: "Changed assertion from list comparison to set comparison"
-    status: "resolved"
+    pattern: ["forward-reference", "function-hoisting", "dom-timing", "initialization-order"]
