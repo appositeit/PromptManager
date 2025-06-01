@@ -160,6 +160,25 @@ async def get_all_directories(prompt_service: PromptServiceClass = Depends(get_p
     """Get all configured prompt directories."""
     return [d.dict() for d in prompt_service.directories]
 
+@router.get("/directories/{directory_path:path}/prompts", response_model=List[Dict])
+async def get_directory_prompts(directory_path: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """Get all prompts in a specific directory with display names."""
+    logger.info(f"Getting prompts for directory: {directory_path}")
+    try:
+        # Get all prompts and filter by directory
+        all_prompts = prompt_service.get_all_prompts(include_content=False, include_display_names=True)
+        directory_prompts = [p for p in all_prompts if p["directory"] == directory_path]
+        
+        # Sort alphabetically by display name for better UX
+        directory_prompts.sort(key=lambda p: p.get("display_name", p["id"]).lower())
+        
+        logger.info(f"Found {len(directory_prompts)} prompts in directory: {directory_path}")
+        return directory_prompts
+        
+    except Exception as e:
+        logger.opt(exception=True).error(f"Error getting directory prompts for {directory_path}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error while getting directory prompts")
+
 @router.post("/directories", response_model=Dict)
 async def add_directory(directory: DirectoryCreate, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
     """Add a new prompt directory."""

@@ -7,6 +7,7 @@
 <script src="/static/js/utils.js"></script>
 <script src="/static/js/new_prompt_modal.js"></script>
 <script src="/static/js/search-replace.js"></script>
+<script src="/static/js/collapsible-sidebar.js"></script>
 {% endblock %}
 
 {% block header_title %}{{ template_safe_prompt_id }}{% endblock %}
@@ -151,86 +152,120 @@
         
         <!-- Sidebar with metadata and references - takes up less space -->
         <div class="col-md-3">
-            <!-- Description and Tags card -->
-            <div class="card mb-3">
-                <div class="card-header">
+            <!-- Metadata card -->
+            <div class="card mb-3 sidebar-card" data-card-id="metadata">
+                <div class="card-header collapsible-header" tabindex="0" role="button" aria-expanded="true">
                     <h5 class="card-title mb-0">Metadata</h5>
+                    <i class="bi bi-chevron-down collapse-chevron"></i>
                 </div>
-                <div class="card-body">
-                    <div class="mb-2">
-                        <div class="d-flex align-items-center">
-                            <span class="badge rounded-pill me-2" id="is-composite-badge">Standard</span>
-                            <span class="ms-auto small text-muted">Last updated: <span id="last-updated">-</span></span>
+                <div class="collapse show collapsible-content">
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <div class="d-flex align-items-center">
+                                <span class="badge rounded-pill me-2" id="is-composite-badge">Standard</span>
+                                <span class="ms-auto small text-muted">Last updated: <span id="last-updated">-</span></span>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <span class="small text-muted">Directory: <span id="prompt-directory" class="fw-semibold">-</span></span>
+                        </div>
+                        <div class="mb-3">
+                            <label for="prompt-description" class="form-label">Description</label>
+                            <input type="text" class="form-control form-control-sm" id="prompt-description">
+                        </div>
+                        <div class="mb-3">
+                            <label for="prompt-tags" class="form-label">Tags</label>
+                            <input type="text" class="form-control form-control-sm" id="prompt-tags" placeholder="tag1, tag2, tag3">
                         </div>
                     </div>
-                    <div class="mb-2">
-                        <span class="small text-muted">Directory: <span id="prompt-directory" class="fw-semibold">-</span></span>
-                    </div>
-                    <div class="mb-3">
-                        <label for="prompt-description" class="form-label">Description</label>
-                        <input type="text" class="form-control form-control-sm" id="prompt-description">
-                    </div>
-                    <div class="mb-3">
-                        <label for="prompt-tags" class="form-label">Tags</label>
-                        <input type="text" class="form-control form-control-sm" id="prompt-tags" placeholder="tag1, tag2, tag3">
+                </div>
+            </div>
+            
+            <!-- Directory Prompts card -->
+            <div class="card mb-3 sidebar-card" data-card-id="directoryPrompts">
+                <div class="card-header collapsible-header" tabindex="0" role="button" aria-expanded="true">
+                    <h5 class="card-title mb-0">Directory Prompts</h5>
+                    <i class="bi bi-chevron-down collapse-chevron"></i>
+                </div>
+                <div class="collapse show collapsible-content">
+                    <div class="card-body p-0">
+                        <div class="small text-muted p-2 border-bottom">
+                            Other prompts in this directory. Click to navigate, drag to insert.
+                        </div>
+                        <div id="directory-prompts-list" class="directory-prompts-list">
+                            <div class="text-center p-2">
+                                <div class="spinner-border spinner-border-sm"></div> Loading...
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
             
             <!-- Dependencies card -->
-            <div class="card mb-3">
-                <div class="card-header">
+            <div class="card mb-3 sidebar-card" data-card-id="dependencies">
+                <div class="card-header collapsible-header" tabindex="0" role="button" aria-expanded="true">
                     <h5 class="card-title mb-0">Dependencies</h5>
+                    <i class="bi bi-chevron-down collapse-chevron"></i>
                 </div>
-                <div class="card-body">
-                    <div id="dependencies">
-                        <p class="text-muted">No dependencies found.</p>
+                <div class="collapse show collapsible-content">
+                    <div class="card-body">
+                        <div id="dependencies">
+                            <p class="text-muted">No dependencies found.</p>
+                        </div>
                     </div>
                 </div>
             </div>
             
             <!-- Referenced By card -->
-            <div class="card mb-3">
-                <div class="card-header">
+            <div class="card mb-3 sidebar-card" data-card-id="referencedBy">
+                <div class="card-header collapsible-header" tabindex="0" role="button" aria-expanded="true">
                     <h5 class="card-title mb-0">Referenced By</h5>
+                    <i class="bi bi-chevron-down collapse-chevron"></i>
                 </div>
-                <div class="card-body">
-                    <div id="referenced-by">
-                        <p class="text-muted">Loading references...</p>
+                <div class="collapse show collapsible-content">
+                    <div class="card-body">
+                        <div id="referenced-by">
+                            <p class="text-muted">Loading references...</p>
+                        </div>
                     </div>
                 </div>
             </div>
             
             <!-- Markdown Cheat Sheet card -->
-            <div class="card mb-3">
-                <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="card mb-3 sidebar-card" data-card-id="markdownCheat">
+                <div class="card-header collapsible-header" tabindex="0" role="button" aria-expanded="true">
                     <h6 class="card-title mb-0">Markdown Quick Reference</h6>
-                    <button id="markdown-help-btn" class="btn btn-outline-info btn-sm" title="Detailed Markdown Help">
-                        <i class="bi bi-question-circle"></i>
-                    </button>
+                    <div class="d-flex align-items-center">
+                        <button id="markdown-help-btn" class="btn btn-outline-info btn-sm me-2" title="Detailed Markdown Help" onclick="event.stopPropagation();">
+                            <i class="bi bi-question-circle"></i>
+                        </button>
+                        <i class="bi bi-chevron-down collapse-chevron"></i>
+                    </div>
                 </div>
-                <div class="card-body p-2">
-                    <div class="markdown-cheat-sheet">
-                        <div class="row g-1">
-                            <div class="col-12">
-                                <small class="text-muted d-block mb-1">Headers:</small>
-                                <code class="small"># H1  ## H2  ### H3</code>
-                            </div>
-                            <div class="col-12">
-                                <small class="text-muted d-block mb-1">Text:</small>
-                                <code class="small">**bold** *italic* `code`</code>
-                            </div>
-                            <div class="col-12">
-                                <small class="text-muted d-block mb-1">Lists:</small>
-                                <code class="small">- item  1. numbered</code>
-                            </div>
-                            <div class="col-12">
-                                <small class="text-muted d-block mb-1">Links:</small>
-                                <code class="small">[text](url)</code>
-                            </div>
-                            <div class="col-12">
-                                <small class="text-muted d-block mb-1">Include Prompts:</small>
-                                <code class="small">[[prompt_name]]</code>
+                <div class="collapse show collapsible-content">
+                    <div class="card-body p-2">
+                        <div class="markdown-cheat-sheet">
+                            <div class="row g-1">
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Headers:</small>
+                                    <code class="small"># H1  ## H2  ### H3</code>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Text:</small>
+                                    <code class="small">**bold** *italic* `code`</code>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Lists:</small>
+                                    <code class="small">- item  1. numbered</code>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Links:</small>
+                                    <code class="small">[text](url)</code>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Include Prompts:</small>
+                                    <code class="small">[[prompt_name]]</code>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -397,6 +432,7 @@ function example() {
 {% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="/static/css/collapsible-sidebar.css">
 <style>
     /* Smart responsive layout that adapts to content height */
     #editor {
