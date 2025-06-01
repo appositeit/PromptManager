@@ -1,0 +1,127 @@
+        <!-- Sidebar with metadata and references - takes up less space -->
+        <div class="col-md-3">
+            <!-- Metadata card -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Metadata</h5>
+                    <button type="button" class="btn btn-sm btn-link p-0 sidebar-collapse-btn" data-bs-toggle="collapse" data-bs-target="#metadata-collapse" aria-expanded="true" aria-controls="metadata-collapse">
+                        <i class="bi bi-chevron-up"></i>
+                    </button>
+                </div>
+                <div class="collapse show" id="metadata-collapse">
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <div class="d-flex align-items-center">
+                                <span class="badge rounded-pill me-2" id="is-composite-badge">Standard</span>
+                                <span class="ms-auto small text-muted">Last updated: <span id="last-updated">-</span></span>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <span class="small text-muted">Directory: <span id="prompt-directory" class="fw-semibold">-</span></span>
+                        </div>
+                        <div class="mb-3">
+                            <label for="prompt-description" class="form-label">Description</label>
+                            <input type="text" class="form-control form-control-sm" id="prompt-description">
+                        </div>
+                        <div class="mb-3">
+                            <label for="prompt-tags" class="form-label">Tags</label>
+                            <input type="text" class="form-control form-control-sm" id="prompt-tags" placeholder="tag1, tag2, tag3">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Directory Prompts card -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Directory Prompts</h5>
+                    <button type="button" class="btn btn-sm btn-link p-0 sidebar-collapse-btn" data-bs-toggle="collapse" data-bs-target="#directory-prompts-collapse" aria-expanded="true" aria-controls="directory-prompts-collapse">
+                        <i class="bi bi-chevron-up"></i>
+                    </button>
+                </div>
+                <div class="collapse show" id="directory-prompts-collapse">
+                    <div class="card-body">
+                        <div id="directory-prompts">
+                            <p class="text-muted">Loading directory prompts...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Dependencies card -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Dependencies</h5>
+                    <button type="button" class="btn btn-sm btn-link p-0 sidebar-collapse-btn" data-bs-toggle="collapse" data-bs-target="#dependencies-collapse" aria-expanded="true" aria-controls="dependencies-collapse">
+                        <i class="bi bi-chevron-up"></i>
+                    </button>
+                </div>
+                <div class="collapse show" id="dependencies-collapse">
+                    <div class="card-body">
+                        <div id="dependencies">
+                            <p class="text-muted">No dependencies found.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Referenced By card -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Referenced By</h5>
+                    <button type="button" class="btn btn-sm btn-link p-0 sidebar-collapse-btn" data-bs-toggle="collapse" data-bs-target="#referenced-by-collapse" aria-expanded="true" aria-controls="referenced-by-collapse">
+                        <i class="bi bi-chevron-up"></i>
+                    </button>
+                </div>
+                <div class="collapse show" id="referenced-by-collapse">
+                    <div class="card-body">
+                        <div id="referenced-by">
+                            <p class="text-muted">Loading references...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Markdown Cheat Sheet card -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="card-title mb-0">Markdown Quick Reference</h6>
+                    <div class="d-flex align-items-center">
+                        <button id="markdown-help-btn" class="btn btn-outline-info btn-sm me-2" title="Detailed Markdown Help">
+                            <i class="bi bi-question-circle"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-link p-0 sidebar-collapse-btn" data-bs-toggle="collapse" data-bs-target="#markdown-cheat-collapse" aria-expanded="true" aria-controls="markdown-cheat-collapse">
+                            <i class="bi bi-chevron-up"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="collapse show" id="markdown-cheat-collapse">
+                    <div class="card-body p-2">
+                        <div class="markdown-cheat-sheet">
+                            <div class="row g-1">
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Headers:</small>
+                                    <code class="small"># H1  ## H2  ### H3</code>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Text:</small>
+                                    <code class="small">**bold** *italic* `code`</code>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Lists:</small>
+                                    <code class="small">- item  1. numbered</code>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Links:</small>
+                                    <code class="small">[text](url)</code>
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-muted d-block mb-1">Include Prompts:</small>
+                                    <code class="small">[[prompt_name]]</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>

@@ -1,9 +1,0 @@
-Collecting pytest-asyncio
-  Using cached pytest_asyncio-0.26.0-py3-none-any.whl.metadata (4.0 kB)
-Requirement already satisfied: pytest<9,>=8.2 in /home/jem/development/prompt_manager/mie_venv/lib/python3.13/site-packages (from pytest-asyncio) (8.3.5)
-Requirement already satisfied: iniconfig in /home/jem/development/prompt_manager/mie_venv/lib/python3.13/site-packages (from pytest<9,>=8.2->pytest-asyncio) (2.1.0)
-Requirement already satisfied: packaging in /home/jem/development/prompt_manager/mie_venv/lib/python3.13/site-packages (from pytest<9,>=8.2->pytest-asyncio) (25.0)
-Requirement already satisfied: pluggy<2,>=1.5 in /home/jem/development/prompt_manager/mie_venv/lib/python3.13/site-packages (from pytest<9,>=8.2->pytest-asyncio) (1.6.0)
-Using cached pytest_asyncio-0.26.0-py3-none-any.whl (19 kB)
-Installing collected packages: pytest-asyncio
-Successfully installed pytest-asyncio-0.26.0
