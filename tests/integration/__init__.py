@@ -1,1 +1,1 @@
-# Integration tests for prompt manager
+# Integration test fixtures

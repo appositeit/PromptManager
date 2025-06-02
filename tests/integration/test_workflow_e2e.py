@@ -1,19 +1,15 @@
 """
 End-to-End Workflow Tests  
-Tests complete user workflows that were broken
+Tests complete user workflows using test prompts
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from src.server import app
 import json
+from .test_fixtures import TestPromptsHelper
 
 class TestPromptEditingWorkflow:
     """Test the complete prompt editing workflow"""
-    
-    @pytest.fixture
-    def client(self):
-        return TestClient(app)
     
     @pytest.fixture
     def test_prompt_data(self):
@@ -25,8 +21,9 @@ class TestPromptEditingWorkflow:
             "tags": ["test", "workflow"]
         }
     
-    def test_complete_prompt_lifecycle(self, client, test_prompt_data):
+    def test_complete_prompt_lifecycle(self, test_client_with_test_prompts, test_prompt_data):
         """Test complete create -> read -> update -> delete workflow"""
+        client = test_client_with_test_prompts
         
         # 1. CREATE: Create a new prompt
         create_response = client.post("/api/prompts/", json=test_prompt_data)
@@ -72,18 +69,28 @@ class TestPromptEditingWorkflow:
             final_read_response = client.get(f"/api/prompts/{prompt_id}")
             assert final_read_response.status_code == 404
     
-    def test_prompt_saving_preserves_metadata(self, client):
+    def test_prompt_saving_preserves_metadata(self, test_client_with_test_prompts):
         """Test that saving prompts preserves all metadata correctly"""
+        client = test_client_with_test_prompts
         
-        # Use an existing prompt for this test
+        # Use an existing test prompt for this test
         existing_prompt_response = client.get("/api/prompts/all")
         assert existing_prompt_response.status_code == 200
         
         all_prompts = existing_prompt_response.json()
-        if len(all_prompts) > 0:
-            # Use the first available prompt
-            test_prompt = all_prompts[0]
-            prompt_id = test_prompt["id"]
+        
+        # Find a specific test prompt
+        test_prompt_ids = TestPromptsHelper.get_test_prompt_ids()
+        test_prompt = None
+        prompt_id = None
+        
+        for prompt in all_prompts:
+            if prompt["id"] in test_prompt_ids:
+                test_prompt = prompt
+                prompt_id = prompt["id"]
+                break
+        
+        if test_prompt:
             
             # Get full prompt details
             prompt_response = client.get(f"/api/prompts/{prompt_id}")
@@ -113,12 +120,9 @@ class TestPromptEditingWorkflow:
 class TestDependencyTrackingWorkflow:
     """Test prompt dependency and reference tracking workflow"""
     
-    @pytest.fixture
-    def client(self):
-        return TestClient(app)
-    
-    def test_referenced_by_tracking(self, client):
+    def test_referenced_by_tracking(self, test_client_with_test_prompts):
         """Test that referenced_by correctly tracks prompt dependencies"""
+        client = test_client_with_test_prompts
         
         # Get all prompts to find ones with dependencies
         all_prompts_response = client.get("/api/prompts/all")
@@ -126,25 +130,19 @@ class TestDependencyTrackingWorkflow:
         
         all_prompts = all_prompts_response.json()
         
-        # Find prompts with embedded content (containing [[...]])
+        # Use known test prompt dependencies
+        dependency_relationships = TestPromptsHelper.get_dependency_relationships()
+        
+        # Find test prompts with dependencies
         prompts_with_deps = []
         reference_targets = set()
         
         for prompt in all_prompts:
             prompt_id = prompt["id"]
-            
-            # Get full prompt details
-            details_response = client.get(f"/api/prompts/{prompt_id}")
-            if details_response.status_code == 200:
-                full_prompt = details_response.json()
-                content = full_prompt.get("content", "")
-                
-                # Check for embedded references [[...]]
-                import re
-                references = re.findall(r'\[\[([^\]]+)\]\]', content)
-                if references:
-                    prompts_with_deps.append((prompt_id, references))
-                    reference_targets.update(references)
+            if prompt_id in dependency_relationships:
+                dependencies = dependency_relationships[prompt_id]
+                prompts_with_deps.append((prompt_id, dependencies))
+                reference_targets.update(dependencies)
         
         # Test referenced_by for targets that should have references
         for target in reference_targets:
@@ -170,110 +168,118 @@ class TestDependencyTrackingWorkflow:
             else:
                 pytest.fail(f"Could not find working ID format for referenced target: {target}")
     
-    def test_dependency_consistency(self, client):
+    def test_dependency_consistency(self, test_client_with_test_prompts):
         """Test that dependency tracking is bidirectionally consistent"""
+        client = test_client_with_test_prompts
         
         # Get a prompt with dependencies
         all_prompts_response = client.get("/api/prompts/all")
         assert all_prompts_response.status_code == 200
         
         all_prompts = all_prompts_response.json()
+        dependency_relationships = TestPromptsHelper.get_dependency_relationships()
         
         for prompt in all_prompts:
             prompt_id = prompt["id"]
             
-            # Get full prompt details
-            details_response = client.get(f"/api/prompts/{prompt_id}")
-            if details_response.status_code == 200:
-                full_prompt = details_response.json()
-                dependencies = full_prompt.get("dependencies", [])
+            # Only test prompts with known dependencies
+            if prompt_id in dependency_relationships:
+                expected_deps = dependency_relationships[prompt_id]
                 
-                if dependencies:
-                    # For each dependency, check that this prompt appears in its referenced_by
-                    for dep in dependencies:
-                        dep_id = dep["id"]
-                        
-                        # Get referenced_by for the dependency
-                        ref_response = client.get(f"/api/prompts/{dep_id}/referenced_by")
-                        
-                        if ref_response.status_code == 200:
-                            references = ref_response.json()
-                            referencing_ids = [ref["id"] for ref in references]
+                # Get full prompt details
+                details_response = client.get(f"/api/prompts/{prompt_id}")
+                if details_response.status_code == 200:
+                    full_prompt = details_response.json()
+                    dependencies = full_prompt.get("dependencies", [])
+                    
+                    if dependencies:
+                        # For each dependency, check that this prompt appears in its referenced_by
+                        for dep in dependencies:
+                            dep_id = dep["id"] if isinstance(dep, dict) else dep
                             
-                            # This prompt should appear in the dependency's referenced_by list
-                            assert prompt_id in referencing_ids, \
-                                f"Bidirectional consistency failed: {prompt_id} depends on {dep_id} " \
-                                f"but {dep_id} doesn't list {prompt_id} in referenced_by"
+                            # Get referenced_by for the dependency
+                            ref_response = client.get(f"/api/prompts/{dep_id}/referenced_by")
+                            
+                            if ref_response.status_code == 200:
+                                references = ref_response.json()
+                                referencing_ids = [ref["id"] for ref in references]
+                                
+                                # This prompt should appear in the dependency's referenced_by list
+                                assert prompt_id in referencing_ids, \
+                                    f"Bidirectional consistency failed: {prompt_id} depends on {dep_id} " \
+                                    f"but {dep_id} doesn't list {prompt_id} in referenced_by"
 
 
 class TestContentExpansionWorkflow:
     """Test prompt content expansion workflow"""
     
-    @pytest.fixture  
-    def client(self):
-        return TestClient(app)
-    
-    def test_content_expansion_endpoint(self, client):
+    def test_content_expansion_endpoint(self, test_client_with_test_prompts):
         """Test that content expansion works correctly"""
+        client = test_client_with_test_prompts
         
-        # Find a prompt with embedded content
+        # Use a known composite test prompt
+        composite_prompts = TestPromptsHelper.get_composite_test_prompts()
+        
+        # Get all prompts to find our test prompts
         all_prompts_response = client.get("/api/prompts/all")
         assert all_prompts_response.status_code == 200
         
         all_prompts = all_prompts_response.json()
         
+        # Find a composite test prompt
+        test_prompt = None
         for prompt in all_prompts:
-            prompt_id = prompt["id"]
-            
-            # Get full prompt details
-            details_response = client.get(f"/api/prompts/{prompt_id}")
-            if details_response.status_code == 200:
-                full_prompt = details_response.json()
-                content = full_prompt.get("content", "")
+            if prompt["id"] in composite_prompts:
+                test_prompt = prompt
+                break
                 
-                # Check for embedded references
-                if "[[" in content and "]]" in content:
-                    # Test expansion endpoint
-                    expansion_data = {
-                        "prompt_id": prompt_id,
-                        "directory": full_prompt.get("directory")
-                    }
-                    
-                    expand_response = client.post("/api/prompts/expand", json=expansion_data)
-                    
-                    if expand_response.status_code == 200:
-                        expansion = expand_response.json()
-                        
-                        # Verify expansion response structure
-                        required_fields = ["prompt_id", "original_content", "expanded_content", "dependencies"]
-                        for field in required_fields:
-                            assert field in expansion, f"Missing field in expansion: {field}"
-                        
-                        # Verify content was actually expanded
-                        original = expansion["original_content"]
-                        expanded = expansion["expanded_content"]
-                        
-                        # Expanded content should be different if there were references to expand
-                        if expansion["dependencies"]:
-                            assert expanded != original, \
-                                f"Content should have been expanded for {prompt_id} with dependencies"
-                        
-                        # Dependencies should be a list
-                        assert isinstance(expansion["dependencies"], list)
-                        
-                        return  # Found and tested a prompt with embedded content
+        assert test_prompt is not None, f"Could not find composite test prompt from {composite_prompts}"
         
-        # If no prompts with embedded content found, create a test case
-        pytest.skip("No prompts with embedded content found for expansion testing")
+        prompt_id = test_prompt["id"]
+        
+        # Get full prompt details
+        details_response = client.get(f"/api/prompts/{prompt_id}")
+        assert details_response.status_code == 200
+        
+        full_prompt = details_response.json()
+        
+        # Test expansion endpoint
+        expansion_data = {
+            "prompt_id": prompt_id,
+            "directory": full_prompt.get("directory")
+        }
+        
+        expand_response = client.post("/api/prompts/expand", json=expansion_data)
+        assert expand_response.status_code == 200
+        
+        expansion = expand_response.json()
+        
+        # Verify expansion response structure
+        required_fields = ["prompt_id", "original_content", "expanded_content", "dependencies"]
+        for field in required_fields:
+            assert field in expansion, f"Missing field in expansion: {field}"
+        
+        # Verify content was actually expanded
+        original = expansion["original_content"]
+        expanded = expansion["expanded_content"]
+        
+        # Expanded content should be different since we know this is a composite prompt
+        assert expanded != original, f"Content should have been expanded for composite prompt {prompt_id}"
+        
+        # Dependencies should be a list and not empty for composite prompts
+        assert isinstance(expansion["dependencies"], list)
+        assert len(expansion["dependencies"]) > 0, f"Composite prompt {prompt_id} should have dependencies"
     
-    def test_inline_dependency_detection(self, client):
+    def test_inline_dependency_detection(self, test_client_with_test_prompts):
         """Test that dependencies are correctly detected in prompt content"""
+        client = test_client_with_test_prompts
         
         # Get prompts and check their dependency detection
         all_prompts_response = client.get("/api/prompts/all")
         assert all_prompts_response.status_code == 200
         
         all_prompts = all_prompts_response.json()
+        dependency_relationships = TestPromptsHelper.get_dependency_relationships()
         
         dependency_checks = []
         
@@ -291,27 +297,30 @@ class TestContentExpansionWorkflow:
                 import re
                 embedded_refs = re.findall(r'\[\[([^\]]+)\]\]', content)
                 
+                # Get expected dependencies for test prompts
+                expected_deps = dependency_relationships.get(prompt_id, [])
+                
                 dependency_checks.append({
                     "prompt_id": prompt_id,
                     "embedded_count": len(embedded_refs),
                     "reported_count": len(reported_deps),
+                    "expected_count": len(expected_deps),
                     "embedded_refs": embedded_refs,
-                    "reported_deps": [dep["id"] for dep in reported_deps]
+                    "reported_deps": [dep["id"] if isinstance(dep, dict) else dep for dep in reported_deps],
+                    "expected_deps": expected_deps
                 })
         
-        # Verify dependency detection accuracy
-        mismatches = []
+        # For test prompts with known dependencies, verify accuracy
         for check in dependency_checks:
-            if check["embedded_count"] != check["reported_count"]:
-                mismatches.append(check)
-        
-        if mismatches:
-            # Allow some mismatches but log them for investigation
-            print(f"Dependency detection mismatches: {mismatches}")
-            
-            # Fail only if there are many mismatches (indicates systematic issue)
-            mismatch_ratio = len(mismatches) / len(dependency_checks)
-            assert mismatch_ratio < 0.5, f"Too many dependency detection mismatches: {mismatch_ratio:.2%}"
+            if check["prompt_id"] in dependency_relationships:
+                # For known test prompts, we can be strict about dependency detection
+                expected_count = check["expected_count"]
+                reported_count = check["reported_count"]
+                
+                assert reported_count == expected_count, \
+                    f"Dependency count mismatch for {check['prompt_id']}: " \
+                    f"expected {expected_count}, reported {reported_count}. " \
+                    f"Expected: {check['expected_deps']}, Reported: {check['reported_deps']}"
 
 
 if __name__ == "__main__":
