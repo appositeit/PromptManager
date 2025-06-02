@@ -172,7 +172,7 @@ class TestAPIEndpointFunctionality:
     def sample_prompt_data(self):
         return {
             "name": "test_route_prompt",
-            "directory": "/tmp/test",
+            "directory": "/mnt/data/jem/development/prompt_manager/tests/test_prompts",
             "content": "This is test content",
             "description": "Test prompt for route testing"
         }

@@ -28,7 +28,7 @@ class TestPromptAPICRUD:
         """Test creating a new prompt via POST /api/prompts/"""
         test_prompt = {
             "name": "test_api_prompt",
-            "directory": "/tmp/test_api",
+            "directory": "/mnt/data/jem/development/prompt_manager/tests/test_prompts",
             "content": "This is a test prompt created via API",
             "description": "Test prompt for API integration testing",
             "tags": ["test", "api", "integration"]
@@ -36,7 +36,7 @@ class TestPromptAPICRUD:
         
         async with httpx.AsyncClient(base_url=BASE_URL, timeout=10.0) as client:
             # Clean up first in case test prompt exists
-            await client.delete(f"/prompts/test_api/test_api_prompt")
+            await client.delete(f"/prompts/tests/test_prompts/test_api_prompt")
             
             # Create the prompt
             response = await client.post("/prompts/", json=test_prompt)
@@ -103,13 +103,13 @@ class TestPromptAPICRUD:
             # First create a test prompt
             test_prompt = {
                 "name": "test_update_prompt",
-                "directory": "/tmp/test_update",
+                "directory": "/mnt/data/jem/development/prompt_manager/tests/test_prompts",
                 "content": "Original content",
                 "description": "Original description"
             }
             
             # Clean up first
-            await client.delete(f"/prompts/test_update/test_update_prompt")
+            await client.delete(f"/prompts/tests/test_prompts/test_update_prompt")
             
             create_response = await client.post("/prompts/", json=test_prompt)
             if create_response.status_code != 201:
@@ -145,7 +145,7 @@ class TestPromptAPICRUD:
             # First create a test prompt
             test_prompt = {
                 "name": "test_delete_prompt",
-                "directory": "/tmp/test_delete",
+                "directory": "/mnt/data/jem/development/prompt_manager/tests/test_prompts",
                 "content": "This prompt will be deleted",
                 "description": "Test prompt for deletion"
             }
@@ -245,22 +245,23 @@ class TestPromptAPIAdvanced:
             # First create a test prompt
             test_prompt = {
                 "name": "test_rename_original",
-                "directory": "/tmp/test_rename",
+                "directory": "/mnt/data/jem/development/prompt_manager/tests/test_prompts",
                 "content": "Content for rename test",
                 "description": "Original prompt for rename testing"
             }
             
             # Clean up first - be more thorough
-            await client.delete(f"/prompts/test_rename/test_rename_original")
-            await client.delete(f"/prompts/test_rename/test_rename_new")
+            await client.delete(f"/prompts/tests/test_prompts/test_rename_original")
+            await client.delete(f"/prompts/tests/test_prompts/test_rename_new")
             
             # Also clean up any files that might exist
             import os
+            test_dir = "/mnt/data/jem/development/prompt_manager/tests/test_prompts"
             try:
-                if os.path.exists("/tmp/test_rename/test_rename_original.md"):
-                    os.remove("/tmp/test_rename/test_rename_original.md")
-                if os.path.exists("/tmp/test_rename/test_rename_new.md"):
-                    os.remove("/tmp/test_rename/test_rename_new.md")
+                if os.path.exists(f"{test_dir}/test_rename_original.md"):
+                    os.remove(f"{test_dir}/test_rename_original.md")
+                if os.path.exists(f"{test_dir}/test_rename_new.md"):
+                    os.remove(f"{test_dir}/test_rename_new.md")
             except (OSError, FileNotFoundError):
                 pass  # Ignore cleanup errors
             
@@ -301,14 +302,15 @@ class TestPromptAPIAdvanced:
             finally:
                 # Clean up original if rename failed and both possible files
                 await client.delete(f"/prompts/{old_id}")
-                await client.delete(f"/prompts/test_rename/test_rename_new")
+                await client.delete(f"/prompts/tests/test_prompts/test_rename_new")
                 
                 # Final filesystem cleanup
+                test_dir = "/mnt/data/jem/development/prompt_manager/tests/test_prompts"
                 try:
-                    if os.path.exists("/tmp/test_rename/test_rename_original.md"):
-                        os.remove("/tmp/test_rename/test_rename_original.md")
-                    if os.path.exists("/tmp/test_rename/test_rename_new.md"):
-                        os.remove("/tmp/test_rename/test_rename_new.md")
+                    if os.path.exists(f"{test_dir}/test_rename_original.md"):
+                        os.remove(f"{test_dir}/test_rename_original.md")
+                    if os.path.exists(f"{test_dir}/test_rename_new.md"):
+                        os.remove(f"{test_dir}/test_rename_new.md")
                 except (OSError, FileNotFoundError):
                     pass  # Ignore cleanup errors
 
@@ -336,13 +338,13 @@ class TestAPIErrorHandling:
             
             test_prompt = {
                 "name": "test_large_content",
-                "directory": "/tmp/test_large",
+                "directory": "/mnt/data/jem/development/prompt_manager/tests/test_prompts",
                 "content": large_content,
                 "description": "Test prompt with large content"
             }
             
             # Clean up first
-            await client.delete(f"/prompts/test_large/test_large_content")
+            await client.delete(f"/prompts/tests/test_prompts/test_large_content")
             
             response = await client.post("/prompts/", json=test_prompt)
             
@@ -370,14 +372,14 @@ class TestAPIErrorHandling:
             for special_name in special_names:
                 test_prompt = {
                     "name": special_name,
-                    "directory": "/tmp/test_special",
+                    "directory": "/mnt/data/jem/development/prompt_manager/tests/test_prompts",
                     "content": f"Content for {special_name}",
                     "description": f"Test prompt with special name: {special_name}"
                 }
                 
                 # Clean up first (with sanitized name)
                 sanitized_name = special_name.replace(" ", "_")
-                await client.delete(f"/prompts/test_special/{sanitized_name}")
+                await client.delete(f"/prompts/tests/test_prompts/{sanitized_name}")
                 
                 response = await client.post("/prompts/", json=test_prompt)
                 

@@ -86,7 +86,7 @@ def sample_test_prompt_data():
     """Sample prompt data for creating test prompts."""
     return {
         "name": "integration_test_prompt",
-        "directory": "/tmp/test_integration",
+        "directory": "/mnt/data/jem/development/prompt_manager/tests/test_prompts",
         "content": "# Integration Test Prompt\n\nThis is a test prompt for integration testing.",
         "description": "Test prompt for integration testing",
         "tags": ["test", "integration"]
@@ -130,5 +130,5 @@ class TestPromptsHelper:
         """Get dictionary mapping prompts to their dependencies."""
         return {
             "test_composite": ["included_text"],
-            "dependency_test": ["simple_test", "tagged_test", "test_composite"]
+            "dependency_test": ["tagged_test", "simple_test", "included_text", "test_composite"]  # includes transitive deps
         }

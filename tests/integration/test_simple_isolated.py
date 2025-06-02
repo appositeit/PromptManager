@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from src.services.prompt_service import PromptService
 from src.server import create_app
+from .test_fixtures import IsolatedPromptService
 
 
 def test_simple_integration_with_test_prompts():
@@ -17,7 +18,7 @@ def test_simple_integration_with_test_prompts():
     test_prompts_dir = "/mnt/data/jem/development/prompt_manager/tests/test_prompts"
     
     # Create service with ONLY test directory, no config loading
-    service = PromptService(
+    service = IsolatedPromptService(
         base_directories=[test_prompts_dir],
         auto_load=True,
         create_default_directory_if_empty=False

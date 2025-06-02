@@ -21,7 +21,10 @@ from src.models.prompt import PromptDirectory
 class PromptService:
     """Service for managing prompts."""
     
-    CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".prompt_manager", "prompt_directories.json")
+    CONFIG_FILE = os.environ.get(
+        'PROMPT_MANAGER_CONFIG_FILE',
+        os.path.join(os.path.expanduser("~"), ".prompt_manager", "prompt_directories.json")
+    )
     PROJECT_ROOT_FOR_PROMPTS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     def __init__(self, 

@@ -139,8 +139,9 @@ class TestDependencyTrackingWorkflow:
         
         for prompt in all_prompts:
             prompt_id = prompt["id"]
-            if prompt_id in dependency_relationships:
-                dependencies = dependency_relationships[prompt_id]
+            prompt_name = prompt.get("name")
+            if prompt_name in dependency_relationships:
+                dependencies = dependency_relationships[prompt_name]
                 prompts_with_deps.append((prompt_id, dependencies))
                 reference_targets.update(dependencies)
         
@@ -181,10 +182,11 @@ class TestDependencyTrackingWorkflow:
         
         for prompt in all_prompts:
             prompt_id = prompt["id"]
+            prompt_name = prompt.get("name")
             
             # Only test prompts with known dependencies
-            if prompt_id in dependency_relationships:
-                expected_deps = dependency_relationships[prompt_id]
+            if prompt_name in dependency_relationships:
+                expected_deps = dependency_relationships[prompt_name]
                 
                 # Get full prompt details
                 details_response = client.get(f"/api/prompts/{prompt_id}")
@@ -205,8 +207,9 @@ class TestDependencyTrackingWorkflow:
                                 referencing_ids = [ref["id"] for ref in references]
                                 
                                 # This prompt should appear in the dependency's referenced_by list
+                                # Note: referencing_ids contains full path IDs, so we need to check if our prompt_id is in there
                                 assert prompt_id in referencing_ids, \
-                                    f"Bidirectional consistency failed: {prompt_id} depends on {dep_id} " \
+                                    f"Bidirectional consistency failed: {prompt_name}({prompt_id}) depends on {dep_id} " \
                                     f"but {dep_id} doesn't list {prompt_id} in referenced_by"
 
 
@@ -229,7 +232,8 @@ class TestContentExpansionWorkflow:
         # Find a composite test prompt
         test_prompt = None
         for prompt in all_prompts:
-            if prompt["id"] in composite_prompts:
+            # Compare by name instead of id since ids contain full paths
+            if prompt.get("name") in composite_prompts:
                 test_prompt = prompt
                 break
                 
@@ -285,6 +289,7 @@ class TestContentExpansionWorkflow:
         
         for prompt in all_prompts:
             prompt_id = prompt["id"]
+            prompt_name = prompt.get("name")
             
             # Get full prompt details
             details_response = client.get(f"/api/prompts/{prompt_id}")
@@ -298,10 +303,11 @@ class TestContentExpansionWorkflow:
                 embedded_refs = re.findall(r'\[\[([^\]]+)\]\]', content)
                 
                 # Get expected dependencies for test prompts
-                expected_deps = dependency_relationships.get(prompt_id, [])
+                expected_deps = dependency_relationships.get(prompt_name, [])
                 
                 dependency_checks.append({
                     "prompt_id": prompt_id,
+                    "prompt_name": prompt_name,
                     "embedded_count": len(embedded_refs),
                     "reported_count": len(reported_deps),
                     "expected_count": len(expected_deps),
@@ -312,13 +318,13 @@ class TestContentExpansionWorkflow:
         
         # For test prompts with known dependencies, verify accuracy
         for check in dependency_checks:
-            if check["prompt_id"] in dependency_relationships:
+            if check["prompt_name"] in dependency_relationships:
                 # For known test prompts, we can be strict about dependency detection
                 expected_count = check["expected_count"]
                 reported_count = check["reported_count"]
                 
                 assert reported_count == expected_count, \
-                    f"Dependency count mismatch for {check['prompt_id']}: " \
+                    f"Dependency count mismatch for {check['prompt_name']}: " \
                     f"expected {expected_count}, reported {reported_count}. " \
                     f"Expected: {check['expected_deps']}, Reported: {check['reported_deps']}"
 
