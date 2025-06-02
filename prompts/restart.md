@@ -2,7 +2,7 @@
 description: Prompt Manager restart prompt
 ---
 
-We are working on a project called prompt manager, which we extracted from another project we developed called coordinator. I do a lot of prompt management and this standalone tool is very useful.
+We are working on a project called prompt manager, which provides convenient prompt embdedding, shortcuts, etc.
 
 The project directory is here:
 `/home/jem/development/prompt_manager/`
@@ -23,7 +23,22 @@ The servers need a venv to run (as do the tests) these scripts make sure the ven
 
 [[project_maintenance_rules]]
 
-There are some legacy concepts in the code such as "fragments". Fragments are functionally the same as prompts, I don't want them and I want all code and references to fragments removed.
+## Working with Prompt Manager
 
+Use these scripts to manage stop/starting/restarting prompt manager:
+bin/stop_prompt_manager.sh
+bin/start_prompt_manager.sh
+bin/restart_prompt_manager.sh  
+
+Make sure to run:
+make lint
+make test
+
+or
+task ci:local
+
+...before submitting any code changes.
 
 # ToDo
+
+Please complete the git commit.
