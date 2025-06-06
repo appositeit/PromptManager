@@ -1427,9 +1427,10 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 row.dataset.promptId = prompt.unique_id; // Add dataset for unique_id
                 row.classList.add('prompt-row');         // Add class for easy selection
                 
-                // Directory cell
+                // Directory cell - show directory name instead of full path
                 const dirCell = document.createElement('td');
-                dirCell.textContent = prompt.directory || '';
+                const directoryData = directories.find(dir => dir.path === prompt.directory);
+                dirCell.textContent = directoryData ? directoryData.name : prompt.directory || '';
                 dirCell.title = prompt.directory || '';
                 
                 // Name cell (was ID cell)
@@ -2018,8 +2019,19 @@ Remember that you're part of a team - your specialized work contributes to solvi
             return response.json();
         })
         .then(data => {
-            // Success - reload directories and show toast
-            loadDirectories();
+            // Success - reload directories and prompts
+            loadDirectories().then(() => {
+                // After directories are loaded, reload prompts to show new prompts from the directory
+                loadPrompts().then(() => {
+                    showToast('Directory added successfully - prompts reloaded');
+                }).catch(err => {
+                    console.error('Error reloading prompts after adding directory:', err);
+                    showToast('Directory added successfully but failed to reload prompts', 'warning');
+                });
+            }).catch(err => {
+                console.error('Error reloading directories after adding:', err);
+                showToast('Directory added but failed to reload directory list', 'warning');
+            });
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('addDirectoryModal'));
@@ -2029,9 +2041,6 @@ Remember that you're part of a team - your specialized work contributes to solvi
             document.getElementById('directoryPath').value = '';
             document.getElementById('directoryName').value = '';
             document.getElementById('directoryDescription').value = '';
-            
-            // Show toast
-            showToast('Directory added successfully');
         })
         .catch(error => {
             console.error('Error adding directory:', error);
@@ -2094,15 +2103,23 @@ Remember that you're part of a team - your specialized work contributes to solvi
             return response.json();
         })
         .then(data => {
-            // Success - reload directories and show toast
-            loadDirectories();
+            // Success - reload directories and prompts
+            loadDirectories().then(() => {
+                // After directories are loaded, reload prompts to remove prompts from deleted directory
+                loadPrompts().then(() => {
+                    showToast('Directory removed successfully - prompts reloaded');
+                }).catch(err => {
+                    console.error('Error reloading prompts after removing directory:', err);
+                    showToast('Directory removed successfully but failed to reload prompts', 'warning');
+                });
+            }).catch(err => {
+                console.error('Error reloading directories after removal:', err);
+                showToast('Directory removed but failed to reload directory list', 'warning');
+            });
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('deleteDirectoryModal'));
             modal.hide();
-            
-            // Show toast
-            showToast('Directory removed successfully');
         })
         .catch(error => {
             console.error('Error removing directory:', error);
