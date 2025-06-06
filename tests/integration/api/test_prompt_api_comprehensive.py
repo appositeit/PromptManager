@@ -7,13 +7,71 @@ import pytest
 import httpx
 import asyncio
 import json
+import os
 from typing import Dict, Any, List
 
 # Base URL for the API
 BASE_URL = "http://localhost:8095/api"
 
+# Test directory for created files
+TEST_PROMPTS_DIR = "/mnt/data/jem/development/prompt_manager/tests/test_prompts"
+
 class TestPromptAPICRUD:
     """Test all CRUD operations on the prompt API"""
+    
+    @pytest.fixture(autouse=True)
+    async def setup_and_cleanup(self):
+        """Setup and cleanup for each test method."""
+        self.created_prompts = []
+        self.created_files = []
+        
+        yield  # Run the test
+        
+        # Cleanup after each test
+        await self._cleanup_prompts()
+        self._cleanup_files()
+    
+    async def _cleanup_prompts(self):
+        """Clean up created prompts via API."""
+        if not self.created_prompts:
+            return
+            
+        async with httpx.AsyncClient(base_url=BASE_URL, timeout=10.0) as client:
+            for prompt_id in self.created_prompts:
+                try:
+                    await client.delete(f"/prompts/{prompt_id}")
+                except Exception as e:
+                    print(f"Warning: Could not delete prompt {prompt_id}: {e}")
+                    
+    def _cleanup_files(self):
+        """Clean up created files from filesystem."""
+        for filepath in self.created_files:
+            try:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            except Exception as e:
+                print(f"Warning: Could not delete file {filepath}: {e}")
+                
+        # Also clean up common test file patterns
+        import glob
+        test_patterns = [
+            f"{TEST_PROMPTS_DIR}/test_api_prompt.md",
+            f"{TEST_PROMPTS_DIR}/test_update_prompt.md", 
+            f"{TEST_PROMPTS_DIR}/test_delete_prompt.md",
+            f"{TEST_PROMPTS_DIR}/test_rename_*.md",
+            f"{TEST_PROMPTS_DIR}/test_large_content.md",
+            f"{TEST_PROMPTS_DIR}/test*.md",  # Catch other test files
+        ]
+        
+        for pattern in test_patterns:
+            for filepath in glob.glob(pattern):
+                filename = os.path.basename(filepath)
+                # Don't delete permanent test fixtures
+                if filename not in ['simple_test.md', 'test_composite.md', 'tagged_test.md', 'dependency_test.md', 'included_text.md']:
+                    try:
+                        os.remove(filepath)
+                    except Exception as e:
+                        print(f"Warning: Could not delete test file {filepath}: {e}")
     
     @pytest.mark.asyncio
     async def test_get_all_prompts_returns_list(self):
@@ -28,7 +86,7 @@ class TestPromptAPICRUD:
         """Test creating a new prompt via POST /api/prompts/"""
         test_prompt = {
             "name": "test_api_prompt",
-            "directory": "/tmp/test_api",
+            "directory": TEST_PROMPTS_DIR,
             "content": "This is a test prompt created via API",
             "description": "Test prompt for API integration testing",
             "tags": ["test", "api", "integration"]
@@ -36,7 +94,7 @@ class TestPromptAPICRUD:
         
         async with httpx.AsyncClient(base_url=BASE_URL, timeout=10.0) as client:
             # Clean up first in case test prompt exists
-            await client.delete(f"/prompts/test_api/test_api_prompt")
+            await client.delete(f"/prompts/tests/test_prompts/test_api_prompt")
             
             # Create the prompt
             response = await client.post("/prompts/", json=test_prompt)
@@ -48,8 +106,9 @@ class TestPromptAPICRUD:
                 assert created["description"] == test_prompt["description"]
                 assert "id" in created
                 
-                # Clean up
-                await client.delete(f"/prompts/{created['id']}")
+                # Register for cleanup
+                self.created_prompts.append(created['id'])
+                self.created_files.append(f"{TEST_PROMPTS_DIR}/test_api_prompt.md")
             else:
                 # Log the error for debugging
                 print(f"Create prompt failed: {response.status_code} - {response.text}")
@@ -103,13 +162,13 @@ class TestPromptAPICRUD:
             # First create a test prompt
             test_prompt = {
                 "name": "test_update_prompt",
-                "directory": "/tmp/test_update",
+                "directory": TEST_PROMPTS_DIR,
                 "content": "Original content",
                 "description": "Original description"
             }
             
             # Clean up first
-            await client.delete(f"/prompts/test_update/test_update_prompt")
+            await client.delete(f"/prompts/tests/test_prompts/test_update_prompt")
             
             create_response = await client.post("/prompts/", json=test_prompt)
             if create_response.status_code != 201:
@@ -118,25 +177,24 @@ class TestPromptAPICRUD:
             created_prompt = create_response.json()
             prompt_id = created_prompt["id"]
             
-            try:
-                # Update the prompt
-                update_data = {
-                    "content": "Updated content via API",
-                    "description": "Updated description via API",
-                    "tags": ["updated", "api"]
-                }
-                
-                update_response = await client.put(f"/prompts/{prompt_id}", json=update_data)
-                assert update_response.status_code == 200
-                
-                updated_prompt = update_response.json()
-                assert updated_prompt["content"] == update_data["content"]
-                assert updated_prompt["description"] == update_data["description"]
-                assert updated_prompt["tags"] == update_data["tags"]
-                
-            finally:
-                # Clean up
-                await client.delete(f"/prompts/{prompt_id}")
+            # Register for cleanup
+            self.created_prompts.append(prompt_id)
+            self.created_files.append(f"{TEST_PROMPTS_DIR}/test_update_prompt.md")
+            
+            # Update the prompt
+            update_data = {
+                "content": "Updated content via API",
+                "description": "Updated description via API",
+                "tags": ["updated", "api"]
+            }
+            
+            update_response = await client.put(f"/prompts/{prompt_id}", json=update_data)
+            assert update_response.status_code == 200
+            
+            updated_prompt = update_response.json()
+            assert updated_prompt["content"] == update_data["content"]
+            assert updated_prompt["description"] == update_data["description"]
+            assert updated_prompt["tags"] == update_data["tags"]
     
     @pytest.mark.asyncio
     async def test_delete_prompt(self):
@@ -145,7 +203,7 @@ class TestPromptAPICRUD:
             # First create a test prompt
             test_prompt = {
                 "name": "test_delete_prompt",
-                "directory": "/tmp/test_delete",
+                "directory": TEST_PROMPTS_DIR,
                 "content": "This prompt will be deleted",
                 "description": "Test prompt for deletion"
             }
@@ -157,6 +215,9 @@ class TestPromptAPICRUD:
             created_prompt = create_response.json()
             prompt_id = created_prompt["id"]
             
+            # Register file for cleanup (in case delete fails)
+            self.created_files.append(f"{TEST_PROMPTS_DIR}/test_delete_prompt.md")
+            
             # Delete the prompt
             delete_response = await client.delete(f"/prompts/{prompt_id}")
             assert delete_response.status_code == 200
@@ -164,6 +225,9 @@ class TestPromptAPICRUD:
             # Verify it's gone
             get_response = await client.get(f"/prompts/{prompt_id}")
             assert get_response.status_code == 404
+            
+            # Verify file is also deleted
+            assert not os.path.exists(f"{TEST_PROMPTS_DIR}/test_delete_prompt.md"), "File should be deleted from filesystem"
     
     @pytest.mark.asyncio
     async def test_prompt_references(self):
@@ -245,22 +309,23 @@ class TestPromptAPIAdvanced:
             # First create a test prompt
             test_prompt = {
                 "name": "test_rename_original",
-                "directory": "/tmp/test_rename",
+                "directory": "/mnt/data/jem/development/prompt_manager/tests/test_prompts",
                 "content": "Content for rename test",
                 "description": "Original prompt for rename testing"
             }
             
             # Clean up first - be more thorough
-            await client.delete(f"/prompts/test_rename/test_rename_original")
-            await client.delete(f"/prompts/test_rename/test_rename_new")
+            await client.delete(f"/prompts/tests/test_prompts/test_rename_original")
+            await client.delete(f"/prompts/tests/test_prompts/test_rename_new")
             
             # Also clean up any files that might exist
             import os
+            test_dir = "/mnt/data/jem/development/prompt_manager/tests/test_prompts"
             try:
-                if os.path.exists("/tmp/test_rename/test_rename_original.md"):
-                    os.remove("/tmp/test_rename/test_rename_original.md")
-                if os.path.exists("/tmp/test_rename/test_rename_new.md"):
-                    os.remove("/tmp/test_rename/test_rename_new.md")
+                if os.path.exists(f"{test_dir}/test_rename_original.md"):
+                    os.remove(f"{test_dir}/test_rename_original.md")
+                if os.path.exists(f"{test_dir}/test_rename_new.md"):
+                    os.remove(f"{test_dir}/test_rename_new.md")
             except (OSError, FileNotFoundError):
                 pass  # Ignore cleanup errors
             
@@ -301,20 +366,54 @@ class TestPromptAPIAdvanced:
             finally:
                 # Clean up original if rename failed and both possible files
                 await client.delete(f"/prompts/{old_id}")
-                await client.delete(f"/prompts/test_rename/test_rename_new")
+                await client.delete(f"/prompts/tests/test_prompts/test_rename_new")
                 
                 # Final filesystem cleanup
+                test_dir = "/mnt/data/jem/development/prompt_manager/tests/test_prompts"
                 try:
-                    if os.path.exists("/tmp/test_rename/test_rename_original.md"):
-                        os.remove("/tmp/test_rename/test_rename_original.md")
-                    if os.path.exists("/tmp/test_rename/test_rename_new.md"):
-                        os.remove("/tmp/test_rename/test_rename_new.md")
+                    if os.path.exists(f"{test_dir}/test_rename_original.md"):
+                        os.remove(f"{test_dir}/test_rename_original.md")
+                    if os.path.exists(f"{test_dir}/test_rename_new.md"):
+                        os.remove(f"{test_dir}/test_rename_new.md")
                 except (OSError, FileNotFoundError):
                     pass  # Ignore cleanup errors
 
 
 class TestAPIErrorHandling:
     """Test API error handling and edge cases"""
+    
+    @pytest.fixture(autouse=True)
+    async def setup_and_cleanup(self):
+        """Setup and cleanup for each test method."""
+        self.created_prompts = []
+        self.created_files = []
+        
+        yield  # Run the test
+        
+        # Cleanup after each test
+        await self._cleanup_prompts()
+        self._cleanup_files()
+    
+    async def _cleanup_prompts(self):
+        """Clean up created prompts via API."""
+        if not self.created_prompts:
+            return
+            
+        async with httpx.AsyncClient(base_url=BASE_URL, timeout=10.0) as client:
+            for prompt_id in self.created_prompts:
+                try:
+                    await client.delete(f"/prompts/{prompt_id}")
+                except Exception as e:
+                    print(f"Warning: Could not delete prompt {prompt_id}: {e}")
+                    
+    def _cleanup_files(self):
+        """Clean up created files from filesystem."""
+        for filepath in self.created_files:
+            try:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            except Exception as e:
+                print(f"Warning: Could not delete file {filepath}: {e}")
     
     @pytest.mark.asyncio
     async def test_malformed_json(self):
@@ -336,13 +435,13 @@ class TestAPIErrorHandling:
             
             test_prompt = {
                 "name": "test_large_content",
-                "directory": "/tmp/test_large",
+                "directory": TEST_PROMPTS_DIR,
                 "content": large_content,
                 "description": "Test prompt with large content"
             }
             
             # Clean up first
-            await client.delete(f"/prompts/test_large/test_large_content")
+            await client.delete(f"/prompts/tests/test_prompts/test_large_content")
             
             response = await client.post("/prompts/", json=test_prompt)
             
@@ -350,8 +449,9 @@ class TestAPIErrorHandling:
                 created_prompt = response.json()
                 assert len(created_prompt["content"]) == len(large_content)
                 
-                # Clean up
-                await client.delete(f"/prompts/{created_prompt['id']}")
+                # Register for cleanup
+                self.created_prompts.append(created_prompt['id'])
+                self.created_files.append(f"{TEST_PROMPTS_DIR}/test_large_content.md")
             else:
                 # Large content may be rejected, which is acceptable
                 assert response.status_code in [400, 413]
@@ -370,14 +470,14 @@ class TestAPIErrorHandling:
             for special_name in special_names:
                 test_prompt = {
                     "name": special_name,
-                    "directory": "/tmp/test_special",
+                    "directory": TEST_PROMPTS_DIR,
                     "content": f"Content for {special_name}",
                     "description": f"Test prompt with special name: {special_name}"
                 }
                 
                 # Clean up first (with sanitized name)
                 sanitized_name = special_name.replace(" ", "_")
-                await client.delete(f"/prompts/test_special/{sanitized_name}")
+                await client.delete(f"/prompts/tests/test_prompts/{sanitized_name}")
                 
                 response = await client.post("/prompts/", json=test_prompt)
                 
@@ -386,8 +486,10 @@ class TestAPIErrorHandling:
                     # Name should be sanitized
                     assert " " not in created_prompt["name"]
                     
-                    # Clean up
-                    await client.delete(f"/prompts/{created_prompt['id']}")
+                    # Register for cleanup
+                    self.created_prompts.append(created_prompt['id'])
+                    final_name = created_prompt["name"]
+                    self.created_files.append(f"{TEST_PROMPTS_DIR}/{final_name}.md")
                 else:
                     # Some special characters may be rejected
                     assert response.status_code in [400, 422]

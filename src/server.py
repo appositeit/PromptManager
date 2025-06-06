@@ -214,7 +214,11 @@ async def prompt_editor(request: Request, prompt_id: str):
             "title": "Prompt Not Found",
             "message": f"The prompt with ID '{path_param_id}' could not be found."
         }, status_code=404)
-    prompt_display_name = getattr(prompt_object, 'name', prompt_object.id)
+    
+    # Calculate display name for the header
+    service.calculate_and_cache_display_names()
+    prompt_display_name = getattr(prompt_object, 'display_name', None) or getattr(prompt_object, 'name', prompt_object.id)
+    
     if prompt_object.id != path_param_id:
         logger.warning(f"Prompt ID mismatch: path param ID was '{path_param_id}', fetched '{prompt_object.id}'.")
     expanded_content, dependencies, warnings = service.expand_inclusions(
@@ -224,12 +228,12 @@ async def prompt_editor(request: Request, prompt_id: str):
     return templates.TemplateResponse("prompt_editor.html", {
         "request": request,
         "prompt": prompt_object,
-        "template_safe_prompt_id": path_param_id,
+        "template_safe_prompt_id": prompt_display_name,  # Use display name instead of full path
         "actual_unique_id": prompt_object.unique_id,
         "expanded_content": expanded_content,
         "dependencies": list(dependencies),
         "warnings": warnings,
-        "title": f"Edit: {prompt_display_name or path_param_id}"
+        "title": f"Edit: {prompt_display_name}"
     })
 
 @app.exception_handler(404)

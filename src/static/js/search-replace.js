@@ -43,7 +43,7 @@ class SearchReplace {
         const editTab = document.getElementById('edit-tab');
         if (!editTab || !editTab.classList.contains('active')) {
             // Switch to edit tab first
-            if (editTab) editTab.click();
+            if (editTab) {editTab.click();}
         }
         
         // Create dialog if it doesn't exist
@@ -461,7 +461,7 @@ class SearchReplace {
      * Find the next match and highlight it
      */
     findNext() {
-        if (this.matches.length === 0) return;
+        if (this.matches.length === 0) {return;}
         
         this.currentMatchIndex = (this.currentMatchIndex + 1) % this.matches.length;
         this.highlightCurrentMatch();
@@ -475,7 +475,7 @@ class SearchReplace {
      * Find the previous match and highlight it
      */
     findPrevious() {
-        if (this.matches.length === 0) return;
+        if (this.matches.length === 0) {return;}
         
         this.currentMatchIndex = (this.currentMatchIndex - 1 + this.matches.length) % this.matches.length;
         this.highlightCurrentMatch();
@@ -538,7 +538,7 @@ class SearchReplace {
      * Replace all matches with the replacement text
      */
     replaceAll() {
-        if (this.matches.length === 0) return;
+        if (this.matches.length === 0) {return;}
         
         // We need to replace from end to start to avoid position issues
         const matchesCopy = [...this.matches].sort((a, b) => b.index - a.index);
@@ -610,9 +610,5 @@ class SearchReplace {
     }
 }
 
-// Export the SearchReplace class
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-    module.exports = SearchReplace;
-} else {
-    window.SearchReplace = SearchReplace;
-}
+// Make SearchReplace class available globally
+window.SearchReplace = SearchReplace;

@@ -170,18 +170,29 @@ class TestRouterEndpoints:
     @pytest.mark.asyncio
     async def test_get_all_prompts_empty(self):
         """Test get_all_prompts when no prompts exist"""
-        self.mock_prompt_service.prompts = {}
+        # Mock the get_all_prompts method to return an empty list
+        self.mock_prompt_service.get_all_prompts.return_value = []
         
         with patch('src.api.router.get_directory_name', return_value="Test Dir"):
             from src.api.router import get_all_prompts
             result = await get_all_prompts(self.mock_prompt_service)
         
         assert result == []
+        self.mock_prompt_service.get_all_prompts.assert_called_once_with(include_content=True, include_display_names=True)
     
     @pytest.mark.asyncio
     async def test_get_all_prompts_with_data(self):
         """Test get_all_prompts with existing prompts"""
-        self.mock_prompt_service.prompts = {"test_prompt": self.mock_prompt}
+        # Mock the get_all_prompts method to return a list with one prompt
+        mock_prompt_data = {
+            "id": "test_prompt",
+            "name": "Test Prompt",
+            "content": "Test content",
+            "description": "Test description",
+            "tags": ["test"],
+            "directory": "/test/dir"
+        }
+        self.mock_prompt_service.get_all_prompts.return_value = [mock_prompt_data]
         
         with patch('src.api.router.get_directory_name', return_value="Test Dir"):
             from src.api.router import get_all_prompts
@@ -191,6 +202,7 @@ class TestRouterEndpoints:
         assert result[0]["id"] == "test_prompt"
         assert result[0]["name"] == "Test Prompt"
         assert result[0]["directory_name"] == "Test Dir"
+        self.mock_prompt_service.get_all_prompts.assert_called_once_with(include_content=True, include_display_names=True)
     
     @pytest.mark.asyncio
     async def test_get_prompt_suggestions_success(self):

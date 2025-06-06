@@ -13,6 +13,8 @@ build/
 # Virtual environments
 .venv/
 venv/
+mie_venv/
+nara_venv/
 ENV/
 
 # Node
@@ -29,9 +31,14 @@ logs/
 *.err
 mcp_server/logs/
 
-# Coverage
+# Artifacts directory (all transient files)
+artifacts/
+
+# Coverage (legacy - kept for backward compatibility)
 .coverage
 htmlcov/
+cov_html/
+cov_html_*/
 coverage.xml
 
 # Test & cache
@@ -71,3 +78,6 @@ backups/
 # PID and runtime files
 *.pid
 nara_venv/
+
+# Task
+.task

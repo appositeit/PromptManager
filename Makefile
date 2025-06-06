@@ -49,8 +49,11 @@ help:
 	@echo "  run-api-server      - Run the basic API test helper server"
 	@echo "  run-routes-server   - Run the routes test helper server"
 	@echo ""
-	@echo "  clean               - Remove __pycache__ directories and .pytest_cache"
-	@echo "  lint                - Run linter (placeholder)"
+	@echo "  clean               - Remove build artifacts (preserves logs)"
+	@echo "  clean-all           - Remove all artifacts including logs"
+	@echo "  lint                - Run all linting checks"
+	@echo "  lint-js             - Run ESLint on JavaScript files"
+	@echo "  lint-js-fix         - Run ESLint with auto-fix on JavaScript files"
 	@echo "  lint-cpd            - Run jscpd to detect code duplication"
 	@echo ""
 
@@ -140,20 +143,20 @@ test-cov:
 .PHONY: test-cov-html
 test-cov-html:
 	@echo "Running tests with HTML coverage report..."
-	$(PYTEST) --cov=$(SRC_DIR) --cov-report=html:cov_html $(UNIT_TEST_DIR) $(INTEGRATION_API_TEST_DIR) tests/integration/test_websocket_comprehensive.py -k "not test_websocket_connection_tool"
-	@echo "HTML coverage report generated in cov_html directory."
+	$(PYTEST) --cov=$(SRC_DIR) --cov-report=html:artifacts/coverage/basic $(UNIT_TEST_DIR) $(INTEGRATION_API_TEST_DIR) tests/integration/test_websocket_comprehensive.py -k "not test_websocket_connection_tool"
+	@echo "HTML coverage report generated in artifacts/coverage/basic directory."
 
 .PHONY: test-cov-comprehensive
 test-cov-comprehensive: ensure-server-running
 	@echo "Running comprehensive tests with coverage..."
-	$(PYTEST) --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html:cov_html_comprehensive $(UNIT_TEST_DIR) $(INTEGRATION_API_TEST_DIR) tests/integration/test_websocket_comprehensive.py $(E2E_TEST_DIR) -k "not test_websocket_connection_tool"
-	@echo "Comprehensive coverage report generated in cov_html_comprehensive directory."
+	$(PYTEST) --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html:artifacts/coverage/comprehensive $(UNIT_TEST_DIR) $(INTEGRATION_API_TEST_DIR) tests/integration/test_websocket_comprehensive.py $(E2E_TEST_DIR) -k "not test_websocket_connection_tool"
+	@echo "Comprehensive coverage report generated in artifacts/coverage/comprehensive directory."
 
 .PHONY: test-cov-true
 test-cov-true: ensure-server-running
 	@echo "Running TRUE comprehensive coverage (including API route execution)..."
-	$(PYTEST) --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html:cov_html_true --cov-config=.coveragerc-true $(UNIT_TEST_DIR) $(INTEGRATION_API_TEST_DIR) tests/integration/test_websocket_comprehensive.py -k "not test_websocket_connection_tool"
-	@echo "True coverage report (unit + integration tests) generated in cov_html_true directory."
+	$(PYTEST) --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html:artifacts/coverage/true --cov-config=.coveragerc-true $(UNIT_TEST_DIR) $(INTEGRATION_API_TEST_DIR) tests/integration/test_websocket_comprehensive.py -k "not test_websocket_connection_tool"
+	@echo "True coverage report (unit + integration tests) generated in artifacts/coverage/true directory."
 
 # Helper Server Runners
 .PHONY: run-static-server
@@ -182,19 +185,50 @@ clean:
 	@echo "Cleaning up..."
 	find . -type f -name '*.py[co]' -delete
 	find . -type d -name '__pycache__' -exec rm -rf {} +
-	rm -rf .pytest_cache
-	rm -rf cov_html
+	rm -rf .pytest_cache .mypy_cache .ruff_cache
+	rm -rf artifacts/coverage/* artifacts/reports/* artifacts/temp/*
+	rm -rf cov_html cov_html_* htmlcov
 	rm -f .coverage
+	@echo "All artifacts cleaned (logs preserved)."
 
-# Lint (Placeholder)
+.PHONY: clean-all
+clean-all: clean
+	@echo "Cleaning logs as well..."
+	rm -rf artifacts/logs/*
+	@echo "All artifacts including logs cleaned."
+
+# Root directory cleanliness check
+.PHONY: check-root-clean
+check-root-clean:
+	@echo "Checking root directory cleanliness..."
+	@if find . -maxdepth 1 -type f \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.md" \) ! \( -name "README.md" -o -name "CONTRIBUTING.md" -o -name "eslint.config.js" -o -name ".eslintrc.js" -o -name "api_docs_template.html" -o -name "debug_routes.py" \) | grep -q .; then \
+		echo "❌ ERROR: Inappropriate files found in root directory:"; \
+		find . -maxdepth 1 -type f \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.md" \) ! \( -name "README.md" -o -name "CONTRIBUTING.md" -o -name "eslint.config.js" -o -name ".eslintrc.js" -o -name "api_docs_template.html" -o -name "debug_routes.py" \); \
+		echo "🚫 Move these files to appropriate subdirectories!"; \
+		exit 1; \
+	else \
+		echo "✅ Root directory is clean"; \
+	fi
+
+# Lint (includes root directory check)
 .PHONY: lint
-lint:
-	@echo "Linting (placeholder)..."
-	@echo "No linter configured yet. Consider adding flake8 or pylint."
+lint: check-root-clean lint-js
+	@echo "Linting completed successfully."
 	@echo "Run 'make lint-cpd' to check for code duplication."
+
+# JavaScript Linting  
+.PHONY: lint-js
+lint-js:
+	@echo "Running ESLint on JavaScript files..."
+	npx eslint src/static/js/
+
+.PHONY: lint-js-fix
+lint-js-fix:
+	@echo "Running ESLint with auto-fix on JavaScript files..."
+	npx eslint src/static/js/ --fix
 
 # Code Duplication Check
 .PHONY: lint-cpd
 lint-cpd:
-	@echo "Running jscpd to detect code duplication (generating HTML report in logs/jscpd-report and console output)..."
-	npx jscpd --reporters=html,console --output=./logs/jscpd-report --ignore "**/.venv/**,**/venv/**,**/node_modules/**,**/.mypy_cache/**,**/.pytest_cache/**,**/.ruff_cache/**,**/archive/**,**/*.lock,**/data/**,**/logs/**,**/dist/**,**/build/**,**/cov_html/**,**/tests/**" . 
+	@echo "Running jscpd to detect code duplication (generating HTML report in artifacts/reports/jscpd and console output)..."
+	npx jscpd --reporters=html,console --output=./artifacts/reports/jscpd --ignore "**/.venv/**,**/venv/**,**/node_modules/**,**/.mypy_cache/**,**/.pytest_cache/**,**/.ruff_cache/**,**/archive/**,**/*.lock,**/data/**,**/artifacts/**,**/dist/**,**/build/**,**/tests/**" .

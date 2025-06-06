@@ -5,8 +5,13 @@ Tests for actual HTTP routes and their behavior
 
 import pytest
 import requests
+import os
+import glob
 from fastapi.testclient import TestClient
 from src.server import app
+
+# Test directory for created files
+TEST_PROMPTS_DIR = "/mnt/data/jem/development/prompt_manager/tests/test_prompts"
 
 class TestPromptAPIRoutes:
     """Test all prompt-related API routes work correctly"""
@@ -172,13 +177,65 @@ class TestAPIEndpointFunctionality:
     def sample_prompt_data(self):
         return {
             "name": "test_route_prompt",
-            "directory": "/tmp/test",
+            "directory": TEST_PROMPTS_DIR,
             "content": "This is test content",
             "description": "Test prompt for route testing"
         }
     
+    @pytest.fixture(autouse=True)
+    def setup_and_cleanup(self):
+        """Setup and cleanup for each test method."""
+        self.created_prompts = []
+        self.created_files = []
+        
+        yield  # Run the test
+        
+        # Cleanup after each test
+        self._cleanup_prompts()
+        self._cleanup_files()
+    
+    def _cleanup_prompts(self):
+        """Clean up created prompts via API."""
+        if not self.created_prompts:
+            return
+            
+        client = TestClient(app)
+        for prompt_id in self.created_prompts:
+            try:
+                client.delete(f"/api/prompts/{prompt_id}")
+            except Exception as e:
+                print(f"Warning: Could not delete prompt {prompt_id}: {e}")
+                    
+    def _cleanup_files(self):
+        """Clean up created files from filesystem."""
+        for filepath in self.created_files:
+            try:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+            except Exception as e:
+                print(f"Warning: Could not delete file {filepath}: {e}")
+                
+        # Also clean up common test file patterns  
+        test_patterns = [
+            f"{TEST_PROMPTS_DIR}/test_route_prompt.md",
+            f"{TEST_PROMPTS_DIR}/test*.md",  # Catch other test files
+        ]
+        
+        for pattern in test_patterns:
+            for filepath in glob.glob(pattern):
+                filename = os.path.basename(filepath)
+                # Don't delete permanent test fixtures
+                if filename not in ['simple_test.md', 'test_composite.md', 'tagged_test.md', 'dependency_test.md', 'included_text.md']:
+                    try:
+                        os.remove(filepath)
+                    except Exception as e:
+                        print(f"Warning: Could not delete test file {filepath}: {e}")
+    
     def test_create_prompt_endpoint(self, client, sample_prompt_data):
         """Test POST /api/prompts/ creates prompts correctly"""
+        # Clean up first
+        client.delete(f"/api/prompts/tests/test_prompts/test_route_prompt")
+        
         response = client.post("/api/prompts/", json=sample_prompt_data)
         
         # Should create successfully or fail with validation error
@@ -188,6 +245,10 @@ class TestAPIEndpointFunctionality:
             created_prompt = response.json()
             assert created_prompt["name"] == sample_prompt_data["name"]
             assert created_prompt["content"] == sample_prompt_data["content"]
+            
+            # Register for cleanup
+            self.created_prompts.append(created_prompt['id'])
+            self.created_files.append(f"{TEST_PROMPTS_DIR}/test_route_prompt.md")
     
     def test_update_prompt_endpoint(self, client):
         """Test PUT /api/prompts/{id} updates prompts correctly"""

@@ -165,12 +165,11 @@ class ToastManager {
 // Create a global instance
 const toastManager = new ToastManager();
 
-// Export the class and global instance
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ToastManager, toastManager };
-} else {
-    // For browser environments, make showToast function globally available for backward compatibility
-    window.showToast = (message, type = 'success', duration = 3000) => {
-        return toastManager.show(message, type, duration);
-    };
-}
+// For browser environments, make showToast function globally available for backward compatibility
+window.showToast = (message, type = 'success', duration = 3000) => {
+    return toastManager.show(message, type, duration);
+};
+
+// Make classes available globally
+window.ToastManager = ToastManager;
+window.toastManager = toastManager;

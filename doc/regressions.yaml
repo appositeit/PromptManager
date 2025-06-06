@@ -1,40 +1,31 @@
 # Regression Tracking Log
-# 
-# This file tracks all regressions (unintentional loss of functionality) 
-# discovered in the Prompt Manager project.
-#
-# Format:
-# - date: YYYY-MM-DD
-#   symptom: "Brief description of the problem"
-#   cause: "Root cause analysis"
-#   broken_feature: "feature/branch that introduced the issue" 
-#   break_commit: "commit hash that broke it"
-#   fix_commit: "commit hash that fixed it"
-#   ai_involved: true/false
-#   pattern: ["tag1", "tag2", "tag3"]
-#   severity: "critical"|"major"|"minor"
-#   impact: "Description of impact"
-#   detection_method: "How was this discovered"
+# All regressions (unintentional loss of functionality) must be recorded here
 
 regressions:
-  - date: 2025-05-30
-    symptom: "30 unit tests failing including server configuration tests with AttributeError on string object"
-    cause: "Multiple test issues: incorrect mock usage, server running during tests, missing fixtures, and API connectivity problems"
-    broken_feature: "test-suite-comprehensive"
-    break_commit: "unknown"
-    fix_commit: "pending"
+  - date: 2025-06-01
+    symptom: "Prompt editor page loads but CodeMirror editor area is completely empty, preventing all editing functionality"
+    cause: "JavaScript variable name conflict - global 'newPromptModal' in new_prompt_modal.js conflicted with local declaration in prompt_editor.html template"
+    broken_feature: "feat/new-prompt-on-prompt-editor"
+    break_commit: "Not tracked - change made via edit_block during AI session"
+    fix_commit: "Not tracked - change made via edit_block during AI session" 
     ai_involved: true
-    pattern: ["test-failure", "mock-configuration", "server-dependencies", "test-isolation"]
-    severity: "critical"
-    impact: "Cannot verify code quality, regression protection disabled"
-    detection_method: "Manual test execution via `make test`"
-  
+    pattern: ["variable-conflict", "global-scope-pollution", "javascript-error", "missing-error-handling"]
+    
+  - date: 2025-06-01
+    symptom: "JavaScript functions undefined, DOMContentLoaded event handler not executing"
+    cause: "Forward reference to window.promptHint function before it was defined, plus DOM timing issues"
+    broken_feature: "feat/new-prompt-on-prompt-editor"
+    break_commit: "Not tracked - change made via edit_block during AI session"
+    fix_commit: "Not tracked - change made via edit_block during AI session"
+    ai_involved: true
+    pattern: ["forward-reference", "function-hoisting", "dom-timing", "initialization-order"]
+
   - date: 2025-05-30
-    symptom: "Maximum recursion depth exceeded in FastAPI jsonable_encoder when mocking templates.TemplateResponse"
-    cause: "Mock objects create circular references that cause infinite recursion during JSON serialization"
-    broken_feature: "test-template-mocking"
+    symptom: "FastAPI template endpoints failing with recursion errors"
+    cause: "Circular reference in mocked template responses due to improper mocking strategy"
+    broken_feature: "template-endpoint-tests"
     break_commit: "unknown"
-    fix_commit: "5d90eee, 31d6c7a"
+    fix_commit: "unknown"
     ai_involved: true
     pattern: ["recursion-error", "mock-circular-reference", "fastapi-serialization", "template-mocking"]
     severity: "critical"
@@ -76,11 +67,11 @@ regressions:
     cause: "Unknown - AI changes to manage_prompts.html may have affected shared components or functionality"
     broken_feature: "prompt-editor-ui-elements"
     break_commit: "1c63e16"
-    fix_commit: "pending"
+    fix_commit: "c5017df"
     ai_involved: true
     pattern: ["ui-element-missing", "shared-component-impact", "user-workflow-broken"]
     severity: "major"
     impact: "User workflow for creating new prompts and navigating directory prompts is broken"
     detection_method: "User report"
-    resolution: "Investigating - changes to manage_prompts.html should not affect prompt_editor.html"
-    status: "investigating"
+    resolution: "Restored missing UI elements from advanced feature branch"
+    status: "resolved"

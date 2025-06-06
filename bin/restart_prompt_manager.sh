@@ -40,7 +40,7 @@ echo "Checking server liveness..."
 # isalive can take a -p PORT argument if needed, mirroring start_prompt_manager.sh
 if ! "$SCRIPT_DIR/isalive_prompt_manager.sh" -t 5; then # 15-second timeout for liveness
     echo "ERROR: Server did not become alive within the timeout after restart."
-    echo "Please check logs in $PROJECT_ROOT/logs/prompt_manager.log (or the latest timestamped log)."
+    echo "Please check logs in $PROJECT_ROOT/artifacts/logs/prompt_manager.log (or the latest timestamped log)."
     exit 1
 fi
 

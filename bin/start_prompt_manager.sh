@@ -32,7 +32,7 @@ shift $((OPTIND -1))
 # Get the script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-PID_FILE="$PROJECT_ROOT/logs/server.pid"
+PID_FILE="$PROJECT_ROOT/artifacts/logs/server.pid"
 
 # Determine host-specific venv
 HOST=$(hostname)
@@ -53,11 +53,11 @@ esac
 # Change to project directory
 cd "$PROJECT_ROOT"
 
-# Create logs directory if it doesn't exist
-mkdir -p "$PROJECT_ROOT/logs"
+# Create artifacts/logs directory if it doesn't exist
+mkdir -p "$PROJECT_ROOT/artifacts/logs"
 
-MAIN_LOG_FILE="$PROJECT_ROOT/logs/prompt_manager.log" # Symlink target
-TIMESTAMPED_LOG_FILE="$PROJECT_ROOT/logs/prompt_manager_$(date +'%Y%m%d%H%M%S').log"
+MAIN_LOG_FILE="$PROJECT_ROOT/artifacts/logs/prompt_manager.log" # Symlink target
+TIMESTAMPED_LOG_FILE="$PROJECT_ROOT/artifacts/logs/prompt_manager_$(date +'%Y%m%d%H%M%S').log"
 
 # Symlink management: 
 # - If in foreground, always create/update symlink to new timestamped log.

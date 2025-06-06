@@ -11,6 +11,7 @@ module.exports = defineConfig({
   use: {
     baseURL: 'http://localhost:8095', // Base URL for actions like page.goto('/')
     trace: 'on-first-retry', // Record trace only when retrying a failed test
+    headless: true, // Ensure headless mode
   },
   projects: [
     {

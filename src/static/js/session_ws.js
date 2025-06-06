@@ -2,12 +2,13 @@
  * WebSocket functionality for real-time session updates
  */
 
-/**
- * Create a session WebSocket manager
- * @param {string} sessionId - The ID of the session
- * @returns {object} WebSocket manager for session
- */
-function createSessionWebSocket(sessionId) {
+window.SessionWebSocket = (function() {
+    /**
+     * Create a session WebSocket manager
+     * @param {string} sessionId - The ID of the session
+     * @returns {object} WebSocket manager for session
+     */
+    function createSessionWebSocket(sessionId) {
     // Determine WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/sessions/${sessionId}`;
@@ -36,7 +37,7 @@ function createSessionWebSocket(sessionId) {
     };
     
     function connect() {
-        if (connected || connecting) return;
+        if (connected || connecting) {return;}
         
         connecting = true;
         updateStatus('connecting');
@@ -52,7 +53,7 @@ function createSessionWebSocket(sessionId) {
             updateStatus('connected');
             
             // Start ping interval to keep connection alive
-            if (pingInterval) clearInterval(pingInterval);
+            if (pingInterval) {clearInterval(pingInterval);}
             pingInterval = setInterval(sendPing, 30000);
             
             // Get initial messages
@@ -113,7 +114,7 @@ function createSessionWebSocket(sessionId) {
     }
     
     function disconnect() {
-        if (!connected && !connecting) return;
+        if (!connected && !connecting) {return;}
         
         if (socket) {
             socket.close();
@@ -132,7 +133,7 @@ function createSessionWebSocket(sessionId) {
     }
     
     function sendPing() {
-        if (!connected) return;
+        if (!connected) {return;}
         
         try {
             socket.send(JSON.stringify({ type: 'ping' }));
@@ -142,7 +143,7 @@ function createSessionWebSocket(sessionId) {
     }
     
     function requestMessages() {
-        if (!connected) return;
+        if (!connected) {return;}
         
         try {
             socket.send(JSON.stringify({ 
@@ -193,7 +194,7 @@ function createSessionWebSocket(sessionId) {
     }
     
     function handleMessages(messages) {
-        if (!Array.isArray(messages) || messages.length === 0) return;
+        if (!Array.isArray(messages) || messages.length === 0) {return;}
         
         // Update last message ID
         lastMessageId = messages[messages.length - 1].id;
@@ -243,7 +244,7 @@ function createSessionWebSocket(sessionId) {
         connect,
         disconnect,
         send: (data) => {
-            if (!connected) return false;
+            if (!connected) {return false;}
             
             try {
                 if (typeof data === 'object') {
@@ -265,11 +266,11 @@ function createSessionWebSocket(sessionId) {
     };
 }
 
-/**
- * Initialize the session interface and connect to WebSocket
- * @param {string} sessionId - The ID of the session
- */
-function initSessionInterface(sessionId) {
+    /**
+     * Initialize the session interface and connect to WebSocket
+     * @param {string} sessionId - The ID of the session
+     */
+    function initSessionInterface(sessionId) {
     const messagesContainer = document.getElementById('messages');
     const messageForm = document.getElementById('messageForm');
     const messageInput = document.getElementById('messageInput');
@@ -281,7 +282,7 @@ function initSessionInterface(sessionId) {
     
     let isAtBottom = true;
     let lastMessageId = null;
-    let typingIndicators = {};
+    const typingIndicators = {};
     let currentTasks = {};
     
     // Create WebSocket connection
@@ -340,8 +341,8 @@ function initSessionInterface(sessionId) {
     // Register WebSocket event handlers
     ws.on('onOpen', function() {
         // Enable message input
-        if (messageInput) messageInput.disabled = false;
-        if (sendButton) sendButton.disabled = false;
+        if (messageInput) {messageInput.disabled = false;}
+        if (sendButton) {sendButton.disabled = false;}
         
         // Update UI status
         if (sessionStatusElement) {
@@ -352,8 +353,8 @@ function initSessionInterface(sessionId) {
     
     ws.on('onClose', function() {
         // Disable message input
-        if (messageInput) messageInput.disabled = true;
-        if (sendButton) sendButton.disabled = true;
+        if (messageInput) {messageInput.disabled = true;}
+        if (sendButton) {sendButton.disabled = true;}
         
         // Update UI status
         if (sessionStatusElement) {
@@ -400,7 +401,7 @@ function initSessionInterface(sessionId) {
     });
     
     ws.on('onTasks', function({ tasks }) {
-        if (!tasksContainer) return;
+        if (!tasksContainer) {return;}
         
         // Update tasks display
         renderTasks(tasks);
@@ -411,7 +412,7 @@ function initSessionInterface(sessionId) {
      * @param {Array} tasks - Array of task objects
      */
     function renderTasks(tasks) {
-        if (!tasksContainer || !noTasksMessage) return;
+        if (!tasksContainer || !noTasksMessage) {return;}
         
         // Clear current tasks
         currentTasks = {};
@@ -478,7 +479,7 @@ function initSessionInterface(sessionId) {
             taskElement.className = `task-item ${statusClass}`;
             
             // Format assigned information
-            let assignedText = task.assigned_to ? 
+            const assignedText = task.assigned_to ? 
                 `Assigned to: ${formatAgentName(task.assigned_to)}` : 
                 'Unassigned';
                 
@@ -527,14 +528,14 @@ function initSessionInterface(sessionId) {
      * @returns {string} Formatted datetime
      */
     function formatDateTime(datetimeStr) {
-        if (!datetimeStr) return '';
+        if (!datetimeStr) {return '';}
         
         try {
             return new Date(datetimeStr).toLocaleTimeString([], { 
                 hour: '2-digit', 
                 minute: '2-digit'
             });
-        } catch (e) {
+        } catch (_e) {
             return datetimeStr;
         }
     }
@@ -547,7 +548,7 @@ function initSessionInterface(sessionId) {
      */
     function sendMessage() {
         const text = messageInput.value.trim();
-        if (!text) return;
+        if (!text) {return;}
         
         // Disable form while sending
         messageInput.disabled = true;
@@ -577,7 +578,7 @@ function initSessionInterface(sessionId) {
             }
             return response.json();
         })
-        .then(data => {
+        .then(() => {
             // Clear input
             messageInput.value = '';
             
@@ -609,13 +610,13 @@ function initSessionInterface(sessionId) {
      * @param {Array} messages - Array of message objects
      */
     function renderMessages(messages) {
-        if (!Array.isArray(messages) || messages.length === 0 || !messagesContainer) return;
+        if (!Array.isArray(messages) || messages.length === 0 || !messagesContainer) {return;}
         
         messages.forEach(message => {
             const messageId = message.id;
             
             // Skip if already rendered
-            if (document.getElementById(`message-${messageId}`)) return;
+            if (document.getElementById(`message-${messageId}`)) {return;}
             
             // Update last message ID
             lastMessageId = messageId;
@@ -678,7 +679,7 @@ function initSessionInterface(sessionId) {
      * @returns {string} Formatted HTML
      */
     function formatMessageContent(content) {
-        if (!content) return '';
+        if (!content) {return '';}
         
         // Convert code blocks
         content = content.replace(/```([a-z]*)\n([\s\S]*?)\n```/g, '<pre><code class="language-$1">$2</code></pre>');
@@ -712,3 +713,14 @@ function initSessionInterface(sessionId) {
         sendMessage
     };
 }
+
+    // Public API
+    return {
+        createSessionWebSocket,
+        initSessionInterface
+    };
+})();
+
+// Expose functions globally for backward compatibility
+window.createSessionWebSocket = window.SessionWebSocket.createSessionWebSocket;
+window.initSessionInterface = window.SessionWebSocket.initSessionInterface;

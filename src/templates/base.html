@@ -111,6 +111,32 @@
     {% endblock %}
     
     <script>
+        // Global JavaScript error handler for debugging
+        window.addEventListener('error', function(event) {
+            console.error('JavaScript Error:', {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error
+            });
+            
+            // In development, show visible error indicator
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                const errorDiv = document.createElement('div');
+                errorDiv.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc3545;color:white;padding:10px;z-index:9999;font-family:monospace;font-size:12px;';
+                errorDiv.innerHTML = `⚠️ JavaScript Error: ${event.message} (${event.filename}:${event.lineno})`;
+                document.body.insertBefore(errorDiv, document.body.firstChild);
+                
+                // Auto-hide after 10 seconds
+                setTimeout(() => {
+                    if (errorDiv.parentNode) {
+                        errorDiv.parentNode.removeChild(errorDiv);
+                    }
+                }, 10000);
+            }
+        });
+
         // Initialize dayjs relativeTime plugin
         dayjs.extend(dayjs_plugin_relativeTime);
         

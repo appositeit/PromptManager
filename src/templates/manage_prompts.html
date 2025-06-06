@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/prompt_modal.html" import new_prompt_modal %}
 
 {% block title %}Manage Prompts{% endblock %}
 
@@ -8,14 +9,14 @@
     <div class="btn-group me-2">
         <button class="btn btn-primary" id="add-prompt-btn" title="Create a new prompt (Alt+N)" data-bs-toggle="modal" data-bs-target="#newPromptModal">
             <i class="bi bi-plus-circle-fill"></i> New Prompt
-        </button>
+    </button>
         <button class="btn btn-secondary" id="add-directory-modal-btn" title="Add a new prompt directory" data-bs-toggle="modal" data-bs-target="#addDirectoryModal">
             <i class="bi bi-folder-plus"></i> Add Directory
         </button>
         <button class="btn btn-info" id="refresh-all-btn" title="Reload prompts from all directories">
         <i class="bi bi-arrow-clockwise"></i> Refresh All
-        </button>
-    </div>
+    </button>
+</div>
     {{ super() }} {# This will include the help button from base.html #}
 {% endblock %}
 
@@ -175,51 +176,7 @@
     </div>
 </div>
 
-<!-- New Prompt Modal -->
-<div class="modal fade" id="newPromptModal" tabindex="-1" aria-labelledby="newPromptModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="newPromptModalLabel">Create New Prompt</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="newPromptForm">
-                    <div class="mb-3">
-                        <label for="promptName" class="form-label">Prompt Name</label>
-                        <input type="text" class="form-control" id="promptName" required>
-                        <div class="form-text">Display name for the prompt (will be used as filename)</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="promptDirectory" class="form-label">Directory</label>
-                        <select class="form-select" id="promptDirectory" required>
-                            <!-- Directories will be loaded dynamically -->
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="promptIdPreview" class="form-label">Generated ID</label>
-                        <input type="text" class="form-control" id="promptIdPreview" readonly>
-                        <div class="form-text">Unique identifier (generated from directory + name)</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="promptDescription" class="form-label">Description</label>
-                        <input type="text" class="form-control" id="promptDescription">
-                    </div>
-                    <div class="mb-3">
-                        <label for="promptTags" class="form-label">Tags</label>
-                        <input type="text" class="form-control" id="promptTags">
-                        <div class="form-text">Comma-separated list of tags</div>
-                    </div>
-                    <!-- Content textarea removed as requested -->
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="createPromptBtn">Create</button>
-            </div>
-        </div>
-    </div>
-</div>
+{{ new_prompt_modal('manage_prompts') }}
 
 <!-- Add Directory Modal -->
 <div class="modal fade" id="addDirectoryModal" tabindex="-1" aria-labelledby="addDirectoryModalLabel" aria-hidden="true">
@@ -333,6 +290,7 @@
 
 {% block page_specific_js %}
 {# <script src="/static/js/utils.js"></script> #} {# Redundant: Already loaded in base.html #}
+<script src="/static/js/new_prompt_modal.js"></script>
 <script src="/static/js/directory_manager.js"></script>
 <style>
     /* Styles for sortable headers */
@@ -846,36 +804,10 @@ Remember that you're part of a team - your specialized work contributes to solvi
             }
         });
         
-        // Create prompt form handler
-        const createPromptBtn = document.getElementById('createPromptBtn');
-        if (createPromptBtn) {
-            createPromptBtn.addEventListener('click', createPrompt);
-        }
+        // Initialize new prompt modal
+        newPromptModal = new NewPromptModal('manage_prompts');
         
-        // Add ID preview functionality
-        const promptNameInput = document.getElementById('promptName');
-        const promptDirectorySelect = document.getElementById('promptDirectory');
-        const promptIdPreview = document.getElementById('promptIdPreview');
-        
-        function updateIdPreview() {
-            const name = promptNameInput.value.trim();
-            const directory = promptDirectorySelect.value;
-            
-            if (name && directory) {
-                // Extract directory name from path (last component)
-                const dirPath = directory.split('/');
-                const dirName = dirPath[dirPath.length - 1] || 'root';
-                const previewId = `${dirName}/${name}`;
-                promptIdPreview.value = previewId;
-            } else {
-                promptIdPreview.value = '';
-            }
-        }
-        
-        if (promptNameInput && promptDirectorySelect && promptIdPreview) {
-            promptNameInput.addEventListener('input', updateIdPreview);
-            promptDirectorySelect.addEventListener('change', updateIdPreview);
-        }
+
         
         // Add directory form handler
         const addDirectoryForm = document.getElementById('addDirectoryForm');
@@ -1332,8 +1264,10 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 filteredPrompts = filteredPrompts.filter(prompt => 
                     prompt.id.toLowerCase().includes(searchLower) ||
                     (prompt.name && prompt.name.toLowerCase().includes(searchLower)) ||
+                    (prompt.display_name && prompt.display_name.toLowerCase().includes(searchLower)) ||
                     (prompt.description && prompt.description.toLowerCase().includes(searchLower)) ||
-                    (prompt.directory && prompt.directory.toLowerCase().includes(searchLower))
+                    (prompt.directory && prompt.directory.toLowerCase().includes(searchLower)) ||
+                    (prompt.directory_name && prompt.directory_name.toLowerCase().includes(searchLower))
                 );
             }
             
@@ -1366,13 +1300,13 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 // Get the values to compare based on the sort column
                 switch (currentSort.column) {
                     case 'directory':
-                        aValue = a.directory || '';
-                        bValue = b.directory || '';
+                        aValue = a.directory_name || a.directory || '';
+                        bValue = b.directory_name || b.directory || '';
                         break;
                     case 'id':
-                        // Sort by name if available, fallback to ID
-                        aValue = a.name || a.id;
-                        bValue = b.name || b.id;
+                        // Sort by display name if available, fallback to name, then ID
+                        aValue = a.display_name || a.name || a.id;
+                        bValue = b.display_name || b.name || b.id;
                         break;
                     case 'description':
                         aValue = a.description || '';
@@ -1427,20 +1361,19 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 row.dataset.promptId = prompt.unique_id; // Add dataset for unique_id
                 row.classList.add('prompt-row');         // Add class for easy selection
                 
-                // Directory cell - show directory name instead of full path
+                // Directory cell - use directory_name for better UX
                 const dirCell = document.createElement('td');
-                const directoryData = directories.find(dir => dir.path === prompt.directory);
-                dirCell.textContent = directoryData ? directoryData.name : prompt.directory || '';
-                dirCell.title = prompt.directory || '';
+                dirCell.textContent = prompt.directory_name || prompt.directory || '';
+                dirCell.title = prompt.directory || ''; // Full path in tooltip
                 
-                // Name cell (was ID cell)
+                // Name cell - use display name for better UX
                 const nameCell = document.createElement('td');
                 const nameLink = document.createElement('a');
-                // Use the ID for the URL but show the name
+                // Use the ID for the URL but show the display name
                 nameLink.href = `/prompts/${encodeURIComponent(prompt.id)}`;
-                nameLink.textContent = prompt.name || prompt.id; // Show name if available, fallback to ID
+                nameLink.textContent = prompt.display_name || prompt.name || prompt.id; // Show display name if available
                 // Add a title showing the full ID for clarity
-                nameLink.title = `${prompt.name || prompt.id} (ID: ${prompt.id})`;
+                nameLink.title = `${prompt.display_name || prompt.name || prompt.id} (Full ID: ${prompt.id})`;
                 nameCell.appendChild(nameLink);
                 
                 // Description cell
@@ -1487,9 +1420,9 @@ Remember that you're part of a team - your specialized work contributes to solvi
                 // Use the full ID for deletion
                 const deleteId = prompt.id;
                 deleteBtn.dataset.promptId = deleteId;
-                deleteBtn.dataset.promptName = prompt.name || prompt.id; // For display purposes
+                deleteBtn.dataset.promptName = prompt.display_name || prompt.name || prompt.id; // For display purposes
                 deleteBtn.addEventListener('click', function() {
-                    showDeleteConfirmation(deleteId, prompt.name || prompt.id);
+                    showDeleteConfirmation(deleteId, prompt.display_name || prompt.name || prompt.id);
                 });
                 
                 actionsCell.appendChild(editBtn);
@@ -1836,6 +1769,11 @@ Remember that you're part of a team - your specialized work contributes to solvi
             // Update directory select in the New Prompt modal
             populateDirectorySelect('promptDirectory');
             
+            // Populate new prompt modal directories
+            if (newPromptModal) {
+                newPromptModal.populateDirectorySelect(directories);
+            }
+            
             // Update directory sort headers
             updateDirectorySortHeaders();
             
@@ -1908,83 +1846,7 @@ Remember that you're part of a team - your specialized work contributes to solvi
             });
     }
     
-    function createPrompt() {
-        const name = document.getElementById('promptName').value.trim();
-        const directory = document.getElementById('promptDirectory').value;
-        const description = document.getElementById('promptDescription').value.trim();
-        const tags = document.getElementById('promptTags').value.trim();
-        // Content is now created with a default template in the editor page
-        const content = '';  // Empty content, will be filled with default in the backend
-        
-        // Validate
-        if (!name) {
-            alert('Prompt name is required');
-            return;
-        }
-        
-        if (!directory) {
-            alert('Directory is required');
-            return;
-        }
-        
-        // Create tag array
-        const tagArray = tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
-        
-        // Create prompt data with new schema
-        const promptData = {
-            name: name,  // Changed from 'id' to 'name'
-            content: content || `# ${name}\n\nEnter content here...`,
-            directory: directory,
-            description: description,
-            tags: tagArray
-        };
-        
-        console.log('Sending prompt data:', promptData);
-        
-        // Send POST request
-        fetch('/api/prompts/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(promptData)
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.text().then(text => {
-                    throw new Error(`Failed to create prompt: ${text}`);
-                });
-            }
-            return response.json();
-        })
-        .then(data => {
-            // Success - reload prompts and show toast
-            loadPrompts();
-            
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('newPromptModal'));
-            modal.hide();
-            
-            // Clear form
-            document.getElementById('promptName').value = '';
-            document.getElementById('promptIdPreview').value = '';
-            document.getElementById('promptDescription').value = '';
-            document.getElementById('promptTags').value = '';
-            
-            // Show toast with any sanitization message
-            if (data.sanitized_message) {
-                showToast(data.sanitized_message, 'warning');
-            }
-            showToast('Prompt created successfully');
-            
-            // Redirect to edit page using the returned ID
-            window.location.href = `/prompts/${data.id}`;
-        })
-        .catch(error => {
-            console.error('Error creating prompt:', error);
-            alert('Error creating prompt: ' + error.message);
-        });
-    }
+
     
     function addDirectory() {
         const path = document.getElementById('directoryPath').value.trim();
@@ -2019,19 +1881,8 @@ Remember that you're part of a team - your specialized work contributes to solvi
             return response.json();
         })
         .then(data => {
-            // Success - reload directories and prompts
-            loadDirectories().then(() => {
-                // After directories are loaded, reload prompts to show new prompts from the directory
-                loadPrompts().then(() => {
-                    showToast('Directory added successfully - prompts reloaded');
-                }).catch(err => {
-                    console.error('Error reloading prompts after adding directory:', err);
-                    showToast('Directory added successfully but failed to reload prompts', 'warning');
-                });
-            }).catch(err => {
-                console.error('Error reloading directories after adding:', err);
-                showToast('Directory added but failed to reload directory list', 'warning');
-            });
+            // Success - reload directories and show toast
+            loadDirectories();
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('addDirectoryModal'));
@@ -2041,6 +1892,9 @@ Remember that you're part of a team - your specialized work contributes to solvi
             document.getElementById('directoryPath').value = '';
             document.getElementById('directoryName').value = '';
             document.getElementById('directoryDescription').value = '';
+            
+            // Show toast
+            showToast('Directory added successfully');
         })
         .catch(error => {
             console.error('Error adding directory:', error);
@@ -2103,23 +1957,15 @@ Remember that you're part of a team - your specialized work contributes to solvi
             return response.json();
         })
         .then(data => {
-            // Success - reload directories and prompts
-            loadDirectories().then(() => {
-                // After directories are loaded, reload prompts to remove prompts from deleted directory
-                loadPrompts().then(() => {
-                    showToast('Directory removed successfully - prompts reloaded');
-                }).catch(err => {
-                    console.error('Error reloading prompts after removing directory:', err);
-                    showToast('Directory removed successfully but failed to reload prompts', 'warning');
-                });
-            }).catch(err => {
-                console.error('Error reloading directories after removal:', err);
-                showToast('Directory removed but failed to reload directory list', 'warning');
-            });
+            // Success - reload directories and show toast
+            loadDirectories();
             
             // Close modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('deleteDirectoryModal'));
             modal.hide();
+            
+            // Show toast
+            showToast('Directory removed successfully');
         })
         .catch(error => {
             console.error('Error removing directory:', error);

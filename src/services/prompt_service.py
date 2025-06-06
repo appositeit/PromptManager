@@ -21,7 +21,10 @@ from src.models.prompt import PromptDirectory
 class PromptService:
     """Service for managing prompts."""
     
-    CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".prompt_manager", "prompt_directories.json")
+    CONFIG_FILE = os.environ.get(
+        'PROMPT_MANAGER_CONFIG_FILE',
+        os.path.join(os.path.expanduser("~"), ".prompt_manager", "prompt_directories.json")
+    )
     PROJECT_ROOT_FOR_PROMPTS = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     def __init__(self, 
@@ -442,7 +445,7 @@ class PromptService:
             
             # NEW ID SCHEMA: Generate proper ID and name
             prompt_name = Path(filename).stem  # Display name (filename without extension)
-            prompt_id = Prompt.generate_id(directory, prompt_name)  # Full unique ID
+            prompt_id = Prompt.generate_id(file_path)  # Full unique ID from file path
             
             # Create the prompt object with new schema
             logger.debug(f"Creating prompt object with new schema: id={prompt_id}, name={prompt_name}, directory={directory}")
@@ -708,7 +711,7 @@ class PromptService:
             raise ValueError("Directory is required")
         
         # Generate unique ID from directory and name
-        prompt_id = Prompt.generate_id(directory, name)
+        prompt_id = Prompt.generate_id_from_directory_and_name(directory, name)
         
         # Check if prompt with this ID already exists
         if self.get_prompt(prompt_id):
@@ -808,7 +811,7 @@ class PromptService:
             # Generate new ID and paths
             old_path = prompt.full_path
             old_id = prompt.id
-            new_id = Prompt.generate_id(prompt.directory, new_name)
+            new_id = Prompt.generate_id_from_directory_and_name(prompt.directory, new_name)
             new_filename = f"{new_name}.md"
             new_path = os.path.join(prompt.directory, new_filename)
             
@@ -996,7 +999,23 @@ class PromptService:
         
         return expanded_content, dependencies_list, warnings_list
     
-    def get_all_prompts(self, force_reload: bool = False, include_content: bool = False) -> List[Dict]:
+    def calculate_and_cache_display_names(self) -> None:
+        """Calculate and cache display names for all prompts."""
+        if not self.prompts:
+            return
+            
+        # Prepare data for display name calculation
+        prompt_data = [{"id": prompt.id, "name": prompt.name} for prompt in self.prompts.values()]
+        
+        # Calculate all display names efficiently
+        display_names = Prompt.calculate_all_display_names(prompt_data)
+        
+        # Cache the display names in the prompt objects
+        for prompt in self.prompts.values():
+            if prompt.id in display_names:
+                prompt.set_display_name_cache(display_names[prompt.id])
+    
+    def get_all_prompts(self, force_reload: bool = False, include_content: bool = False, include_display_names: bool = True) -> List[Dict]:
         """
         Get a list of all prompts, optionally reloading from disk.
         Returns a list of dictionaries suitable for API responses (minimal data).
@@ -1005,6 +1024,10 @@ class PromptService:
         if force_reload or not self.prompts:
             logger.info("get_all_prompts: force_reload is True or no prompts in cache. Calling load_all_prompts().")
             self.load_all_prompts()
+        
+        # Calculate display names if requested
+        if include_display_names:
+            self.calculate_and_cache_display_names()
         
         prompts_list = []
         for prompt_obj in self.prompts.values():
@@ -1020,6 +1043,11 @@ class PromptService:
                 "updated_at": prompt_obj.updated_at.isoformat() if prompt_obj.updated_at else None,
                 "created_at": prompt_obj.created_at.isoformat() if prompt_obj.created_at else None,
             }
+            
+            # Add display name if available and requested
+            if include_display_names:
+                prompt_dict["display_name"] = prompt_obj.display_name
+            
             if include_content:
                 prompt_dict["content"] = prompt_obj.content
             prompts_list.append(prompt_dict)
@@ -1032,30 +1060,45 @@ class PromptService:
         Used for autocompletion in the editor, e.g., for [[prompt_name]].
 
         Args:
-            query: The partial string to search for in prompt IDs.
-            exclude_id: An optional prompt ID (simple ID) to exclude from suggestions (e.g., the current prompt being edited).
+            query: The partial string to search for in prompt IDs and display names.
+            exclude_id: An optional prompt ID to exclude from suggestions (e.g., the current prompt being edited).
 
         Returns:
-            A list of dictionaries, each with an 'id' key representing the prompt's simple ID.
+            A list of dictionaries with 'id' and 'display_name' keys.
         """
         suggestions: List[Dict[str, str]] = []
+        
+        # Calculate display names for all prompts
+        self.calculate_and_cache_display_names()
         
         # Process all prompts for empty query (when just '[[' is typed)
         # Or filter by the query string
         query_lower = query.lower() if query else ""
 
         for prompt in self.prompts.values():
-            # Exclude the current prompt being edited if its simple ID is provided
+            # Exclude the current prompt being edited if its ID is provided
             if exclude_id and prompt.id == exclude_id:
                 continue
             
             # For empty queries, include all prompts
-            # For non-empty queries, filter by the query string
-            if not query or query_lower in prompt.id.lower():
-                suggestions.append({"id": prompt.id}) # Frontend expects a list of dicts with 'id'
+            # For non-empty queries, filter by query string in both ID and display name
+            match = False
+            if not query:
+                match = True
+            else:
+                # Check if query matches ID or display name
+                if (query_lower in prompt.id.lower() or 
+                    query_lower in prompt.display_name.lower()):
+                    match = True
+            
+            if match:
+                suggestions.append({
+                    "id": prompt.id,
+                    "display_name": prompt.display_name
+                })
         
-        # Sort suggestions alphabetically
-        suggestions.sort(key=lambda x: x["id"].lower())
+        # Sort suggestions by display name for better UX
+        suggestions.sort(key=lambda x: x["display_name"].lower())
         
         # Limit the number of results to prevent overwhelming the UI
         max_results = 50

@@ -77,8 +77,8 @@ class DefaultPromptsCreate(BaseModel):
 
 # Model for prompt expansion request
 class PromptExpandRequest(BaseModel):
-    prompt_id: str
-    directory: Optional[str] = None # To disambiguate if prompts have same simple ID in different dirs
+    prompt_id: str  # Can be full path ID or display name
+    directory: Optional[str] = None # To disambiguate if prompts have same display name in different dirs
 
 # Model for prompt expansion response
 class PromptExpandResponse(BaseModel):
@@ -106,9 +106,15 @@ class FilesystemCompletionResponse(BaseModel):
     is_directory: bool
 
 # Helper functions
-def get_directory_name(directory_path: str) -> str:
+def get_directory_name(directory_path: str, prompt_service: PromptServiceClass = None) -> str:
     """Get directory name from path."""
-    # Try to get from directory service if available
+    # Try to get from prompt service directories if available
+    if prompt_service:
+        for dir_obj in prompt_service.directories:
+            if dir_obj.path == directory_path:
+                return dir_obj.name
+    
+    # Try to get from directory service (legacy fallback)
     dir_info = get_directory_by_path(directory_path)
     if dir_info:
         return dir_info.get("name", os.path.basename(directory_path))
@@ -121,28 +127,17 @@ def get_directory_name(directory_path: str) -> str:
 
 @router.get("/all", response_model=List[Dict])
 async def get_all_prompts(prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
-    """Get all prompts (metadata only)."""
-    prompts = list(prompt_service.prompts.values())
-    result = []
+    """Get all prompts with smart display names."""
+    # Use the service method that includes display name calculation
+    prompts = prompt_service.get_all_prompts(include_content=True, include_display_names=True)
     
-    for prompt in prompts:
-        prompt_dict = {
-            "id": prompt.id,
-            "name": getattr(prompt, 'name', prompt.id),
-            "description": prompt.description,
-            "tags": prompt.tags,
-            "directory": prompt.directory,
-            "directory_name": get_directory_name(prompt.directory),
-            "unique_id": prompt.unique_id,
-            "content": prompt.content,
-            "updated_at": prompt.updated_at.isoformat() if getattr(prompt, 'updated_at', None) else None,
-            "created_at": prompt.created_at.isoformat() if getattr(prompt, 'created_at', None) else None,
-        }
-        result.append(prompt_dict)
+    # Add directory name for each prompt
+    for prompt_dict in prompts:
+        prompt_dict["directory_name"] = get_directory_name(prompt_dict["directory"], prompt_service)
     
-    logger.info(f"Returning {len(result)} prompts (metadata only)") # Updated log message
+    logger.info(f"Returning {len(prompts)} prompts with display names")
     
-    return result
+    return prompts
 
 @router.get("/search_suggestions", response_model=List[Dict])
 async def get_prompt_suggestions(
@@ -164,6 +159,25 @@ async def get_prompt_suggestions(
 async def get_all_directories(prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
     """Get all configured prompt directories."""
     return [d.dict() for d in prompt_service.directories]
+
+@router.get("/directories/{directory_path:path}/prompts", response_model=List[Dict])
+async def get_directory_prompts(directory_path: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
+    """Get all prompts in a specific directory with display names."""
+    logger.info(f"Getting prompts for directory: {directory_path}")
+    try:
+        # Get all prompts and filter by directory
+        all_prompts = prompt_service.get_all_prompts(include_content=False, include_display_names=True)
+        directory_prompts = [p for p in all_prompts if p["directory"] == directory_path]
+        
+        # Sort alphabetically by display name for better UX
+        directory_prompts.sort(key=lambda p: p.get("display_name", p["id"]).lower())
+        
+        logger.info(f"Found {len(directory_prompts)} prompts in directory: {directory_path}")
+        return directory_prompts
+        
+    except Exception as e:
+        logger.opt(exception=True).error(f"Error getting directory prompts for {directory_path}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error while getting directory prompts")
 
 @router.post("/directories", response_model=Dict)
 async def add_directory(directory: DirectoryCreate, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
@@ -370,7 +384,7 @@ async def rename_prompt_endpoint(
 
     # Generate the new ID from directory and new name
     from src.models.unified_prompt import Prompt
-    new_id = Prompt.generate_id(old_prompt_obj.directory, rename_data.new_name)
+    new_id = Prompt.generate_id_from_directory_and_name(old_prompt_obj.directory, rename_data.new_name)
     
     # Check if a prompt with the new ID already exists
     if new_id != old_prompt_obj.id:  # Only check if the ID would actually change
@@ -399,7 +413,7 @@ async def rename_prompt_endpoint(
         raise HTTPException(status_code=500, detail="Error retrieving prompt after rename.")
 
     prompt_dict = renamed_prompt.model_dump()
-    prompt_dict["directory_name"] = get_directory_name(renamed_prompt.directory)
+    prompt_dict["directory_name"] = get_directory_name(renamed_prompt.directory, prompt_service)
     
     # Include a message about sanitization if it occurred
     if original_new_name != renamed_prompt.name:
@@ -443,7 +457,7 @@ async def create_new_prompt(
     
     # Generate the full ID from directory and name
     from src.models.unified_prompt import Prompt
-    prompt_id = Prompt.generate_id(prompt_data.directory, prompt_data.name)
+    prompt_id = Prompt.generate_id_from_directory_and_name(prompt_data.directory, prompt_data.name)
     
     # Check if the prompt with this ID already exists
     if prompt_service.get_prompt(prompt_id):
@@ -472,7 +486,7 @@ async def create_new_prompt(
         )
         
         prompt_dict = new_prompt.model_dump()
-        prompt_dict["directory_name"] = get_directory_name(new_prompt.directory)
+        prompt_dict["directory_name"] = get_directory_name(new_prompt.directory, prompt_service)
         
         # Include sanitization message if needed
         if original_name != new_prompt.name:
@@ -539,7 +553,7 @@ async def update_existing_prompt(prompt_id: str, update_data: PromptUpdate, prom
         raise HTTPException(status_code=500, detail=f"Error retrieving prompt '{prompt_id}' after update.")
 
     prompt_dict = updated_prompt_obj.model_dump()
-    prompt_dict["directory_name"] = get_directory_name(updated_prompt_obj.directory)
+    prompt_dict["directory_name"] = get_directory_name(updated_prompt_obj.directory, prompt_service)
     return prompt_dict
 
 @router.delete("/{prompt_id:path}", response_model=Dict)
@@ -556,9 +570,9 @@ async def delete_existing_prompt(prompt_id: str, prompt_service: PromptServiceCl
 @router.get("/{prompt_id:path}", response_model=Dict)
 async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
     """
-    Get a specific prompt by ID.
+    Get a specific prompt by ID (full path) or display name.
     
-    If multiple prompts have the same ID, you can specify a directory to disambiguate.
+    If multiple prompts have the same display name, you can specify a directory to disambiguate.
     """
     prompt = prompt_service.get_prompt(prompt_id, directory)
     
@@ -571,6 +585,10 @@ async def get_prompt_by_id(prompt_id: str, directory: Optional[str] = None, prom
         raise HTTPException(status_code=404, detail=f"Prompt '{prompt_id}' not found")
     
     prompt_dict = prompt.model_dump() # Raw prompt data
+
+    # Calculate and add display name
+    prompt_service.calculate_and_cache_display_names()
+    prompt_dict["display_name"] = prompt.display_name
 
     # Prepare directory_info structure
     dir_config = get_directory_by_path(prompt.directory) # This is from src.services.prompt_dirs

@@ -2,10 +2,11 @@
  * Session management functionality for the Coordinator system
  */
 
-/**
- * Initialize the session management functionality
- */
-function initSessionManagement() {
+window.SessionManager = (function() {
+    /**
+     * Initialize the session management functionality
+     */
+    function initSessionManagement() {
     // Load the session form with available data
     loadSessionFormData();
     
@@ -28,10 +29,10 @@ function initSessionManagement() {
     setInterval(loadActiveSessions, 10000); // Refresh every 10 seconds
 }
 
-/**
- * Load data for the session form (prompts, API keys, etc.)
- */
-function loadSessionFormData() {
+    /**
+     * Load data for the session form (prompts, API keys, etc.)
+     */
+    function loadSessionFormData() {
     // Load available prompts
     loadAvailablePrompts();
     
@@ -39,12 +40,12 @@ function loadSessionFormData() {
     loadApiKeys();
 }
 
-/**
- * Load available prompts into the session prompt dropdown
- */
-function loadAvailablePrompts() {
+    /**
+     * Load available prompts into the session prompt dropdown
+     */
+    function loadAvailablePrompts() {
     const promptSelect = document.getElementById('sessionPrompt');
-    if (!promptSelect) return;
+    if (!promptSelect) {return;}
     
     // Clear existing options (except the first one)
     const firstOption = promptSelect.querySelector('option:first-child');
@@ -71,8 +72,6 @@ function loadAvailablePrompts() {
             prompts.forEach(prompt => {
                 if (prompt.is_composite) {
                     promptsByType.composite.push(prompt);
-                } else {
-                    promptsByType.standard.push(prompt);
                 } else {
                     promptsByType.standard.push(prompt);
                 }
@@ -121,10 +120,10 @@ function loadAvailablePrompts() {
         });
 }
 
-/**
- * Load API keys (mock implementation for now)
- */
-function loadApiKeys() {
+    /**
+     * Load API keys (mock implementation for now)
+     */
+    function loadApiKeys() {
     const architectApiKey = document.getElementById('architectApiKey');
     const workerApiKeys = document.querySelectorAll('.worker-api-key');
     
@@ -161,19 +160,20 @@ function loadApiKeys() {
     });
 }
 
-/**
- * Create a new session with the provided configuration
- */
-// Flag to use mock mode only if real API fails
-const USE_MOCK_MODE = false;
+    /**
+     * Create a new session with the provided configuration
+     */
+    // Flag to use mock mode only if real API fails
+    const USE_MOCK_MODE = false;
 
-function createSession() {
+    function createSession() {
     // Get form values - handling both hyphenated and camelCase IDs for backwards compatibility
     const sessionNameElement = document.getElementById('sessionName') || document.getElementById('session-name');
     const sessionName = sessionNameElement ? sessionNameElement.value.trim() : '';
     
-    const sessionPromptElement = document.getElementById('sessionPrompt') || document.getElementById('session-prompt');
-    const sessionPrompt = sessionPromptElement ? sessionPromptElement.value : '';
+    // sessionPrompt is available but not currently used in session creation
+    // const sessionPromptElement = document.getElementById('sessionPrompt') || document.getElementById('session-prompt');
+    // const sessionPrompt = sessionPromptElement ? sessionPromptElement.value : '';
     
     const architectModelElement = document.getElementById('architectModel') || document.getElementById('architect-model');
     const architectModel = architectModelElement ? architectModelElement.value : 'claude-3-sonnet-20240229';
@@ -199,7 +199,7 @@ function createSession() {
     }
     
     // Get MCP servers if available
-    let mcpServers = [];
+    const mcpServers = [];
     const mcpServerElements = document.querySelectorAll('input[name="mcp-server"]:checked');
     mcpServerElements.forEach(element => {
         mcpServers.push(element.value);
@@ -301,7 +301,11 @@ function createSession() {
     })
     .then(data => {
         // Show success message
-        showToast('Session created: ' + sessionName, 'success');
+        if (window.showToast) {
+            window.showToast('Session created: ' + sessionName, 'success');
+        } else {
+            showSessionToast('Session created: ' + sessionName, 'success');
+        }
         
         // Close the modal
         const modalElement = document.getElementById('newSessionModal') || document.getElementById('new-session-modal');
@@ -329,7 +333,11 @@ function createSession() {
     })
     .catch(error => {
         console.error('Error creating/starting session:', error);
-        showToast('Error: ' + error.message, 'danger');
+        if (window.showToast) {
+            window.showToast('Error: ' + error.message, 'danger');
+        } else {
+            showSessionToast('Error: ' + error.message, 'danger');
+        }
         
         // Reset button
         if (createButton) {
@@ -344,8 +352,8 @@ function createSession() {
     });
 }
 
-// Function to create a mock session for demonstration
-function createMockSession(sessionConfig) {
+    // Function to create a mock session for demonstration
+    function createMockSession(sessionConfig) {
     // Generate a random session ID
     const sessionId = 'mock-' + Math.random().toString(36).substring(2, 10);
     
@@ -367,7 +375,11 @@ function createMockSession(sessionConfig) {
     localStorage.setItem('mockSessions', JSON.stringify(storedSessions));
     
     // Show success message
-    showToast('Mock session created: ' + sessionConfig.name, 'success');
+    if (window.showToast) {
+        window.showToast('Mock session created: ' + sessionConfig.name, 'success');
+    } else {
+        showSessionToast('Mock session created: ' + sessionConfig.name, 'success');
+    }
     
     // Close the modal
     const modalElement = document.getElementById('newSessionModal') || document.getElementById('new-session-modal');
@@ -389,12 +401,12 @@ function createMockSession(sessionConfig) {
     window.location.href = `/sessions/${sessionId}`;
 }
 
-/**
- * Show a toast notification
- * @param {string} message - Message to display
- * @param {string} type - Type of notification (success, danger, warning, info)
- */
-function showToast(message, type = 'info') {
+    /**
+     * Show a toast notification (internal to session manager)
+     * @param {string} message - Message to display
+     * @param {string} type - Type of notification (success, danger, warning, info)
+     */
+    function showSessionToast(message, type = 'info') {
     // Create toast container if it doesn't exist
     let toastContainer = document.querySelector('.toast-container');
     if (!toastContainer) {
@@ -451,10 +463,10 @@ function showToast(message, type = 'info') {
     });
 }
 
-/**
- * Load active sessions and display them
- */
-function loadActiveSessions() {
+    /**
+     * Load active sessions and display them
+     */
+    function loadActiveSessions() {
     // In mock mode, load from localStorage
     if (USE_MOCK_MODE) {
         const storedSessions = JSON.parse(localStorage.getItem('mockSessions') || '{}');
@@ -495,12 +507,12 @@ function loadActiveSessions() {
         });
 }
 
-/**
- * Update the sidebar with active sessions
- */
-function updateSidebarSessions(sessions) {
+    /**
+     * Update the sidebar with active sessions
+     */
+    function updateSidebarSessions(sessions) {
     const container = document.getElementById('active-sessions');
-    if (!container) return;
+    if (!container) {return;}
     
     if (sessions.length === 0) {
         container.innerHTML = '<div class="text-muted sidebar-no-sessions">No active sessions</div>';
@@ -526,12 +538,12 @@ function updateSidebarSessions(sessions) {
     container.innerHTML = html;
 }
 
-/**
- * Update the dashboard with active sessions
- */
-function updateDashboardSessions(sessions) {
+    /**
+     * Update the dashboard with active sessions
+     */
+    function updateDashboardSessions(sessions) {
     const container = document.getElementById('dashboard-active-sessions');
-    if (!container) return;
+    if (!container) {return;}
     
     if (sessions.length === 0) {
         container.innerHTML = '<p class="text-muted mb-0">No active sessions.</p>';
@@ -570,10 +582,10 @@ function updateDashboardSessions(sessions) {
     });
 }
 
-/**
- * Stop a session
- */
-function stopSession(sessionId) {
+    /**
+     * Stop a session
+     */
+    function stopSession(sessionId) {
     if (!confirm('Are you sure you want to stop this session?')) {
         return;
     }
@@ -584,7 +596,11 @@ function stopSession(sessionId) {
         if (storedSessions[sessionId]) {
             storedSessions[sessionId].status = 'paused';
             localStorage.setItem('mockSessions', JSON.stringify(storedSessions));
-            showToast('Session stopped', 'info');
+            if (window.showToast) {
+                window.showToast('Session stopped', 'info');
+            } else {
+                showSessionToast('Session stopped', 'info');
+            }
             loadActiveSessions();
         }
         return;
@@ -600,15 +616,50 @@ function stopSession(sessionId) {
         }
         return response.json();
     })
-    .then(data => {
-        showToast('Session stopped', 'info');
+    .then(() => {
+        if (window.showToast) {
+            window.showToast('Session stopped', 'info');
+        } else {
+            showSessionToast('Session stopped', 'info');
+        }
         loadActiveSessions();
     })
     .catch(error => {
         console.error('Error stopping session:', error);
-        showToast('Error: ' + error.message, 'danger');
+        if (window.showToast) {
+            window.showToast('Error: ' + error.message, 'danger');
+        } else {
+            showSessionToast('Error: ' + error.message, 'danger');
+        }
     });
 }
 
+    // Public API
+    return {
+        initSessionManagement,
+        loadSessionFormData,
+        loadAvailablePrompts,
+        loadApiKeys,
+        createSession,
+        createMockSession,
+        loadActiveSessions,
+        updateSidebarSessions,
+        updateDashboardSessions,
+        stopSession
+    };
+})();
+
 // Initialize session management when the DOM is loaded
-document.addEventListener('DOMContentLoaded', initSessionManagement);
+document.addEventListener('DOMContentLoaded', window.SessionManager.initSessionManagement);
+
+// Expose functions globally for backward compatibility
+window.initSessionManagement = window.SessionManager.initSessionManagement;
+window.loadSessionFormData = window.SessionManager.loadSessionFormData;
+window.loadAvailablePrompts = window.SessionManager.loadAvailablePrompts;
+window.loadApiKeys = window.SessionManager.loadApiKeys;
+window.createSession = window.SessionManager.createSession;
+window.createMockSession = window.SessionManager.createMockSession;
+window.loadActiveSessions = window.SessionManager.loadActiveSessions;
+window.updateSidebarSessions = window.SessionManager.updateSidebarSessions;
+window.updateDashboardSessions = window.SessionManager.updateDashboardSessions;
+window.stopSession = window.SessionManager.stopSession;
