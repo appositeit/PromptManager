@@ -8,14 +8,14 @@
     <div class="btn-group me-2">
         <button class="btn btn-primary" id="add-prompt-btn" title="Create a new prompt (Alt+N)" data-bs-toggle="modal" data-bs-target="#newPromptModal">
             <i class="bi bi-plus-circle-fill"></i> New Prompt
-    </button>
+        </button>
         <button class="btn btn-secondary" id="add-directory-modal-btn" title="Add a new prompt directory" data-bs-toggle="modal" data-bs-target="#addDirectoryModal">
             <i class="bi bi-folder-plus"></i> Add Directory
         </button>
         <button class="btn btn-info" id="refresh-all-btn" title="Reload prompts from all directories">
         <i class="bi bi-arrow-clockwise"></i> Refresh All
-    </button>
-</div>
+        </button>
+    </div>
     {{ super() }} {# This will include the help button from base.html #}
 {% endblock %}
 

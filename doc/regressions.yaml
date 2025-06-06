@@ -70,3 +70,17 @@ regressions:
     detection_method: "Unit test execution"
     resolution: "Changed assertion from list comparison to set comparison"
     status: "resolved"
+
+  - date: 2025-06-06
+    symptom: "New Prompt button missing from Prompt Editor page, drag and drop list of prompts in current directory missing"
+    cause: "Unknown - AI changes to manage_prompts.html may have affected shared components or functionality"
+    broken_feature: "prompt-editor-ui-elements"
+    break_commit: "1c63e16"
+    fix_commit: "pending"
+    ai_involved: true
+    pattern: ["ui-element-missing", "shared-component-impact", "user-workflow-broken"]
+    severity: "major"
+    impact: "User workflow for creating new prompts and navigating directory prompts is broken"
+    detection_method: "User report"
+    resolution: "Investigating - changes to manage_prompts.html should not affect prompt_editor.html"
+    status: "investigating"
