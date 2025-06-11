@@ -106,13 +106,16 @@ class NewPromptModal {
         if (this.promptDirectorySelect) {
             this.promptDirectorySelect.innerHTML = '';
             
-            directories.forEach(dir => {
-                if (dir.enabled) {
-                    const option = document.createElement('option');
-                    option.value = dir.path;
-                    option.textContent = dir.name;
-                    this.promptDirectorySelect.appendChild(option);
-                }
+            // Sort directories alphabetically by name
+            const enabledDirectories = directories
+                .filter(dir => dir.enabled)
+                .sort((a, b) => a.name.localeCompare(b.name));
+            
+            enabledDirectories.forEach(dir => {
+                const option = document.createElement('option');
+                option.value = dir.path;
+                option.textContent = dir.name;
+                this.promptDirectorySelect.appendChild(option);
             });
             
             // Set default directory if in prompt editor context

@@ -26,8 +26,3 @@ make test
 # or
 task ci:local
 ```
-
-
-# ToDo
-
-When we add or remove a directory, the prompt list should automatically reload- as it is we have to manually hit the Reload All button.
