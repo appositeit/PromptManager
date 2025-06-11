@@ -81,3 +81,9 @@ nara_venv/
 
 # Task
 .task
+
+# Serena MCP client configuration
+.serena/
+
+# Working directory
+working/
