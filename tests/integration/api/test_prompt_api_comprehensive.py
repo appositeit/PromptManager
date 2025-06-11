@@ -382,6 +382,11 @@ class TestPromptAPIAdvanced:
 class TestAPIErrorHandling:
     """Test API error handling and edge cases"""
     
+    def __init__(self):
+        """Initialize test class."""
+        self.created_prompts = []
+        self.created_files = []
+    
     @pytest.fixture(autouse=True)
     async def setup_and_cleanup(self):
         """Setup and cleanup for each test method."""

@@ -528,7 +528,7 @@ class TestIntegrationScenarios:
         )
         
         # Should be able to convert to dict for JSON serialization
-        content_dict = content.dict()
+        content_dict = content.model_dump()
         assert content_dict["text"] == "Complex message"
         assert "metadata" in content_dict["additional_data"]
         assert len(content_dict["additional_data"]["attachments"]) == 2

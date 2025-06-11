@@ -158,7 +158,7 @@ async def get_prompt_suggestions(
 @router.get("/directories/all", response_model=List[Dict])
 async def get_all_directories(prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
     """Get all configured prompt directories."""
-    return [d.dict() for d in prompt_service.directories]
+    return [d.model_dump() for d in prompt_service.directories]
 
 @router.get("/directories/{directory_path:path}/prompts", response_model=List[Dict])
 async def get_directory_prompts(directory_path: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
@@ -218,7 +218,7 @@ async def add_directory(directory: DirectoryCreate, prompt_service: PromptServic
             logger.error(f"Could not find directory '{directory.path}' after adding it.")
             raise HTTPException(status_code=500, detail="Error retrieving directory after adding.")
             
-        return added_dir_obj.dict()
+        return added_dir_obj.model_dump()
 
     except HTTPException: # Re-raise HTTP exceptions directly
         raise
@@ -276,7 +276,7 @@ async def update_directory(directory_path: str, data: DirectoryUpdate, prompt_se
             # For now, they just won't be reloaded or actively served if get_prompt filters by enabled dirs.
             # prompt_service.clear_prompts_from_directory(found_dir.path) # Example of a method to implement
 
-    return found_dir.dict()
+    return found_dir.model_dump()
 
 @router.post("/directories/{directory_path:path}/toggle", response_model=Dict)
 async def toggle_directory_status(directory_path: str, data: DirectoryStatusToggle, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):
@@ -306,7 +306,7 @@ async def toggle_directory_status(directory_path: str, data: DirectoryStatusTogg
         prompt_service._save_directory_config()
         logger.info(f"Directory config saved after toggling status for '{dir_to_toggle.path}'.")
 
-    return dir_to_toggle.dict()
+    return dir_to_toggle.model_dump()
 
 @router.delete("/directories/{directory_path:path}", response_model=Dict)
 async def delete_directory(directory_path: str, prompt_service: PromptServiceClass = Depends(get_prompt_service_dependency)):

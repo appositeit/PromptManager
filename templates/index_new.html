@@ -1,0 +1,517 @@
+<html>
+<head>
+<title>ProjectCatalog</title>
+<link rel="icon" type="image/webp" href="/static/projectcatalog.webp">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/css/style.css">
+<style>
+    /* ... existing styles ... */
+    
+    .directory-selector {
+        margin: 20px 0;
+        text-align: center;
+    }
+    
+    .dir-button {
+        display: inline-block;
+        padding: 10px 20px;
+        margin: 0 10px;
+        background-color: #e9e9e9;
+        color: #333;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+    
+    .dir-button:hover {
+        background-color: #d8d8d8;
+    }
+    
+    .dir-button.active {
+        background-color: #4CAF50;
+        color: white;
+    }
+    
+    .projects-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+    }
+    
+    .projects-table th {
+        background-color: #e9e9e9;
+        padding: 10px;
+        text-align: left;
+        cursor: pointer;
+    }
+    
+    .projects-table th:hover {
+        background-color: #d8d8d8;
+    }
+    
+    .projects-table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #e9e9e9;
+    }
+    
+    .projects-table tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .projects-table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    
+    .projects-table tr:nth-child(even):hover {
+        background-color: #f0f0f0;
+    }
+    
+    .reload-button {
+        display: inline-block;
+        padding: 8px 16px;
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: background-color 0.2s;
+    }
+    
+    .reload-button:hover {
+        background-color: #0056b3;
+    }
+    
+    /* New styles for loading states */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #007bff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 8px;
+        vertical-align: middle;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .loading-message {
+        background-color: #e7f3ff;
+        border: 1px solid #b8daff;
+        color: #004085;
+        padding: 12px;
+        border-radius: 4px;
+        margin: 20px 0;
+        display: none;
+    }
+    
+    .startup-status {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+        padding: 12px;
+        border-radius: 4px;
+        margin: 20px 0;
+        display: none;
+    }
+    
+    .startup-status.complete {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+    
+    .auto-refresh-controls {
+        margin: 10px 0;
+        text-align: center;
+    }
+    
+    .auto-refresh-controls label {
+        margin-right: 20px;
+        font-size: 14px;
+    }
+    
+    .auto-refresh-controls input[type="checkbox"] {
+        margin-right: 5px;
+    }
+    
+    .data-freshness {
+        font-size: 12px;
+        color: #666;
+        text-align: center;
+        margin: 10px 0;
+    }
+    
+    .error-message {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        padding: 12px;
+        border-radius: 4px;
+        margin: 20px 0;
+        display: none;
+    }
+</style>
+</head>
+<body>
+    % include('header.html')
+    
+    <div class="container">
+        <h1>ProjectCatalog</h1>
+        
+        <!-- Startup Status -->
+        <div id="startup-status" class="startup-status">
+            <div class="loading-spinner"></div>
+            <span id="startup-message">Starting background services...</span>
+        </div>
+        
+        <!-- Error Messages -->
+        <div id="error-message" class="error-message"></div>
+        
+        <!-- Loading Message -->
+        <div id="loading-message" class="loading-message">
+            <div class="loading-spinner"></div>
+            <span id="loading-text">Loading project data...</span>
+        </div>
+        
+        <!-- Directory Selector -->
+        <div class="directory-selector">
+            % for dir_path, display_name in directory_map.items():
+                % if dir_path == current_dir:
+                    <a href="/?dir={{dir_path}}" class="dir-button active">{{display_name}}</a>
+                % else:
+                    <a href="/?dir={{dir_path}}" class="dir-button">{{display_name}}</a>
+                % end
+            % end
+            
+            % if show_all:
+                <a href="/?show_all=true" class="dir-button active">All Projects</a>
+            % else:
+                <a href="/?show_all=true" class="dir-button">All Projects</a>
+            % end
+        </div>
+        
+        <!-- Controls -->
+        <div style="text-align: center; margin: 20px 0;">
+            <!-- Auto-refresh Controls -->
+            <div class="auto-refresh-controls">
+                <label>
+                    <input type="checkbox" id="auto-refresh-activity" checked>
+                    Auto-refresh activity data (every 30s)
+                </label>
+                <label>
+                    <input type="checkbox" id="load-activity-on-startup" checked>
+                    Load activity data automatically
+                </label>
+            </div>
+            
+            <!-- Manual Refresh Button -->
+            <button id="manual-refresh-btn" class="reload-button" onclick="loadActivityData(true)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 4px; vertical-align: text-bottom;">
+                    <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                </svg>
+                Refresh Activity Data
+            </button>
+            
+            <!-- Reload Project Info Button -->
+            <a href="/reload_project_info?redirect=/?dir={{current_dir}}" class="reload-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 4px; vertical-align: text-bottom;">
+                    <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+                    <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+                </svg>
+                Reload Project Info
+            </a>
+        </div>
+        
+        <!-- Data Freshness Indicator -->
+        <div id="data-freshness" class="data-freshness"></div>
+        
+        % if defined('error_message') and error_message:
+        <div style="background-color: #fff3cd; color: #856404; padding: 15px; margin-bottom: 20px; border: 1px solid #ffeeba; border-radius: 4px;">
+            <strong>Warning:</strong> {{error_message}}
+            <p>You can still use the navigation menu to select a valid directory.</p>
+        </div>
+        % end
+        
+        <!-- Projects Table Container -->
+        <div id="projects-container">
+            <div style="text-align: center; padding: 40px;">
+                <div class="loading-spinner"></div>
+                <p>Loading projects...</p>
+            </div>
+        </div>
+    </div>
+
+<script>
+// Global variables
+let autoRefreshInterval = null;
+let lastActivityDataLoad = null;
+let startupCheckInterval = null;
+
+// Configuration
+const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
+const STARTUP_CHECK_INTERVAL = 2000; // 2 seconds
+
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('ProjectCatalog page loaded, initializing...');
+    
+    // Start monitoring startup status
+    checkStartupStatus();
+    
+    // Load initial data if enabled
+    if (document.getElementById('load-activity-on-startup').checked) {
+        setTimeout(() => {
+            loadProjectData();
+        }, 1000); // Small delay to let startup status appear
+    }
+    
+    // Setup auto-refresh if enabled
+    setupAutoRefresh();
+    
+    // Setup event listeners
+    setupEventListeners();
+});
+
+function checkStartupStatus() {
+    startupCheckInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/api/startup_status');
+            const data = await response.json();
+            
+            const statusDiv = document.getElementById('startup-status');
+            const messageSpan = document.getElementById('startup-message');
+            
+            if (data.startup_complete) {
+                statusDiv.className = 'startup-status complete';
+                messageSpan.textContent = 'Background services ready!';
+                
+                // Hide status after a delay
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 3000);
+                
+                // Stop checking
+                clearInterval(startupCheckInterval);
+            } else if (data.background_threads_started) {
+                messageSpan.textContent = 'Background services starting...';
+            } else {
+                statusDiv.style.display = 'block';
+                messageSpan.textContent = 'Starting background services...';
+            }
+        } catch (error) {
+            console.error('Error checking startup status:', error);
+        }
+    }, STARTUP_CHECK_INTERVAL);
+}
+
+function setupEventListeners() {
+    // Auto-refresh checkbox
+    document.getElementById('auto-refresh-activity').addEventListener('change', function() {
+        setupAutoRefresh();
+    });
+}
+
+function setupAutoRefresh() {
+    // Clear existing interval
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+    
+    // Start new interval if enabled
+    if (document.getElementById('auto-refresh-activity').checked) {
+        autoRefreshInterval = setInterval(() => {
+            loadActivityData(false);
+        }, AUTO_REFRESH_INTERVAL);
+        console.log('Auto-refresh enabled');
+    } else {
+        console.log('Auto-refresh disabled');
+    }
+}
+
+async function loadProjectData() {
+    showLoading('Loading project data...');
+    
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const directory = params.get('dir') || '';
+        const showAll = params.get('show_all') === 'true';
+        
+        const url = `/api/project_list?${new URLSearchParams({
+            directory: directory,
+            show_all: showAll.toString(),
+            refresh: 'true'
+        })}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success) {
+            renderProjectsTable(data.projects);
+            updateDataFreshness();
+        } else {
+            showError('Failed to load project data: ' + data.error);
+        }
+    } catch (error) {
+        showError('Error loading project data: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function loadActivityData(forceRefresh = false) {
+    if (!forceRefresh) {
+        showLoading('Refreshing activity data...', false);
+    } else {
+        showLoading('Loading activity data...');
+    }
+    
+    try {
+        const url = `/api/activity_data?${new URLSearchParams({
+            refresh: forceRefresh.toString()
+        })}`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.success) {
+            lastActivityDataLoad = new Date();
+            console.log(`Loaded activity data for ${data.total_projects} projects`);
+            updateDataFreshness();
+            
+            // Reload project data with fresh activity info
+            loadProjectData();
+        } else {
+            showError('Failed to load activity data: ' + data.error);
+        }
+    } catch (error) {
+        showError('Error loading activity data: ' + error.message);
+    } finally {
+        if (!forceRefresh) {
+            hideLoading();
+        }
+    }
+}
+
+function renderProjectsTable(projects) {
+    const container = document.getElementById('projects-container');
+    
+    if (projects.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px;"><p>No projects found.</p></div>';
+        return;
+    }
+    
+    let html = `
+        <table class="projects-table">
+            <thead>
+                <tr>
+                    <th onclick="sortProjects('name')">Project Name</th>
+                    <th onclick="sortProjects('languages')">Languages</th>
+                    <th onclick="sortProjects('tags')">Tags</th>
+                    <th onclick="sortProjects('readme')">README</th>
+                    <th onclick="sortProjects('activity')">Recently Modified</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    projects.forEach(project => {
+        const languagesDisplay = project.languages ? project.languages.join(', ') : '';
+        const tagsDisplay = project.tags ? project.tags.map(tag => 
+            `<a href="/tags?tag=${encodeURIComponent(tag)}" style="text-decoration: none; color: #007bff; margin-right: 5px;">${tag}</a>`
+        ).join('') : '';
+        
+        const readmeStatus = project.has_readme ? 
+            `✓ (${Math.round(project.readme_size / 1024)}KB)` : 
+            '✗';
+        
+        const activityDisplay = project.last_modified_str || '';
+        const activityClass = project.last_modified ? 'recently-modified' : '';
+        
+        const queueStatus = project.in_analysis_queue ? ' (Queued)' : '';
+        const analysisStatus = project.analysis_complete ? ' ✓' : '';
+        
+        html += `
+            <tr>
+                <td>
+                    <a href="/project?path=${encodeURIComponent(project.path)}" style="text-decoration: none; color: #007bff;">
+                        ${project.name}${queueStatus}${analysisStatus}
+                    </a>
+                </td>
+                <td>${languagesDisplay}</td>
+                <td>${tagsDisplay}</td>
+                <td>${readmeStatus}</td>
+                <td class="${activityClass}">${activityDisplay}</td>
+                <td>
+                    <a href="/generate?project_path=${encodeURIComponent(project.path)}" style="font-size: 12px; color: #007bff;">Generate README</a>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function showLoading(message, showContainer = true) {
+    const loadingDiv = document.getElementById('loading-message');
+    const loadingText = document.getElementById('loading-text');
+    
+    loadingText.textContent = message;
+    loadingDiv.style.display = 'block';
+    
+    if (showContainer) {
+        document.getElementById('projects-container').innerHTML = 
+            '<div style="text-align: center; padding: 40px;"><div class="loading-spinner"></div><p>' + message + '</p></div>';
+    }
+}
+
+function hideLoading() {
+    document.getElementById('loading-message').style.display = 'none';
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('error-message');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    
+    // Auto-hide after 10 seconds
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 10000);
+}
+
+function updateDataFreshness() {
+    const freshnessDiv = document.getElementById('data-freshness');
+    if (lastActivityDataLoad) {
+        const timeStr = lastActivityDataLoad.toLocaleTimeString();
+        freshnessDiv.textContent = `Activity data last updated: ${timeStr}`;
+    }
+}
+
+// Placeholder for sorting function
+function sortProjects(column) {
+    console.log('Sorting by:', column);
+    // TODO: Implement client-side sorting
+}
+
+// Cleanup intervals when page unloads
+window.addEventListener('beforeunload', function() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    if (startupCheckInterval) {
+        clearInterval(startupCheckInterval);
+    }
+});
+</script>
+
+</body>
+</html>

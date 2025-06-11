@@ -131,7 +131,7 @@ def create_session(config: SessionConfig) -> Dict:
         "name": config.name,
         "description": config.description,
         "status": "initialized",
-        "config": config.dict(),
+        "config": config.model_dump(),
         "created_at": now,
         "updated_at": now,
         "messages": []
@@ -145,7 +145,7 @@ def create_session(config: SessionConfig) -> Dict:
     # Save config in the session directory
     config_file = session_dir / "configs" / "session_config.json"
     with open(config_file, "w") as f:
-        json.dump(config.dict(), f, indent=2)
+        json.dump(config.model_dump(), f, indent=2)
     
     return session
 
@@ -317,7 +317,7 @@ async def create_message(session_id: str, message_request: CreateMessageRequest)
         from_agent="user",
         to_agent="architect",
         message_type="user_input",
-        content=message_request.content.dict()
+        content=message_request.content.model_dump()
     )
 
 

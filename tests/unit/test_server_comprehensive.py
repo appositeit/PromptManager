@@ -376,88 +376,120 @@ class TestServerExceptionHandlers:
 
 
 class TestServerStartupEvent:
-    """Test server startup event handler"""
+    """Test server lifespan handler"""
     
     def test_startup_event_with_service(self):
-        """Test startup event with available prompt service"""
+        """Test lifespan startup with available prompt service"""
         mock_service = Mock()
         mock_service.directories = [Mock(), Mock()]
         mock_service.prompts = {"prompt1": Mock(), "prompt2": Mock()}
         
         with patch('src.server._get_or_create_global_prompt_service', return_value=mock_service):
             with patch('src.server.logger') as mock_logger:
-                from src.server import startup_event
+                from src.server import lifespan, FastAPI
                 
                 import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    loop.run_until_complete(startup_event())
+                async def test_lifespan():
+                    # Create a mock FastAPI app
+                    mock_app = Mock(spec=FastAPI)
+                    
+                    # Run the lifespan context manager to trigger startup
+                    async with lifespan(mock_app):
+                        pass
                     
                     # Should log successful startup
                     mock_logger.info.assert_called()
                     info_calls = [call[0][0] for call in mock_logger.info.call_args_list]
                     startup_calls = [call for call in info_calls if "startup" in call.lower()]
                     assert len(startup_calls) > 0
+                
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(test_lifespan())
                 finally:
                     loop.close()
     
     def test_startup_event_without_service(self):
-        """Test startup event without prompt service"""
+        """Test lifespan startup without prompt service"""
         with patch('src.server._get_or_create_global_prompt_service', return_value=None):
             with patch('src.server.logger') as mock_logger:
-                from src.server import startup_event
+                from src.server import lifespan, FastAPI
                 
                 import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    loop.run_until_complete(startup_event())
+                async def test_lifespan():
+                    # Create a mock FastAPI app
+                    mock_app = Mock(spec=FastAPI)
+                    
+                    # Run the lifespan context manager to trigger startup
+                    async with lifespan(mock_app):
+                        pass
                     
                     # Should log error
                     mock_logger.error.assert_called()
+                
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(test_lifespan())
                 finally:
                     loop.close()
     
     def test_startup_event_warnings_no_directories(self):
-        """Test startup event warnings when no directories configured"""
+        """Test lifespan startup warnings when no directories configured"""
         mock_service = Mock()
         mock_service.directories = []
         mock_service.prompts = {}
         
         with patch('src.server._get_or_create_global_prompt_service', return_value=mock_service):
             with patch('src.server.logger') as mock_logger:
-                from src.server import startup_event
+                from src.server import lifespan, FastAPI
                 
                 import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    loop.run_until_complete(startup_event())
+                async def test_lifespan():
+                    # Create a mock FastAPI app
+                    mock_app = Mock(spec=FastAPI)
+                    
+                    # Run the lifespan context manager to trigger startup
+                    async with lifespan(mock_app):
+                        pass
                     
                     # Should log warning about no directories
                     mock_logger.warning.assert_called()
+                
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(test_lifespan())
                 finally:
                     loop.close()
     
     def test_startup_event_warnings_no_prompts(self):
-        """Test startup event warnings when directories exist but no prompts"""
+        """Test lifespan startup warnings when directories exist but no prompts"""
         mock_service = Mock()
         mock_service.directories = [Mock()]
         mock_service.prompts = {}
         
         with patch('src.server._get_or_create_global_prompt_service', return_value=mock_service):
             with patch('src.server.logger') as mock_logger:
-                from src.server import startup_event
+                from src.server import lifespan, FastAPI
                 
                 import asyncio
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    loop.run_until_complete(startup_event())
+                async def test_lifespan():
+                    # Create a mock FastAPI app
+                    mock_app = Mock(spec=FastAPI)
+                    
+                    # Run the lifespan context manager to trigger startup
+                    async with lifespan(mock_app):
+                        pass
                     
                     # Should log warning about no prompts
                     mock_logger.warning.assert_called()
+                
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(test_lifespan())
                 finally:
                     loop.close()
 

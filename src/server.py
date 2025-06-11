@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Callable, Coroutine, Any
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -91,11 +92,31 @@ try:
 except ImportError:
     websocket_debug_router = None
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Application startup event triggered.")
+    service = _get_or_create_global_prompt_service()
+    if service:
+        logger.info(f"PromptService initialized with {len(service.directories)} directorie(s) and {len(service.prompts)} prompt(s) loaded.")
+        if not service.directories:
+            logger.warning("Startup check: PromptService has no directories configured after __init__.")
+        if not service.prompts and service.directories:
+             logger.warning("Startup check: PromptService has directories but no prompts loaded.")
+    else:
+        logger.error("Application startup: Global PromptService instance is NOT available!")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Application shutdown event triggered.")
+
 # Create the FastAPI app
 app = FastAPI(
     title="Prompt Manager",
     description="API for managing AI prompts with composable elements",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 # Dependency override for PromptService
@@ -167,18 +188,7 @@ async def websocket_cors_middleware(request: Request, call_next):
 async def root(request: Request):
     return RedirectResponse(url="/manage/prompts")
 
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Application startup event triggered.")
-    service = _get_or_create_global_prompt_service()
-    if service:
-        logger.info(f"PromptService initialized with {len(service.directories)} directorie(s) and {len(service.prompts)} prompt(s) loaded.")
-        if not service.directories:
-            logger.warning("Startup check: PromptService has no directories configured after __init__.")
-        if not service.prompts and service.directories:
-             logger.warning("Startup check: PromptService has directories but no prompts loaded.")
-    else:
-        logger.error("Application startup: Global PromptService instance is NOT available!")
+
 
 @app.get("/manage/prompts", response_class=HTMLResponse)
 async def manage_prompts(request: Request):

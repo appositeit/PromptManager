@@ -106,7 +106,7 @@ class MCPServerService:
         
         # Save to file
         with open(self.servers_file, "w") as f:
-            json.dump([s.dict() for s in servers], f, default=str)
+            json.dump([s.model_dump() for s in servers], f, default=str)
         
         return server
     
@@ -180,7 +180,7 @@ class MCPServerService:
         
         # Save to file
         with open(self.sessions_file, "w") as f:
-            json.dump([c.dict() for c in configs], f)
+            json.dump([c.model_dump() for c in configs], f)
         
         return config
     
